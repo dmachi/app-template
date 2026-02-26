@@ -3,6 +3,19 @@ export type AuthTokens = {
   refreshToken: string;
 };
 
+export type AuthProviderMeta = {
+  id: string;
+  displayName: string;
+  type: string;
+};
+
+export type AuthProvidersResponse = {
+  appName: string;
+  appIcon: string;
+  localRegistrationEnabled: boolean;
+  providers: AuthProviderMeta[];
+};
+
 export const API_BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8000/api/v1";
 
 async function parseJson(response: Response): Promise<any> {
@@ -22,6 +35,24 @@ export async function login(usernameOrEmail: string, password: string): Promise<
       body: JSON.stringify({ usernameOrEmail, password }),
     }),
   );
+}
+
+export async function register(username: string, email: string, password: string, displayName?: string): Promise<{ id: string; email: string; status: string }> {
+  return parseJson(
+    await fetch(`${API_BASE}/auth/register`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, email, password, displayName }),
+    }),
+  );
+}
+
+export async function getAuthProviders(): Promise<AuthProvidersResponse> {
+  return parseJson(await fetch(`${API_BASE}/meta/auth-providers`));
+}
+
+export async function startRedirectProvider(providerId: string): Promise<{ provider: string; mode: string; redirectUrl?: string | null }> {
+  return parseJson(await fetch(`${API_BASE}/auth/${providerId}/start`));
 }
 
 export async function refreshSession(refreshToken: string): Promise<AuthTokens> {

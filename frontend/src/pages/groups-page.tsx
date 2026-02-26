@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-import { GroupForm } from "../components/group-form";
+import { CreateGroupDialog } from "../components/shared/create-group-dialog";
 import { Button } from "../components/ui/button";
 import { createGroup, listMyGroupCollections } from "../lib/api";
 
@@ -37,9 +37,9 @@ export function GroupsPage({ accessToken, onOpenGroup }: GroupsPageProps) {
   return (
     <section className="grid gap-3">
       <h2 className="text-lg font-medium">My Groups</h2>
-      <GroupForm
-        submitLabel="Create Group"
-        onSubmit={async ({ name, description }) => {
+      <CreateGroupDialog
+        triggerLabel="Create Group"
+        onCreate={async ({ name, description }) => {
           await createGroup(accessToken, { name, description });
           await loadGroups();
           setMessage("Group created");

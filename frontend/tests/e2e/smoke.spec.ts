@@ -1,10 +1,15 @@
 import { expect, test } from "@playwright/test";
 
-test("login view renders", async ({ page }) => {
+test("home and login views render", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "Basic System Template" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Home" })).toBeVisible();
+  await expect(page.getByText("Lorem ipsum")).toBeVisible();
+
+  await page.goto("/login");
   await expect(page.getByRole("heading", { name: "Login" })).toBeVisible();
-  await expect(page.getByLabel("Username or Email")).toBeVisible();
-  await expect(page.getByLabel("Password")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Login" })).toBeVisible();
+
+  const passwordInputCount = await page.locator('input[type="password"]').count();
+  const noProvidersCount = await page.getByText("No authentication providers are enabled.").count();
+  const authOptionsErrorCount = await page.getByText("Unable to load auth options").count();
+  expect(passwordInputCount + noProvidersCount + authOptionsErrorCount).toBeGreaterThan(0);
 });

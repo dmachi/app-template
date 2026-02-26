@@ -11,7 +11,7 @@ type ProfilePageProps = {
 
 export function ProfilePage({ accessToken }: ProfilePageProps) {
   const [displayName, setDisplayName] = useState("");
-  const [theme, setTheme] = useState("");
+  const [email, setEmail] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -19,7 +19,7 @@ export function ProfilePage({ accessToken }: ProfilePageProps) {
     getMyProfile(accessToken)
       .then((profile) => {
         setDisplayName(profile.displayName ?? "");
-        setTheme((profile.preferences?.theme as string) ?? "");
+        setEmail(profile.email ?? "");
       })
       .catch((error) => {
         setMessage(error instanceof Error ? error.message : "Unable to load profile");
@@ -31,7 +31,7 @@ export function ProfilePage({ accessToken }: ProfilePageProps) {
     event.preventDefault();
     setMessage(null);
     try {
-      await patchMyProfile(accessToken, { displayName, preferences: { theme } });
+      await patchMyProfile(accessToken, { displayName });
       setMessage("Profile updated");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Unable to save profile");
@@ -49,8 +49,8 @@ export function ProfilePage({ accessToken }: ProfilePageProps) {
         <FormField label="Display name">
           <Input value={displayName} onChange={(event) => setDisplayName(event.target.value)} required />
         </FormField>
-        <FormField label="Theme preference">
-          <Input value={theme} onChange={(event) => setTheme(event.target.value)} placeholder="light | dark | system" />
+        <FormField label="Email address">
+          <Input value={email} readOnly disabled />
         </FormField>
         <Button type="submit">Save</Button>
       </form>

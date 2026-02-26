@@ -47,6 +47,9 @@ def _issue_auth_tokens(user, settings: Settings, auth_store):
 def auth_providers(settings: Settings = Depends(get_settings)) -> dict:
     providers = get_enabled_providers(settings)
     return {
+        "appName": settings.app_name,
+        "appIcon": settings.app_icon,
+        "localRegistrationEnabled": settings.local_registration_enabled,
         "providers": [
             {"id": provider.provider_id, "displayName": provider.display_name, "type": provider.provider_type}
             for provider in providers

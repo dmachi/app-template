@@ -33,6 +33,7 @@ def test_auth_providers_metadata(client):
     response = client.get("/api/v1/meta/auth-providers")
     assert response.status_code == 200
     payload = response.json()
+    assert payload["localRegistrationEnabled"] is True
     assert {provider["id"] for provider in payload["providers"]} == {"local", "uva-netbadge"}
 
 

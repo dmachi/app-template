@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", case_sensitive=False)
 
     app_name: str = "Basic System Template"
+    app_icon: str = "🧩"
     app_env: Literal["development", "test", "production"] = "development"
     api_prefix: str = "/api/v1"
     cors_allow_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
@@ -39,6 +40,7 @@ class Settings(BaseSettings):
     mongodb_db_name: str | None = "basic_system_template"
 
     auth_providers_enabled: str = "local,uva-netbadge"
+    local_registration_enabled: bool = True
 
     superuser_role_name: str = "superuser"
     user_management_roles: str = "superuser"
