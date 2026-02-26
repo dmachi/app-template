@@ -34,8 +34,6 @@ services:
   mongo:
     image: mongo:7
     container_name: bst-mongo-dev
-    ports:
-      - "27017:27017"
     environment:
       MONGO_INITDB_DATABASE: basic_system_template
     volumes:
@@ -49,8 +47,6 @@ services:
   redis:
     image: redis:7-alpine
     container_name: bst-redis-dev
-    ports:
-      - "6379:6379"
     volumes:
       - redis_dev_data:/data
     healthcheck:

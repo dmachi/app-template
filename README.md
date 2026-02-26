@@ -17,9 +17,12 @@ Milestone 1 foundation implementation aligned to `specs/`.
 
 ## Full-Stack Compose
 - `docker compose up --build`
+- If `docker-compose.backend.yml` is already running, stop it first to avoid host port conflicts:
+   - `docker compose -f docker-compose.backend.yml down`
 
 ## Development Full-Container Variant
 - `docker compose -f docker-compose.dev.yml up --build`
+- This variant keeps MongoDB/Redis internal-only (no host port binding) to reduce local port collisions.
 
 ## Tests
 - `pytest backend/tests -q`
