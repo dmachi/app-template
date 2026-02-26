@@ -1,0 +1,62 @@
+services:
+  api:
+    build:
+      context: ./backend
+    container_name: bst-api
+    ports:
+      - "8000:8000"
+    environment:
+      APP_ENV: development
+      API_PREFIX: /api/v1
+      DATABASE_PROVIDER: mongodb
+      MONGODB_URI: mongodb://mongo:27017
+      MONGODB_DB_NAME: basic_system_template
+      TOKEN_TRANSPORT_MODE: bearer-header
+      SUPERUSER_ROLE_NAME: superuser
+      USER_MANAGEMENT_ROLES: superuser
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: bst-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - api
+
+  mongo:
+    image: mongo:7
+    container_name: bst-mongo
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_DATABASE: basic_system_template
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: bst-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  mongo_data:
+  redis_data:

@@ -45,7 +45,7 @@ Implementation must include these three Compose files:
 - FastAPI/backend Python tooling (pytest, linters, etc.) must run inside this Conda env
 
 Recommended baseline metadata in environment definition:
-- Environment name: project-scoped (e.g., `basic-system-template-dev`)
+- Environment name: `template-framework`
 - Python version: project-pinned (e.g., `3.11`)
 - Core packages: FastAPI stack, testing tooling, lint/type tooling used by CI
 

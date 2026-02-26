@@ -1,0 +1,64 @@
+services:
+  api:
+    build:
+      context: ./backend
+    container_name: bst-api-dev
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    ports:
+      - "8000:8000"
+    environment:
+      APP_ENV: development
+      API_PREFIX: /api/v1
+      DATABASE_PROVIDER: mongodb
+      MONGODB_URI: mongodb://mongo:27017
+      MONGODB_DB_NAME: basic_system_template
+      TOKEN_TRANSPORT_MODE: bearer-header
+      SUPERUSER_ROLE_NAME: superuser
+      USER_MANAGEMENT_ROLES: superuser
+    volumes:
+      - ./backend/app:/app/app
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  frontend:
+    image: nginx:alpine
+    container_name: bst-frontend-dev
+    ports:
+      - "3000:80"
+    volumes:
+      - ./frontend/index.html:/usr/share/nginx/html/index.html:ro
+
+  mongo:
+    image: mongo:7
+    container_name: bst-mongo-dev
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_DATABASE: basic_system_template
+    volumes:
+      - mongo_dev_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: bst-redis-dev
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_dev_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  mongo_dev_data:
+  redis_dev_data:
