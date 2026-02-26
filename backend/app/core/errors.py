@@ -6,6 +6,15 @@ from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 
+class ApiError(Exception):
+    def __init__(self, status_code: int, code: str, message: str, details: Any = None) -> None:
+        super().__init__(message)
+        self.status_code = status_code
+        self.code = code
+        self.message = message
+        self.details = details
+
+
 def error_payload(code: str, message: str, details: Any = None) -> dict[str, Any]:
     payload: dict[str, Any] = {"code": code, "message": message}
     if details is not None:
@@ -14,6 +23,13 @@ def error_payload(code: str, message: str, details: Any = None) -> dict[str, Any
 
 
 def register_error_handlers(app: FastAPI) -> None:
+    @app.exception_handler(ApiError)
+    async def api_error_handler(_: Request, exc: ApiError) -> JSONResponse:
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"error": error_payload(exc.code, exc.message, exc.details)},
+        )
+
     @app.exception_handler(RequestValidationError)
     async def validation_exception_handler(_: Request, exc: RequestValidationError) -> JSONResponse:
         return JSONResponse(
