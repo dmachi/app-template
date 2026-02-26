@@ -1,0 +1,114 @@
+# UI Specification (Web)
+
+## 0) Frontend Stack and Component Standards
+- Frontend implementation uses React + TypeScript
+- Styling uses Tailwind CSS
+- Use shadcn-ui components when a matching component exists
+- If no matching shadcn-ui component exists, create a reusable component following similar composition and styling patterns
+- Prefer reusable shared components over page-specific one-off implementations when the same UI pattern appears in multiple flows
+- Components should expose clear props and composition points so downstream/template-derived applications can adapt layouts and presentation
+- Visual styling should remain basic/minimal by default
+- Theme supports light and dark mode, following system preference by default
+
+## 0.1) Default Application Layout
+- Global shell uses a header + content area layout
+- Header includes generic logo and generic application title on the left
+- Header includes auth/user menu area on the right
+	- Unauthenticated state: shows `Login` button
+	- Authenticated state: shows user icon/avatar trigger with dropdown menu
+	- Dropdown includes link to settings/profile
+	- Dropdown includes links to admin pages only when user has appropriate privileges
+
+## 1) Required Screens
+
+### A) Login
+- Displays available auth methods from backend metadata endpoint
+- Supports local credential form when `local` provider enabled
+- Supports redirect buttons for external providers (e.g., UVA NetBadge)
+- Shows user-safe auth errors
+
+### B) Logout
+- Explicit user action (button/menu item)
+- Available from authenticated user dropdown menu
+- Calls logout endpoint and returns to login or public landing view
+
+### C) Registration
+- Present only when local registration is enabled
+- Fields: username, email, password, optional display name
+- Validation errors shown inline
+
+### D) User Profile / Settings
+- Displays current user data
+- Allows editing permitted fields (e.g., display name, preferences)
+- Save action uses API patch endpoint with success/error feedback
+
+### E) User — My Groups
+- Shows groups owned by the current user
+- Provides actions to create, open, edit, and delete owned groups
+- Group create/edit uses API with validation feedback
+
+### F) Admin — User List
+- Shows paginated table/list of users
+- Supports basic search/filter by status/role (MVP-level)
+- Entry action to open user edit view
+- Visible to `superuser` and configured user-management roles
+
+### G) Admin — User Edit
+- Displays user details and linked auth identities
+- Allows configured user-management roles to edit status and allowed profile fields
+- Role assignment controls are visible to superuser only
+- Confirms successful save or shows validation errors
+- Visible to `superuser` and configured user-management roles
+
+### H) Admin — Roles
+- Shows list of roles
+- Allows creating and editing role definitions
+- Allows deleting non-system roles
+
+### I) Admin — Groups (All)
+- Shows all groups across users
+- Supports search/filter by group name and owner
+- Entry action to open admin group detail/edit view
+
+### J) Admin — Group Edit
+- Displays group details including owner
+- Allows superuser edits and delete
+
+## 2) Routing
+- `/login`
+- `/register`
+- `/profile`
+- `/groups`
+- `/groups/:id`
+- `/admin/users`
+- `/admin/users/:id`
+- `/admin/roles`
+- `/admin/roles/:id`
+- `/admin/groups`
+- `/admin/groups/:id`
+
+## 3) Route Protection Rules
+- `/profile` requires authenticated user
+- `/groups*` requires authenticated user
+- `/admin/*` requires authenticated privileged role per page policy
+- Unauthorized/forbidden routes redirect to login or show access denied state
+- UI auth layer must attempt token refresh on access-token expiration before redirecting to login
+- If refresh fails, clear local auth state and redirect to `/login`
+
+## 4) UX and Accessibility Baseline
+- Keyboard-navigable forms and actions
+- Labels and validation messages for required fields
+- Visible loading and error states on async actions
+- Reusable form, table/list, and dialog primitives should be used consistently across user/admin pages
+- Session expiration and forced logout should present a clear, user-safe message (e.g., session expired, please sign in again)
+- Theme toggle (if provided) should not override the default behavior of following system theme on first load
+
+## 5) UI Acceptance Criteria
+- User can complete login/logout/registration/profile update flows end-to-end
+- User can create and manage owned groups end-to-end
+- Superuser and configured user-management roles can list users and edit a selected user
+- Superuser can manage roles and can view/edit all groups
+- Disabled features (e.g., registration off, provider off) are hidden/blocked appropriately
+- Shared UI components are reusable across multiple pages and follow shadcn-ui-first selection guidance
+- During active use, UI refreshes tokens without interrupting user flow until refresh token becomes invalid/expired
+- Default shell/header behavior matches authenticated vs unauthenticated requirements
