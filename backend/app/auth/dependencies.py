@@ -4,6 +4,7 @@ import jwt
 from fastapi import Depends, Header, Request
 
 from app.auth.middleware import AuthContext
+from app.auth.roles import ADMIN_GROUP_ROLES, ADMIN_USER_ROLES, GROUP_MANAGER_ROLES, INVITE_USER_ROLES, ROLE_SUPERUSER, USER_MANAGEMENT_CHECK_ROLES, has_any_role
 from app.auth.security import decode_access_token
 from app.auth.store import UserRecord
 from app.core.config import Settings, get_settings
@@ -60,18 +61,59 @@ def get_current_user(
 
 def require_user_management_role(
     current_user: UserRecord = Depends(get_current_user),
-    settings: Settings = Depends(get_settings),
+    request: Request = None,
 ) -> UserRecord:
-    allowed_roles = set(settings.user_management_role_list)
-    if not any(role in allowed_roles for role in current_user.roles):
+    auth_store = request.app.state.auth_store
+    if not has_any_role(auth_store, user_id=current_user.id, direct_roles=current_user.roles, required_roles=USER_MANAGEMENT_CHECK_ROLES):
+        raise ApiError(status_code=403, code="INSUFFICIENT_ROLE", message="Insufficient role")
+    return current_user
+
+
+def require_admin_users_role(
+    current_user: UserRecord = Depends(get_current_user),
+    request: Request = None,
+) -> UserRecord:
+    auth_store = request.app.state.auth_store
+    if not has_any_role(auth_store, user_id=current_user.id, direct_roles=current_user.roles, required_roles=ADMIN_USER_ROLES):
+        raise ApiError(status_code=403, code="INSUFFICIENT_ROLE", message="Insufficient role")
+    return current_user
+
+
+def require_admin_groups_role(
+    current_user: UserRecord = Depends(get_current_user),
+    request: Request = None,
+) -> UserRecord:
+    auth_store = request.app.state.auth_store
+    if not has_any_role(auth_store, user_id=current_user.id, direct_roles=current_user.roles, required_roles=ADMIN_GROUP_ROLES):
+        raise ApiError(status_code=403, code="INSUFFICIENT_ROLE", message="Insufficient role")
+    return current_user
+
+
+def require_group_manager_role(
+    current_user: UserRecord = Depends(get_current_user),
+    request: Request = None,
+) -> UserRecord:
+    auth_store = request.app.state.auth_store
+    if not has_any_role(auth_store, user_id=current_user.id, direct_roles=current_user.roles, required_roles=GROUP_MANAGER_ROLES):
+        raise ApiError(status_code=403, code="INSUFFICIENT_ROLE", message="Insufficient role")
+    return current_user
+
+
+def require_invite_users_role(
+    current_user: UserRecord = Depends(get_current_user),
+    request: Request = None,
+) -> UserRecord:
+    auth_store = request.app.state.auth_store
+    if not has_any_role(auth_store, user_id=current_user.id, direct_roles=current_user.roles, required_roles=INVITE_USER_ROLES):
         raise ApiError(status_code=403, code="INSUFFICIENT_ROLE", message="Insufficient role")
     return current_user
 
 
 def require_superuser(
     current_user: UserRecord = Depends(get_current_user),
-    settings: Settings = Depends(get_settings),
+    request: Request = None,
 ) -> UserRecord:
-    if settings.superuser_role_name not in current_user.roles:
+    auth_store = request.app.state.auth_store
+    if not has_any_role(auth_store, user_id=current_user.id, direct_roles=current_user.roles, required_roles={ROLE_SUPERUSER}):
         raise ApiError(status_code=403, code="INSUFFICIENT_ROLE", message="Insufficient role")
     return current_user

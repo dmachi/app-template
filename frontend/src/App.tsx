@@ -16,8 +16,8 @@ import { SecurityPage } from "./pages/security-page";
 import { ThemePage } from "./pages/theme-page";
 import { VerifyEmailPage } from "./pages/verify-email-page";
 import {
-  canAccessUserManagement,
   acceptInvitation,
+  getAdminCapabilities,
   getAuthProviders,
   getMyProfile,
   login,
@@ -174,6 +174,12 @@ export function App() {
   const [theme, setTheme] = useState<ThemeOption>("system");
   const [canAccessAdmin, setCanAccessAdmin] = useState<boolean | null>(null);
   const [adminAccessChecked, setAdminAccessChecked] = useState(false);
+  const [adminCapabilities, setAdminCapabilities] = useState<{ users: boolean; groups: boolean; invitations: boolean; roles: boolean }>({
+    users: false,
+    groups: false,
+    invitations: false,
+    roles: false,
+  });
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [selectedAdminUserId, setSelectedAdminUserId] = useState<string | null>(null);
   const [emailVerificationToken, setEmailVerificationToken] = useState<string | null>(null);
@@ -204,6 +210,38 @@ export function App() {
     const shouldUseDark = nextTheme === "dark" || (nextTheme === "system" && prefersDark);
     document.documentElement.classList.toggle("dark", shouldUseDark);
     document.documentElement.style.colorScheme = shouldUseDark ? "dark" : "light";
+  }
+
+  function getFirstAllowedAdminView(capabilities: { users: boolean; groups: boolean; invitations: boolean; roles: boolean }): View | null {
+    if (capabilities.users) {
+      return "admin-users";
+    }
+    if (capabilities.invitations) {
+      return "admin-invitations";
+    }
+    if (capabilities.groups) {
+      return "admin-groups";
+    }
+    if (capabilities.roles) {
+      return "admin-roles";
+    }
+    return null;
+  }
+
+  function canAccessAdminView(nextView: View, capabilities: { users: boolean; groups: boolean; invitations: boolean; roles: boolean }): boolean {
+    if (nextView === "admin-users" || nextView === "admin-user-detail") {
+      return capabilities.users;
+    }
+    if (nextView === "admin-invitations") {
+      return capabilities.invitations;
+    }
+    if (nextView === "admin-groups") {
+      return capabilities.groups;
+    }
+    if (nextView === "admin-roles") {
+      return capabilities.roles;
+    }
+    return true;
   }
 
   useEffect(() => {
@@ -320,6 +358,7 @@ export function App() {
       setCurrentUsername("User");
       setCanAccessAdmin(false);
       setAdminAccessChecked(false);
+      setAdminCapabilities({ users: false, groups: false, invitations: false, roles: false });
       return;
     }
 
@@ -337,13 +376,20 @@ export function App() {
         setTheme("system");
       });
 
-    canAccessUserManagement(accessToken)
-      .then((isAllowed) => {
-        setCanAccessAdmin(isAllowed);
+    getAdminCapabilities(accessToken)
+      .then((capabilities) => {
+        setCanAccessAdmin(capabilities.anyAdmin);
+        setAdminCapabilities({
+          users: capabilities.users,
+          groups: capabilities.groups,
+          invitations: capabilities.invitations,
+          roles: capabilities.roles,
+        });
         setAdminAccessChecked(true);
       })
       .catch(() => {
         setCanAccessAdmin(false);
+        setAdminCapabilities({ users: false, groups: false, invitations: false, roles: false });
         setAdminAccessChecked(true);
       });
   }, [accessToken]);
@@ -425,6 +471,7 @@ export function App() {
       setPendingInvitationToken(null);
       setAcceptingInvitation(false);
       setInvitationAcceptanceMessage(null);
+      setAdminCapabilities({ users: false, groups: false, invitations: false, roles: false });
       window.localStorage.removeItem(INVITE_TOKEN_STORAGE_KEY);
       window.history.replaceState({}, "", "/");
     }
@@ -570,6 +617,16 @@ export function App() {
           target: "/",
         });
         navigateSettings("home", null, true);
+        return;
+      }
+      if (!canAccessAdminView(parsed.view, adminCapabilities)) {
+        const fallbackView = getFirstAllowedAdminView(adminCapabilities);
+        if (fallbackView) {
+          navigateSettings(fallbackView, null, true);
+        } else {
+          navigateSettings("home", null, true);
+        }
+        return;
       }
       console.debug("[route-debug] auth-guard:admin-route-resolved", {
         pathname: normalizedPath,
@@ -582,7 +639,7 @@ export function App() {
       pathname: normalizedPath,
       view: parsed.view,
     });
-  }, [accessToken, canAccessAdmin, adminAccessChecked, restoringSession]);
+  }, [accessToken, canAccessAdmin, adminAccessChecked, restoringSession, adminCapabilities]);
 
   useEffect(() => {
     console.debug("[route-debug] public-guard:enter", {
@@ -783,7 +840,7 @@ export function App() {
             onRegister={() => {}}
             onSettings={() => navigateSettings("profile", null, window.location.pathname === "/settings/profile")}
             onLogout={handleLogout}
-            extraMenuItems={canAccessAdmin ? [{ label: "Admin", onSelect: () => navigateSettings("admin-users") }] : []}
+            extraMenuItems={canAccessAdmin ? [{ label: "Admin", onSelect: () => navigateSettings(getFirstAllowedAdminView(adminCapabilities) || "home") }] : []}
           />
         </div>
       </header>
@@ -847,6 +904,7 @@ export function App() {
                     type="button"
                     className={view === "admin-users" || view === "admin-user-detail" ? "bg-slate-100 dark:bg-slate-800" : ""}
                     onClick={() => navigateSettings("admin-users")}
+                    disabled={!adminCapabilities.users}
                   >
                     Users
                   </Button>
@@ -854,6 +912,7 @@ export function App() {
                     type="button"
                     className={view === "admin-invitations" ? "bg-slate-100 dark:bg-slate-800" : ""}
                     onClick={() => navigateSettings("admin-invitations")}
+                    disabled={!adminCapabilities.invitations}
                   >
                     Invitations
                   </Button>
@@ -861,6 +920,7 @@ export function App() {
                     type="button"
                     className={view === "admin-roles" ? "bg-slate-100 dark:bg-slate-800" : ""}
                     onClick={() => navigateSettings("admin-roles")}
+                    disabled={!adminCapabilities.roles}
                   >
                     Roles
                   </Button>
@@ -868,6 +928,7 @@ export function App() {
                     type="button"
                     className={view === "admin-groups" ? "bg-slate-100 dark:bg-slate-800" : ""}
                     onClick={() => navigateSettings("admin-groups")}
+                    disabled={!adminCapabilities.groups}
                   >
                     All Groups
                   </Button>

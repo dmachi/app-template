@@ -3,6 +3,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import uuid4
 
+from app.auth.roles import CORE_ROLE_DESCRIPTIONS, NON_DELETABLE_CORE_ROLES
 from app.auth.security import generate_refresh_token, hash_password, hash_refresh_token, verify_password
 from app.core.config import Settings
 
@@ -32,6 +33,7 @@ class GroupRecord:
     owner_user_id: str
     created_at: datetime
     updated_at: datetime
+    roles: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -82,7 +84,7 @@ class AuthStore:
         self._invitations: dict[str, InvitationRecord] = {}
         self._groups_by_id: dict[str, GroupRecord] = {}
         self._memberships_by_group: dict[str, dict[str, GroupMembershipRecord]] = {}
-        self._roles: dict[str, str | None] = {"superuser": "System superuser role"}
+        self._roles: dict[str, str | None] = dict(CORE_ROLE_DESCRIPTIONS)
 
     @staticmethod
     def normalize_email(email: str) -> str:
@@ -253,7 +255,9 @@ class AuthStore:
         role_names = set(self._roles.keys())
         for user in self._users_by_id.values():
             role_names.update(user.roles)
-        role_names.add("superuser")
+        for group in self._groups_by_id.values():
+            role_names.update(group.roles)
+        role_names.update(NON_DELETABLE_CORE_ROLES)
 
         return [
             {"name": name, "description": self._roles.get(name)}
@@ -279,7 +283,7 @@ class AuthStore:
 
     def delete_role(self, role_name: str) -> bool:
         normalized = role_name.strip()
-        if normalized == "superuser":
+        if normalized in NON_DELETABLE_CORE_ROLES:
             raise ValueError("ROLE_PROTECTED")
         if normalized not in self._roles:
             return False
@@ -287,6 +291,8 @@ class AuthStore:
         del self._roles[normalized]
         for user in self._users_by_id.values():
             user.roles = [role for role in user.roles if role != normalized]
+        for group in self._groups_by_id.values():
+            group.roles = [role for role in group.roles if role != normalized]
         return True
 
     def role_exists(self, role_name: str) -> bool:
@@ -314,6 +320,7 @@ class AuthStore:
             name=name.strip(),
             description=description.strip() if description else None,
             owner_user_id=owner_user_id,
+            roles=[],
             created_at=now,
             updated_at=now,
         )
@@ -347,6 +354,7 @@ class AuthStore:
         group_id: str,
         name: str | None = None,
         description: str | None = None,
+        roles: list[str] | None = None,
     ) -> GroupRecord | None:
         group = self.get_group(group_id)
         if group is None:
@@ -356,8 +364,13 @@ class AuthStore:
             group.name = name.strip()
         if description is not None:
             group.description = description.strip() if description else None
+        if roles is not None:
+            group.roles = list(dict.fromkeys(roles))
         group.updated_at = datetime.now(UTC)
         return group
+
+    def set_group_roles(self, group_id: str, roles: list[str]) -> GroupRecord | None:
+        return self.update_group(group_id=group_id, roles=roles)
 
     def delete_group(self, group_id: str) -> bool:
         if group_id not in self._groups_by_id:
@@ -411,6 +424,20 @@ class AuthStore:
         del memberships[user_id]
         group.updated_at = datetime.now(UTC)
         return True
+
+    def get_effective_roles_for_user(self, user_id: str) -> list[str]:
+        user = self.get_user(user_id)
+        if user is None:
+            return []
+        effective_roles = set(user.roles)
+        for group_id, memberships in self._memberships_by_group.items():
+            if user_id not in memberships:
+                continue
+            group = self.get_group(group_id)
+            if group is None:
+                continue
+            effective_roles.update(group.roles)
+        return sorted(effective_roles)
 
     def create_refresh_session(self, user_id: str, settings: Settings, family_id: str | None = None) -> tuple[str, int]:
         refresh_token = generate_refresh_token()

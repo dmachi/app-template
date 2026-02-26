@@ -4,7 +4,6 @@ from typing import Literal
 from pydantic import ValidationError, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-
 SUPPORTED_AUTH_PROVIDERS = {"local", "uva-netbadge"}
 
 
@@ -74,9 +73,6 @@ class Settings(BaseSettings):
     email_dkim_private_key: str | None = None
     email_dkim_private_key_path: str | None = None
 
-    superuser_role_name: str = "superuser"
-    user_management_roles: str = "superuser"
-
     @field_validator("jwt_access_token_ttl_seconds", "jwt_refresh_token_ttl_seconds", "email_verification_token_ttl_seconds", "email_invitation_ttl_seconds")
     @classmethod
     def validate_positive_ttl(cls, value: int) -> int:
@@ -94,10 +90,6 @@ class Settings(BaseSettings):
     @property
     def auth_provider_list(self) -> list[str]:
         return [item.strip() for item in self.auth_providers_enabled.split(",") if item.strip()]
-
-    @property
-    def user_management_role_list(self) -> list[str]:
-        return [item.strip() for item in self.user_management_roles.split(",") if item.strip()]
 
     @property
     def cors_allow_origin_list(self) -> list[str]:
@@ -134,9 +126,6 @@ class Settings(BaseSettings):
         unknown_providers = [provider for provider in self.auth_provider_list if provider not in SUPPORTED_AUTH_PROVIDERS]
         if unknown_providers:
             raise ValueError(f"Unknown auth provider(s): {', '.join(unknown_providers)}")
-
-        if self.superuser_role_name not in self.user_management_role_list:
-            raise ValueError("user_management_roles must include superuser_role_name")
 
         if self.email_delivery_mode == "external":
             if not self.external_smtp_host:

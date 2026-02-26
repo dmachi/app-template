@@ -1,4 +1,3 @@
-from app.core.config import get_settings
 from app.main import app
 from urllib.parse import unquote
 import re
@@ -46,74 +45,75 @@ def test_admin_users_requires_privileged_role(client):
     assert denied.json()["error"]["code"] == "INSUFFICIENT_ROLE"
 
 
-def test_admin_users_allowed_for_configured_user_management_role(client):
-    register_and_login(client, username="manager1", email="manager1@example.org")
+def test_admin_users_allowed_for_admin_users_role(client):
+    register_and_login(client, username="adminusers1", email="adminusers1@example.org")
     register_and_login(client, username="target1", email="target1@example.org")
 
     auth_store = app.state.auth_store
-    manager = auth_store.authenticate_local_user("manager1", "Password123")
-    assert manager is not None
-    manager.roles = ["manager"]
+    admin_users = auth_store.authenticate_local_user("adminusers1", "Password123")
+    assert admin_users is not None
+    admin_users.roles = ["AdminUsers"]
 
-    app.dependency_overrides[get_settings] = lambda: get_settings().model_copy(update={"user_management_roles": "superuser,manager"})
-    try:
-        manager_login = client.post(
-            "/api/v1/auth/login",
-            json={"usernameOrEmail": "manager1", "password": "Password123"},
-        )
-        manager_token = manager_login.json()["accessToken"]
+    manager_login = client.post(
+        "/api/v1/auth/login",
+        json={"usernameOrEmail": "adminusers1", "password": "Password123"},
+    )
+    manager_token = manager_login.json()["accessToken"]
 
-        listed = client.get("/api/v1/admin/users", headers=auth_headers(manager_token))
-        assert listed.status_code == 200
-        assert any(item["username"] == "target1" for item in listed.json()["items"])
+    listed = client.get("/api/v1/admin/users", headers=auth_headers(manager_token))
+    assert listed.status_code == 200
+    assert any(item["username"] == "target1" for item in listed.json()["items"])
 
-        target = auth_store.authenticate_local_user("target1", "Password123")
-        assert target is not None
-        patched = client.patch(
-            f"/api/v1/admin/users/{target.id}",
-            headers=auth_headers(manager_token),
-            json={"displayName": "Target Updated", "status": "active"},
-        )
-        assert patched.status_code == 200
-        assert patched.json()["displayName"] == "Target Updated"
+    target = auth_store.authenticate_local_user("target1", "Password123")
+    assert target is not None
+    patched = client.patch(
+        f"/api/v1/admin/users/{target.id}",
+        headers=auth_headers(manager_token),
+        json={"displayName": "Target Updated", "status": "active"},
+    )
+    assert patched.status_code == 200
+    assert patched.json()["displayName"] == "Target Updated"
 
-        detail = client.get(
-            f"/api/v1/admin/users/{target.id}",
-            headers=auth_headers(manager_token),
-        )
-        assert detail.status_code == 200
-        assert detail.json()["id"] == target.id
-        assert detail.json()["username"] == "target1"
-        assert detail.json()["preferences"] == {}
+    detail = client.get(
+        f"/api/v1/admin/users/{target.id}",
+        headers=auth_headers(manager_token),
+    )
+    assert detail.status_code == 200
+    assert detail.json()["id"] == target.id
+    assert detail.json()["username"] == "target1"
+    assert detail.json()["preferences"] == {}
 
-        reset = client.post(
-            f"/api/v1/admin/users/{target.id}/reset-password",
-            headers=auth_headers(manager_token),
-        )
-        assert reset.status_code == 200
-        assert reset.json()["success"] is True
+    reset = client.post(
+        f"/api/v1/admin/users/{target.id}/reset-password",
+        headers=auth_headers(manager_token),
+    )
+    assert reset.status_code == 200
+    assert reset.json()["success"] is True
 
-        disable = client.patch(
-            f"/api/v1/admin/users/{target.id}",
-            headers=auth_headers(manager_token),
-            json={"status": "disabled"},
-        )
-        assert disable.status_code == 200
-        assert disable.json()["status"] == "disabled"
+    disable = client.patch(
+        f"/api/v1/admin/users/{target.id}",
+        headers=auth_headers(manager_token),
+        json={"status": "disabled"},
+    )
+    assert disable.status_code == 200
+    assert disable.json()["status"] == "disabled"
 
-        disabled_login = client.post(
-            "/api/v1/auth/login",
-            json={"usernameOrEmail": "target1", "password": "Password123"},
-        )
-        assert disabled_login.status_code == 401
-        assert disabled_login.json()["error"]["code"] == "INVALID_CREDENTIALS"
-    finally:
-        app.dependency_overrides.pop(get_settings, None)
+    disabled_login = client.post(
+        "/api/v1/auth/login",
+        json={"usernameOrEmail": "target1", "password": "Password123"},
+    )
+    assert disabled_login.status_code == 401
+    assert disabled_login.json()["error"]["code"] == "INVALID_CREDENTIALS"
 
 
-def test_admin_roles_and_groups_are_superuser_only(client):
+def test_admin_roles_and_groups_are_restricted(client):
     register_and_login(client, username="manager2", email="manager2@example.org")
     owner_tokens = register_and_login(client, username="groupowner5", email="groupowner5@example.org")
+
+    auth_store = app.state.auth_store
+    owner_user = auth_store.authenticate_local_user("groupowner5", "Password123")
+    assert owner_user is not None
+    owner_user.roles = ["GroupManager"]
 
     created_group = client.post(
         "/api/v1/groups",
@@ -123,28 +123,23 @@ def test_admin_roles_and_groups_are_superuser_only(client):
     assert created_group.status_code == 200
     group_id = created_group.json()["id"]
 
-    auth_store = app.state.auth_store
     manager = auth_store.authenticate_local_user("manager2", "Password123")
     assert manager is not None
-    manager.roles = ["manager"]
+    manager.roles = ["AdminUsers"]
 
-    app.dependency_overrides[get_settings] = lambda: get_settings().model_copy(update={"user_management_roles": "superuser,manager"})
-    try:
-        manager_login = client.post(
-            "/api/v1/auth/login",
-            json={"usernameOrEmail": "manager2", "password": "Password123"},
-        )
-        manager_token = manager_login.json()["accessToken"]
+    manager_login = client.post(
+        "/api/v1/auth/login",
+        json={"usernameOrEmail": "manager2", "password": "Password123"},
+    )
+    manager_token = manager_login.json()["accessToken"]
 
-        roles_denied = client.get("/api/v1/admin/roles", headers=auth_headers(manager_token))
-        assert roles_denied.status_code == 403
+    roles_denied = client.get("/api/v1/admin/roles", headers=auth_headers(manager_token))
+    assert roles_denied.status_code == 403
 
-        groups_denied = client.get("/api/v1/admin/groups", headers=auth_headers(manager_token))
-        assert groups_denied.status_code == 403
-    finally:
-        app.dependency_overrides.pop(get_settings, None)
+    groups_denied = client.get("/api/v1/admin/groups", headers=auth_headers(manager_token))
+    assert groups_denied.status_code == 403
 
-    manager.roles = ["superuser"]
+    manager.roles = ["Superuser"]
     super_login = client.post(
         "/api/v1/auth/login",
         json={"usernameOrEmail": "manager2", "password": "Password123"},
@@ -172,7 +167,7 @@ def test_admin_roles_and_groups_are_superuser_only(client):
     assert role_update.status_code == 200
     assert role_update.json()["description"] == "Updated auditor description"
 
-    superuser_delete = client.delete("/api/v1/admin/roles/superuser", headers=auth_headers(super_token))
+    superuser_delete = client.delete("/api/v1/admin/roles/Superuser", headers=auth_headers(super_token))
     assert superuser_delete.status_code == 400
     assert superuser_delete.json()["error"]["code"] == "ROLE_PROTECTED"
 
@@ -201,6 +196,11 @@ def test_admin_invite_adds_existing_users_and_sends_invites_for_new_users(client
     owner_tokens = register_and_login(client, username="inviteowner", email="inviteowner@example.org")
     existing_tokens = register_and_login(client, username="existinginvitee", email="existinginvitee@example.org")
 
+    auth_store = app.state.auth_store
+    owner_for_group = auth_store.authenticate_local_user("inviteowner", "Password123")
+    assert owner_for_group is not None
+    owner_for_group.roles = ["GroupManager", "InviteUsers"]
+
     created_group = client.post(
         "/api/v1/groups",
         headers=auth_headers(owner_tokens["accessToken"]),
@@ -209,86 +209,86 @@ def test_admin_invite_adds_existing_users_and_sends_invites_for_new_users(client
     assert created_group.status_code == 200
     group_id = created_group.json()["id"]
 
-    auth_store = app.state.auth_store
     owner = auth_store.authenticate_local_user("inviteowner", "Password123")
     assert owner is not None
-    owner.roles = ["manager"]
+    owner.roles = ["InviteUsers"]
 
-    app.dependency_overrides[get_settings] = lambda: get_settings().model_copy(update={"user_management_roles": "superuser,manager"})
-    try:
-        owner_login = client.post(
-            "/api/v1/auth/login",
-            json={"usernameOrEmail": "inviteowner", "password": "Password123"},
-        )
-        owner_token = owner_login.json()["accessToken"]
+    owner_login = client.post(
+        "/api/v1/auth/login",
+        json={"usernameOrEmail": "inviteowner", "password": "Password123"},
+    )
+    owner_token = owner_login.json()["accessToken"]
 
-        mail_sender = app.state.mail_sender
-        outbox_before = len(mail_sender.outbox)
+    mail_sender = app.state.mail_sender
+    outbox_before = len(mail_sender.outbox)
 
-        invite = client.post(
-            "/api/v1/admin/users/invitations",
-            headers=auth_headers(owner_token),
-            json={
-                "emails": ["existinginvitee@example.org", "brandnewinvitee@example.org"],
-                "groupIds": [group_id],
-            },
-        )
-        assert invite.status_code == 200
-        payload = invite.json()
-        assert payload["addedExisting"] == 1
-        assert payload["invited"] == 1
+    invite = client.post(
+        "/api/v1/admin/users/invitations",
+        headers=auth_headers(owner_token),
+        json={
+            "emails": ["existinginvitee@example.org", "brandnewinvitee@example.org"],
+            "groupIds": [group_id],
+        },
+    )
+    assert invite.status_code == 200
+    payload = invite.json()
+    assert payload["addedExisting"] == 1
+    assert payload["invited"] == 1
 
-        outstanding = client.get(
-            "/api/v1/admin/users/invitations",
-            headers=auth_headers(owner_token),
-        )
-        assert outstanding.status_code == 200
-        assert any(item["invitedEmail"] == "brandnewinvitee@example.org" for item in outstanding.json()["items"])
+    outstanding = client.get(
+        "/api/v1/admin/users/invitations",
+        headers=auth_headers(owner_token),
+    )
+    assert outstanding.status_code == 200
+    assert any(item["invitedEmail"] == "brandnewinvitee@example.org" for item in outstanding.json()["items"])
 
-        existing_user = auth_store.authenticate_local_user("existinginvitee", "Password123")
-        assert existing_user is not None
-        members = client.get(f"/api/v1/groups/{group_id}/members", headers=auth_headers(owner_tokens["accessToken"]))
-        assert members.status_code == 200
-        assert any(item["userId"] == existing_user.id for item in members.json()["items"])
+    existing_user = auth_store.authenticate_local_user("existinginvitee", "Password123")
+    assert existing_user is not None
+    members = client.get(f"/api/v1/groups/{group_id}/members", headers=auth_headers(owner_tokens["accessToken"]))
+    assert members.status_code == 200
+    assert any(item["userId"] == existing_user.id for item in members.json()["items"])
 
-        assert len(mail_sender.outbox) == outbox_before + 1
-        invite_body = mail_sender.outbox[-1].text_body
-        match = re.search(r"token=([^\s]+)", invite_body)
-        assert match is not None
-        invitation_token = unquote(match.group(1))
+    assert len(mail_sender.outbox) == outbox_before + 1
+    invite_body = mail_sender.outbox[-1].text_body
+    match = re.search(r"token=([^\s]+)", invite_body)
+    assert match is not None
+    invitation_token = unquote(match.group(1))
 
-        registered = client.post(
-            "/api/v1/auth/register",
-            json={
-                "username": "newinviteacceptor",
-                "email": "different.email@example.org",
-                "password": "Password123",
-                "displayName": "New Invite Acceptor",
-            },
-        )
-        assert registered.status_code == 200
-        new_user_tokens = registered.json()
-        assert "accessToken" in new_user_tokens
+    registered = client.post(
+        "/api/v1/auth/register",
+        json={
+            "username": "newinviteacceptor",
+            "email": "different.email@example.org",
+            "password": "Password123",
+            "displayName": "New Invite Acceptor",
+        },
+    )
+    assert registered.status_code == 200
+    new_user_tokens = registered.json()
+    assert "accessToken" in new_user_tokens
 
-        accepted = client.post(
-            "/api/v1/auth/invitations/accept",
-            headers=auth_headers(new_user_tokens["accessToken"]),
-            json={"token": invitation_token},
-        )
-        assert accepted.status_code == 200
-        assert accepted.json()["success"] is True
+    accepted = client.post(
+        "/api/v1/auth/invitations/accept",
+        headers=auth_headers(new_user_tokens["accessToken"]),
+        json={"token": invitation_token},
+    )
+    assert accepted.status_code == 200
+    assert accepted.json()["success"] is True
 
-        new_user = auth_store.authenticate_local_user("newinviteacceptor", "Password123")
-        assert new_user is not None
-        members_after_accept = client.get(f"/api/v1/groups/{group_id}/members", headers=auth_headers(owner_tokens["accessToken"]))
-        assert members_after_accept.status_code == 200
-        assert any(item["userId"] == new_user.id for item in members_after_accept.json()["items"])
-    finally:
-        app.dependency_overrides.pop(get_settings, None)
+    new_user = auth_store.authenticate_local_user("newinviteacceptor", "Password123")
+    assert new_user is not None
+    members_after_accept = client.get(f"/api/v1/groups/{group_id}/members", headers=auth_headers(owner_tokens["accessToken"]))
+    assert members_after_accept.status_code == 200
+    assert any(item["userId"] == new_user.id for item in members_after_accept.json()["items"])
 
 
 def test_admin_invitation_resend_and_revoke(client):
     owner_tokens = register_and_login(client, username="inviteowner2", email="inviteowner2@example.org")
+
+    auth_store = app.state.auth_store
+    owner_for_group = auth_store.authenticate_local_user("inviteowner2", "Password123")
+    assert owner_for_group is not None
+    owner_for_group.roles = ["GroupManager", "InviteUsers"]
 
     created_group = client.post(
         "/api/v1/groups",
@@ -298,66 +298,61 @@ def test_admin_invitation_resend_and_revoke(client):
     assert created_group.status_code == 200
     group_id = created_group.json()["id"]
 
-    auth_store = app.state.auth_store
     owner = auth_store.authenticate_local_user("inviteowner2", "Password123")
     assert owner is not None
-    owner.roles = ["manager"]
+    owner.roles = ["InviteUsers"]
 
-    app.dependency_overrides[get_settings] = lambda: get_settings().model_copy(update={"user_management_roles": "superuser,manager"})
-    try:
-        owner_login = client.post(
-            "/api/v1/auth/login",
-            json={"usernameOrEmail": "inviteowner2", "password": "Password123"},
-        )
-        owner_token = owner_login.json()["accessToken"]
+    owner_login = client.post(
+        "/api/v1/auth/login",
+        json={"usernameOrEmail": "inviteowner2", "password": "Password123"},
+    )
+    owner_token = owner_login.json()["accessToken"]
 
-        invite = client.post(
-            "/api/v1/admin/users/invitations",
-            headers=auth_headers(owner_token),
-            json={
-                "emails": ["resendrevoke@example.org"],
-                "groupIds": [group_id],
-            },
-        )
-        assert invite.status_code == 200
-        assert invite.json()["invited"] == 1
+    invite = client.post(
+        "/api/v1/admin/users/invitations",
+        headers=auth_headers(owner_token),
+        json={
+            "emails": ["resendrevoke@example.org"],
+            "groupIds": [group_id],
+        },
+    )
+    assert invite.status_code == 200
+    assert invite.json()["invited"] == 1
 
-        outstanding = client.get(
-            "/api/v1/admin/users/invitations",
-            headers=auth_headers(owner_token),
-        )
-        assert outstanding.status_code == 200
-        invitation_id = outstanding.json()["items"][0]["id"]
+    outstanding = client.get(
+        "/api/v1/admin/users/invitations",
+        headers=auth_headers(owner_token),
+    )
+    assert outstanding.status_code == 200
+    invitation_id = outstanding.json()["items"][0]["id"]
 
-        outbox_before_resend = len(app.state.mail_sender.outbox)
-        resend = client.post(
-            f"/api/v1/admin/users/invitations/{invitation_id}/resend",
-            headers=auth_headers(owner_token),
-        )
-        assert resend.status_code == 200
-        assert resend.json()["success"] is True
-        assert len(app.state.mail_sender.outbox) == outbox_before_resend + 1
+    outbox_before_resend = len(app.state.mail_sender.outbox)
+    resend = client.post(
+        f"/api/v1/admin/users/invitations/{invitation_id}/resend",
+        headers=auth_headers(owner_token),
+    )
+    assert resend.status_code == 200
+    assert resend.json()["success"] is True
+    assert len(app.state.mail_sender.outbox) == outbox_before_resend + 1
 
-        refreshed = client.get(
-            "/api/v1/admin/users/invitations",
-            headers=auth_headers(owner_token),
-        )
-        assert refreshed.status_code == 200
-        assert len(refreshed.json()["items"]) == 1
-        resent_invitation_id = refreshed.json()["items"][0]["id"]
+    refreshed = client.get(
+        "/api/v1/admin/users/invitations",
+        headers=auth_headers(owner_token),
+    )
+    assert refreshed.status_code == 200
+    assert len(refreshed.json()["items"]) == 1
+    resent_invitation_id = refreshed.json()["items"][0]["id"]
 
-        revoke = client.delete(
-            f"/api/v1/admin/users/invitations/{resent_invitation_id}",
-            headers=auth_headers(owner_token),
-        )
-        assert revoke.status_code == 200
-        assert revoke.json()["success"] is True
+    revoke = client.delete(
+        f"/api/v1/admin/users/invitations/{resent_invitation_id}",
+        headers=auth_headers(owner_token),
+    )
+    assert revoke.status_code == 200
+    assert revoke.json()["success"] is True
 
-        after_revoke = client.get(
-            "/api/v1/admin/users/invitations",
-            headers=auth_headers(owner_token),
-        )
-        assert after_revoke.status_code == 200
-        assert after_revoke.json()["items"] == []
-    finally:
-        app.dependency_overrides.pop(get_settings, None)
+    after_revoke = client.get(
+        "/api/v1/admin/users/invitations",
+        headers=auth_headers(owner_token),
+    )
+    assert after_revoke.status_code == 200
+    assert after_revoke.json()["items"] == []

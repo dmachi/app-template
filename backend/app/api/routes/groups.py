@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, Field
 
-from app.auth.dependencies import get_current_user
+from app.auth.dependencies import get_current_user, require_group_manager_role
+from app.auth.roles import ROLE_ADMIN_GROUPS, ROLE_GROUP_MANAGER, ROLE_SUPERUSER, has_any_role
 from app.auth.store import GroupRecord, UserRecord
 from app.core.errors import ApiError
 
@@ -27,6 +28,7 @@ def _serialize_group(group: GroupRecord) -> dict:
         "id": group.id,
         "name": group.name,
         "description": group.description,
+        "roles": group.roles,
         "ownerUserId": group.owner_user_id,
         "createdAt": group.created_at.isoformat(),
         "updatedAt": group.updated_at.isoformat(),
@@ -40,6 +42,7 @@ def _serialize_group_summary(group: GroupRecord, request: Request) -> dict:
         "id": group.id,
         "name": group.name,
         "description": group.description,
+        "roles": group.roles,
         "ownerUserId": group.owner_user_id,
         "ownerDisplayName": owner.display_name if owner else None,
         "memberCount": auth_store.count_group_members(group.id),
@@ -50,16 +53,20 @@ def _serialize_group_summary(group: GroupRecord, request: Request) -> dict:
 
 def _serialize_group_detail(group: GroupRecord, request: Request, current_user: UserRecord) -> dict:
     summary = _serialize_group_summary(group, request)
-    summary["canManage"] = _can_manage_group(current_user, group)
+    summary["canManage"] = _can_manage_group(current_user, group, request)
     return summary
 
 
-def _can_manage_group(current_user: UserRecord, group: GroupRecord) -> bool:
-    return current_user.id == group.owner_user_id or "superuser" in current_user.roles
+def _can_manage_group(current_user: UserRecord, group: GroupRecord, request: Request) -> bool:
+    auth_store = request.app.state.auth_store
+    return has_any_role(auth_store, user_id=current_user.id, direct_roles=current_user.roles, required_roles={ROLE_SUPERUSER, ROLE_ADMIN_GROUPS}) or (
+        current_user.id == group.owner_user_id
+        and has_any_role(auth_store, user_id=current_user.id, direct_roles=current_user.roles, required_roles={ROLE_GROUP_MANAGER})
+    )
 
 
 def _can_view_group(current_user: UserRecord, group: GroupRecord, request: Request) -> bool:
-    if _can_manage_group(current_user, group):
+    if _can_manage_group(current_user, group, request):
         return True
     auth_store = request.app.state.auth_store
     return auth_store.is_group_member(group.id, current_user.id)
@@ -84,7 +91,7 @@ def list_my_group_collections(request: Request, current_user: UserRecord = Depen
 
 
 @router.post("")
-def create_group(payload: GroupCreateRequest, request: Request, current_user: UserRecord = Depends(get_current_user)) -> dict:
+def create_group(payload: GroupCreateRequest, request: Request, current_user: UserRecord = Depends(require_group_manager_role)) -> dict:
     auth_store = request.app.state.auth_store
     group = auth_store.create_group(owner_user_id=current_user.id, name=payload.name, description=payload.description)
     return _serialize_group(group)
@@ -112,7 +119,7 @@ def patch_group(
     group = auth_store.get_group(group_id)
     if group is None:
         raise ApiError(status_code=404, code="GROUP_NOT_FOUND", message="Group not found")
-    if not _can_manage_group(current_user, group):
+    if not _can_manage_group(current_user, group, request):
         raise ApiError(status_code=403, code="INSUFFICIENT_ROLE", message="Not allowed to update this group")
 
     updated = auth_store.update_group(group_id=group_id, name=payload.name, description=payload.description)
@@ -127,7 +134,7 @@ def delete_group(group_id: str, request: Request, current_user: UserRecord = Dep
     group = auth_store.get_group(group_id)
     if group is None:
         raise ApiError(status_code=404, code="GROUP_NOT_FOUND", message="Group not found")
-    if not _can_manage_group(current_user, group):
+    if not _can_manage_group(current_user, group, request):
         raise ApiError(status_code=403, code="INSUFFICIENT_ROLE", message="Not allowed to delete this group")
 
     auth_store.delete_group(group_id)
@@ -169,7 +176,7 @@ def add_group_member(
     group = auth_store.get_group(group_id)
     if group is None:
         raise ApiError(status_code=404, code="GROUP_NOT_FOUND", message="Group not found")
-    if not _can_manage_group(current_user, group):
+    if not _can_manage_group(current_user, group, request):
         raise ApiError(status_code=403, code="INSUFFICIENT_ROLE", message="Not allowed to manage members")
 
     user = auth_store.find_user_by_username_or_email(payload.usernameOrEmail)
@@ -191,7 +198,7 @@ def remove_group_member(
     group = auth_store.get_group(group_id)
     if group is None:
         raise ApiError(status_code=404, code="GROUP_NOT_FOUND", message="Group not found")
-    if not _can_manage_group(current_user, group):
+    if not _can_manage_group(current_user, group, request):
         raise ApiError(status_code=403, code="INSUFFICIENT_ROLE", message="Not allowed to manage members")
 
     removed = auth_store.remove_group_member(group_id=group_id, user_id=user_id)

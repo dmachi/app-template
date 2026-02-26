@@ -37,14 +37,14 @@ def test_upsert_superuser_user_creates_document():
         email="root@example.org",
         password="StrongPass123",
         display_name="Root User",
-        superuser_role_name="superuser",
+        superuser_role_name="Superuser",
     )
 
     assert action == "created"
     assert user_id
     assert len(users.docs) == 1
     assert users.docs[0]["email_normalized"] == "root@example.org"
-    assert users.docs[0]["roles"] == ["superuser"]
+    assert users.docs[0]["roles"] == ["Superuser"]
 
 
 def test_upsert_superuser_user_updates_existing_and_preserves_single_role():
@@ -55,7 +55,7 @@ def test_upsert_superuser_user_updates_existing_and_preserves_single_role():
         email="root2@example.org",
         password="StrongPass123",
         display_name="Root User 2",
-        superuser_role_name="superuser",
+        superuser_role_name="Superuser",
     )
     assert first_action == "created"
 
@@ -65,11 +65,11 @@ def test_upsert_superuser_user_updates_existing_and_preserves_single_role():
         email="ROOT2@example.org",
         password="NewStrongPass123",
         display_name="Root User 2 Updated",
-        superuser_role_name="superuser",
+        superuser_role_name="Superuser",
     )
 
     assert second_action == "updated"
     assert second_id == first_id
     assert len(users.docs) == 1
     assert users.docs[0]["display_name"] == "Root User 2 Updated"
-    assert users.docs[0]["roles"].count("superuser") == 1
+    assert users.docs[0]["roles"].count("Superuser") == 1

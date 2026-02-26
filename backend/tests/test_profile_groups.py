@@ -175,6 +175,10 @@ def test_users_basic_view_requires_auth_and_shows_name_and_organization(client):
 
 def test_group_owner_crud_flow(client):
     _, tokens = register_and_login(client, username="groupowner", email="groupowner@example.org")
+    auth_store = app.state.auth_store
+    owner = auth_store.authenticate_local_user("groupowner", "Password123")
+    assert owner is not None
+    owner.roles = ["GroupManager"]
 
     created = client.post(
         "/api/v1/groups",
@@ -211,6 +215,11 @@ def test_group_owner_protection_and_superuser_override(client):
     _, owner_tokens = register_and_login(client, username="owner2", email="owner2@example.org")
     _, other_tokens = register_and_login(client, username="other2", email="other2@example.org")
 
+    auth_store = app.state.auth_store
+    owner = auth_store.authenticate_local_user("owner2", "Password123")
+    assert owner is not None
+    owner.roles = ["GroupManager"]
+
     created = client.post(
         "/api/v1/groups",
         headers=auth_headers(owner_tokens["accessToken"]),
@@ -231,10 +240,9 @@ def test_group_owner_protection_and_superuser_override(client):
     forbidden_delete = client.delete(f"/api/v1/groups/{group_id}", headers=auth_headers(other_tokens["accessToken"]))
     assert forbidden_delete.status_code == 403
 
-    auth_store = app.state.auth_store
     other_user = auth_store.authenticate_local_user("other2", "Password123")
     assert other_user is not None
-    other_user.roles = ["superuser"]
+    other_user.roles = ["Superuser"]
 
     super_login = client.post(
         "/api/v1/auth/login",
@@ -259,6 +267,11 @@ def test_group_owner_protection_and_superuser_override(client):
 def test_group_membership_management_and_mine_lists(client):
     _, owner_tokens = register_and_login(client, username="groupowner2", email="groupowner2@example.org")
     _, member_tokens = register_and_login(client, username="member2", email="member2@example.org")
+
+    auth_store = app.state.auth_store
+    owner = auth_store.authenticate_local_user("groupowner2", "Password123")
+    assert owner is not None
+    owner.roles = ["GroupManager"]
 
     created = client.post(
         "/api/v1/groups",

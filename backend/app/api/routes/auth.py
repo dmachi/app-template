@@ -3,6 +3,7 @@ from pydantic import BaseModel, EmailStr, Field
 import jwt
 
 from app.auth.dependencies import get_current_user, require_user_management_role
+from app.auth.roles import ADMIN_GROUP_ROLES, ADMIN_USER_ROLES, INVITE_USER_ROLES, ROLE_SUPERUSER, has_any_role, resolve_effective_roles
 from app.auth.external_providers import get_external_provider_adapter
 from app.auth.providers import get_enabled_providers
 from app.auth.security import decode_email_verification_token, generate_access_token
@@ -248,3 +249,24 @@ def me(current_user=Depends(get_current_user)) -> dict:
 @router.get("/user-management-check")
 def user_management_check(_: object = Depends(require_user_management_role)) -> dict:
     return {"ok": True}
+
+
+@router.get("/admin-capabilities")
+def admin_capabilities(request: Request, current_user=Depends(get_current_user)) -> dict:
+    auth_store = request.app.state.auth_store
+    user_id = current_user.id
+    direct_roles = current_user.roles
+
+    can_manage_users = has_any_role(auth_store, user_id=user_id, direct_roles=direct_roles, required_roles=ADMIN_USER_ROLES)
+    can_manage_groups = has_any_role(auth_store, user_id=user_id, direct_roles=direct_roles, required_roles=ADMIN_GROUP_ROLES)
+    can_invite_users = has_any_role(auth_store, user_id=user_id, direct_roles=direct_roles, required_roles=INVITE_USER_ROLES)
+    is_superuser = has_any_role(auth_store, user_id=user_id, direct_roles=direct_roles, required_roles={ROLE_SUPERUSER})
+
+    return {
+        "anyAdmin": can_manage_users or can_manage_groups or can_invite_users,
+        "users": can_manage_users,
+        "groups": can_manage_groups,
+        "invitations": can_invite_users,
+        "roles": is_superuser,
+        "effectiveRoles": sorted(resolve_effective_roles(auth_store, user_id=user_id, direct_roles=direct_roles)),
+    }

@@ -1,6 +1,7 @@
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
+from app.auth.roles import CORE_ROLE_DESCRIPTIONS, NON_DELETABLE_CORE_ROLES
 from app.auth.security import generate_refresh_token, hash_password, hash_refresh_token, verify_password
 from app.auth.store import GroupRecord, InvitationRecord, UserRecord
 from app.core.config import Settings
@@ -15,11 +16,13 @@ class MongoAuthStore:
         self._roles = database_adapter.get_collection("roles")
         self._invitations = database_adapter.get_collection("invitations")
 
-        self._roles.update_one(
-            {"name": "superuser"},
-            {"$setOnInsert": {"name": "superuser", "description": "System superuser role", "created_at": datetime.now(UTC)}},
-            upsert=True,
-        )
+        now = datetime.now(UTC)
+        for role_name, description in CORE_ROLE_DESCRIPTIONS.items():
+            self._roles.update_one(
+                {"name": role_name},
+                {"$setOnInsert": {"name": role_name, "description": description, "created_at": now, "updated_at": now}},
+                upsert=True,
+            )
 
     @staticmethod
     def normalize_email(email: str) -> str:
@@ -62,6 +65,7 @@ class MongoAuthStore:
             owner_user_id=doc["owner_user_id"],
             created_at=doc.get("created_at") or datetime.now(UTC),
             updated_at=doc.get("updated_at") or datetime.now(UTC),
+            roles=doc.get("roles") or [],
         )
 
     def upsert_user_record(
@@ -253,8 +257,13 @@ class MongoAuthStore:
             for role in user_doc.get("roles", []):
                 if role not in role_docs:
                     role_docs[role] = None
-        if "superuser" not in role_docs:
-            role_docs["superuser"] = "System superuser role"
+        for group_doc in self._groups.find({}, {"roles": 1}):
+            for role in group_doc.get("roles", []):
+                if role not in role_docs:
+                    role_docs[role] = None
+        for role_name, description in CORE_ROLE_DESCRIPTIONS.items():
+            if role_name not in role_docs:
+                role_docs[role_name] = description
 
         return [
             {"name": name, "description": role_docs.get(name)}
@@ -291,7 +300,7 @@ class MongoAuthStore:
 
     def delete_role(self, role_name: str) -> bool:
         normalized = role_name.strip()
-        if normalized == "superuser":
+        if normalized in NON_DELETABLE_CORE_ROLES:
             raise ValueError("ROLE_PROTECTED")
 
         result = self._roles.delete_one({"name": normalized})
@@ -299,6 +308,7 @@ class MongoAuthStore:
             return False
 
         self._users.update_many({}, {"$pull": {"roles": normalized}, "$set": {"updated_at": datetime.now(UTC)}})
+        self._groups.update_many({}, {"$pull": {"roles": normalized}, "$set": {"updated_at": datetime.now(UTC)}})
         return True
 
     def role_exists(self, role_name: str) -> bool:
@@ -335,6 +345,7 @@ class MongoAuthStore:
                 "name": name.strip(),
                 "description": description.strip() if description else None,
                 "owner_user_id": owner_user_id,
+                "roles": [],
                 "created_at": now,
                 "updated_at": now,
             }
@@ -360,17 +371,22 @@ class MongoAuthStore:
         doc = self._groups.find_one({"id": group_id})
         return self._doc_to_group(doc) if doc else None
 
-    def update_group(self, group_id: str, name: str | None = None, description: str | None = None) -> GroupRecord | None:
+    def update_group(self, group_id: str, name: str | None = None, description: str | None = None, roles: list[str] | None = None) -> GroupRecord | None:
         update_fields = {"updated_at": datetime.now(UTC)}
         if name is not None:
             update_fields["name"] = name.strip()
         if description is not None:
             update_fields["description"] = description.strip() if description else None
+        if roles is not None:
+            update_fields["roles"] = list(dict.fromkeys(roles))
 
         result = self._groups.update_one({"id": group_id}, {"$set": update_fields})
         if result.matched_count == 0:
             return None
         return self.get_group(group_id)
+
+    def set_group_roles(self, group_id: str, roles: list[str]) -> GroupRecord | None:
+        return self.update_group(group_id=group_id, roles=roles)
 
     def delete_group(self, group_id: str) -> bool:
         result = self._groups.delete_one({"id": group_id})
@@ -426,6 +442,18 @@ class MongoAuthStore:
             return False
         self._groups.update_one({"id": group_id}, {"$set": {"updated_at": datetime.now(UTC)}})
         return True
+
+    def get_effective_roles_for_user(self, user_id: str) -> list[str]:
+        user = self.get_user(user_id)
+        if user is None:
+            return []
+
+        effective_roles = set(user.roles)
+        group_ids = [doc["group_id"] for doc in self._memberships.find({"user_id": user_id}, {"group_id": 1}) if doc.get("group_id")]
+        if group_ids:
+            for group_doc in self._groups.find({"id": {"$in": group_ids}}, {"roles": 1}):
+                effective_roles.update(group_doc.get("roles") or [])
+        return sorted(effective_roles)
 
     def create_refresh_session(self, user_id: str, settings: Settings, family_id: str | None = None) -> tuple[str, int]:
         refresh_token = generate_refresh_token()

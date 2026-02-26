@@ -5,6 +5,7 @@ from uuid import uuid4
 
 from pymongo import MongoClient
 
+from app.auth.roles import ROLE_SUPERUSER
 from app.auth.security import hash_password
 from app.core.config import get_settings
 
@@ -113,7 +114,7 @@ def main(argv: list[str] | None = None) -> None:
             email=args.email,
             password=args.password,
             display_name=args.display_name,
-            superuser_role_name=settings.superuser_role_name,
+            superuser_role_name=ROLE_SUPERUSER,
         )
     finally:
         client.close()

@@ -244,6 +244,23 @@ export async function canAccessUserManagement(accessToken: string): Promise<bool
   throw new Error(message);
 }
 
+export type AdminCapabilities = {
+  anyAdmin: boolean;
+  users: boolean;
+  groups: boolean;
+  invitations: boolean;
+  roles: boolean;
+  effectiveRoles: string[];
+};
+
+export async function getAdminCapabilities(accessToken: string): Promise<AdminCapabilities> {
+  return parseJson(
+    await fetch(`${API_BASE}/auth/admin-capabilities`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    }),
+  );
+}
+
 export type AdminUserListItem = {
   id: string;
   username: string;

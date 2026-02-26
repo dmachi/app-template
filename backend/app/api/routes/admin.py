@@ -3,7 +3,8 @@ from typing import Any
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, EmailStr, Field
 
-from app.auth.dependencies import require_superuser, require_user_management_role
+from app.auth.dependencies import require_admin_groups_role, require_admin_users_role, require_invite_users_role, require_superuser
+from app.auth.roles import ROLE_SUPERUSER, has_any_role
 from app.auth.store import GroupRecord, UserRecord
 from app.core.config import Settings, get_settings
 from app.core.errors import ApiError
@@ -32,6 +33,10 @@ class RolePatchRequest(BaseModel):
 class AdminGroupPatchRequest(BaseModel):
     name: str | None = Field(default=None, min_length=1)
     description: str | None = None
+
+
+class AdminGroupRoleAssignRequest(BaseModel):
+    roles: list[str]
 
 
 class AdminInviteUsersRequest(BaseModel):
@@ -78,6 +83,7 @@ def _serialize_group(group: GroupRecord, request: Request) -> dict:
         "id": group.id,
         "name": group.name,
         "description": group.description,
+        "roles": group.roles,
         "ownerUserId": group.owner_user_id,
         "ownerDisplayName": owner.display_name if owner else None,
         "memberCount": auth_store.count_group_members(group.id),
@@ -103,7 +109,7 @@ def _serialize_outstanding_invitation(invitation, request: Request) -> dict:
 
 
 @router.get("/users")
-def admin_list_users(request: Request, _: UserRecord = Depends(require_user_management_role)) -> dict:
+def admin_list_users(request: Request, _: UserRecord = Depends(require_admin_users_role)) -> dict:
     auth_store = request.app.state.auth_store
     users = auth_store.list_users()
     return {"items": [_serialize_user(user) for user in users]}
@@ -114,14 +120,35 @@ def admin_patch_user(
     user_id: str,
     payload: AdminUserPatchRequest,
     request: Request,
-    _: UserRecord = Depends(require_user_management_role),
+    current_user: UserRecord = Depends(require_admin_users_role),
 ) -> dict:
     auth_store = request.app.state.auth_store
+    target_user = auth_store.get_user(user_id)
+    if target_user is None:
+        raise ApiError(status_code=404, code="USER_NOT_FOUND", message="User not found")
+
+    has_superuser = has_any_role(
+        auth_store,
+        user_id=current_user.id,
+        direct_roles=current_user.roles,
+        required_roles={ROLE_SUPERUSER},
+    )
 
     if payload.roles is not None:
         unknown_roles = [role for role in payload.roles if not auth_store.role_exists(role)]
         if unknown_roles:
             raise ApiError(status_code=400, code="ROLE_NOT_FOUND", message=f"Unknown role(s): {', '.join(unknown_roles)}")
+        if ROLE_SUPERUSER in payload.roles and not has_superuser:
+            raise ApiError(status_code=403, code="INSUFFICIENT_ROLE", message="Only Superuser can assign Superuser role")
+
+    target_is_superuser = has_any_role(
+        auth_store,
+        user_id=target_user.id,
+        direct_roles=target_user.roles,
+        required_roles={ROLE_SUPERUSER},
+    )
+    if not has_superuser and target_is_superuser:
+        raise ApiError(status_code=403, code="INSUFFICIENT_ROLE", message="Only Superuser can modify Superuser users")
 
     updated = auth_store.admin_update_user(
         user_id=user_id,
@@ -137,7 +164,7 @@ def admin_patch_user(
 
 
 @router.get("/users/invitations")
-def admin_list_outstanding_invitations(request: Request, _: UserRecord = Depends(require_user_management_role)) -> dict:
+def admin_list_outstanding_invitations(request: Request, _: UserRecord = Depends(require_invite_users_role)) -> dict:
     auth_store = request.app.state.auth_store
     invitations = auth_store.list_outstanding_invitations()
     return {
@@ -146,7 +173,7 @@ def admin_list_outstanding_invitations(request: Request, _: UserRecord = Depends
 
 
 @router.get("/users/{user_id}")
-def admin_get_user(user_id: str, request: Request, _: UserRecord = Depends(require_user_management_role)) -> dict:
+def admin_get_user(user_id: str, request: Request, _: UserRecord = Depends(require_admin_users_role)) -> dict:
     auth_store = request.app.state.auth_store
     user = auth_store.get_user(user_id)
     if user is None:
@@ -155,7 +182,7 @@ def admin_get_user(user_id: str, request: Request, _: UserRecord = Depends(requi
 
 
 @router.post("/users/{user_id}/reset-password")
-def admin_reset_user_password(user_id: str, request: Request, _: UserRecord = Depends(require_user_management_role)) -> dict:
+def admin_reset_user_password(user_id: str, request: Request, _: UserRecord = Depends(require_admin_users_role)) -> dict:
     auth_store = request.app.state.auth_store
     user = auth_store.get_user(user_id)
     if user is None:
@@ -172,7 +199,7 @@ def admin_reset_user_password(user_id: str, request: Request, _: UserRecord = De
 def admin_invite_users(
     payload: AdminInviteUsersRequest,
     request: Request,
-    current_user: UserRecord = Depends(require_user_management_role),
+    current_user: UserRecord = Depends(require_invite_users_role),
     settings: Settings = Depends(get_settings),
 ) -> dict:
     auth_store = request.app.state.auth_store
@@ -224,7 +251,7 @@ def admin_invite_users(
 def admin_resend_invitation(
     invitation_id: str,
     request: Request,
-    current_user: UserRecord = Depends(require_user_management_role),
+    current_user: UserRecord = Depends(require_invite_users_role),
     settings: Settings = Depends(get_settings),
 ) -> dict:
     auth_store = request.app.state.auth_store
@@ -259,7 +286,7 @@ def admin_resend_invitation(
 
 
 @router.delete("/users/invitations/{invitation_id}")
-def admin_revoke_invitation(invitation_id: str, request: Request, _: UserRecord = Depends(require_user_management_role)) -> dict:
+def admin_revoke_invitation(invitation_id: str, request: Request, _: UserRecord = Depends(require_invite_users_role)) -> dict:
     auth_store = request.app.state.auth_store
     revoked = auth_store.revoke_invitation(invitation_id)
     if not revoked:
@@ -319,7 +346,7 @@ def admin_delete_role(role_name: str, request: Request, _: UserRecord = Depends(
 
 
 @router.get("/groups")
-def admin_list_groups(request: Request, _: UserRecord = Depends(require_superuser)) -> dict:
+def admin_list_groups(request: Request, _: UserRecord = Depends(require_admin_groups_role)) -> dict:
     auth_store = request.app.state.auth_store
     groups = auth_store.list_groups()
     return {"items": [_serialize_group(group, request) for group in groups]}
@@ -330,7 +357,7 @@ def admin_patch_group(
     group_id: str,
     payload: AdminGroupPatchRequest,
     request: Request,
-    _: UserRecord = Depends(require_superuser),
+    _: UserRecord = Depends(require_admin_groups_role),
 ) -> dict:
     auth_store = request.app.state.auth_store
     updated = auth_store.update_group(group_id=group_id, name=payload.name, description=payload.description)
@@ -339,8 +366,26 @@ def admin_patch_group(
     return _serialize_group(updated, request)
 
 
+@router.put("/groups/{group_id}/roles")
+def admin_assign_group_roles(
+    group_id: str,
+    payload: AdminGroupRoleAssignRequest,
+    request: Request,
+    _: UserRecord = Depends(require_admin_groups_role),
+) -> dict:
+    auth_store = request.app.state.auth_store
+    unknown_roles = [role for role in payload.roles if not auth_store.role_exists(role)]
+    if unknown_roles:
+        raise ApiError(status_code=400, code="ROLE_NOT_FOUND", message=f"Unknown role(s): {', '.join(unknown_roles)}")
+
+    updated = auth_store.set_group_roles(group_id=group_id, roles=payload.roles)
+    if updated is None:
+        raise ApiError(status_code=404, code="GROUP_NOT_FOUND", message="Group not found")
+    return _serialize_group(updated, request)
+
+
 @router.delete("/groups/{group_id}")
-def admin_delete_group(group_id: str, request: Request, _: UserRecord = Depends(require_superuser)) -> dict:
+def admin_delete_group(group_id: str, request: Request, _: UserRecord = Depends(require_admin_groups_role)) -> dict:
     auth_store = request.app.state.auth_store
     deleted = auth_store.delete_group(group_id)
     if not deleted:

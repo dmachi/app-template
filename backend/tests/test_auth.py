@@ -193,7 +193,7 @@ def test_user_management_check_403_and_200(client):
     auth_store = app.state.auth_store
     user = auth_store.authenticate_local_user("user3", "Password123")
     assert user is not None
-    user.roles = ["superuser"]
+    user.roles = ["Superuser"]
 
     elevated_login = login_user(client, username_or_email="user3")
     elevated_token = elevated_login.json()["accessToken"]
@@ -203,6 +203,52 @@ def test_user_management_check_403_and_200(client):
     )
     assert allowed.status_code == 200
     assert allowed.json()["ok"] is True
+
+
+def test_admin_capabilities_include_group_derived_roles(client):
+    register_user(client, username="capowner", email="capowner@example.org")
+    verify_latest_email(client)
+    register_user(client, username="capmember", email="capmember@example.org")
+    verify_latest_email(client)
+
+    auth_store = app.state.auth_store
+    owner = auth_store.authenticate_local_user("capowner", "Password123")
+    member = auth_store.authenticate_local_user("capmember", "Password123")
+    assert owner is not None
+    assert member is not None
+
+    owner.roles = ["GroupManager"]
+    created_group = client.post(
+        "/api/v1/groups",
+        headers={"Authorization": f"Bearer {login_user(client, username_or_email='capowner').json()['accessToken']}"},
+        json={"name": "Capabilities Group", "description": "role inheritance test"},
+    )
+    assert created_group.status_code == 200
+    group_id = created_group.json()["id"]
+
+    added = client.post(
+        f"/api/v1/groups/{group_id}/members",
+        headers={"Authorization": f"Bearer {login_user(client, username_or_email='capowner').json()['accessToken']}"},
+        json={"usernameOrEmail": "capmember"},
+    )
+    assert added.status_code == 200
+
+    auth_store.set_group_roles(group_id, ["InviteUsers"])
+
+    member_tokens = login_user(client, username_or_email="capmember").json()
+    capabilities = client.get(
+        "/api/v1/auth/admin-capabilities",
+        headers={"Authorization": f"Bearer {member_tokens['accessToken']}"},
+    )
+    assert capabilities.status_code == 200
+    payload = capabilities.json()
+    assert payload["anyAdmin"] is True
+    assert payload["invitations"] is True
+    assert payload["users"] is False
+    assert payload["groups"] is False
+    assert payload["roles"] is False
+
+
 
 
 def test_refresh_rotation_invalidates_previous_refresh_token(client):
