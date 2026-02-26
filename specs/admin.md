@@ -38,10 +38,12 @@ Non-editable in MVP:
 
 ## 5) Role Management Requirements
 - Roles are created and managed by superusers by default policy
-- Role object fields (draft): `id`, `name`, `description`, `is_system`, `created_at`, `updated_at`
+- Role object fields (draft): `id`, `name`, `description` (optional), `is_system`, `created_at`, `updated_at`
 - System role `superuser` must always exist and be marked as non-deletable
 - Role assignment to users is performed by superuser from user-edit flow and/or dedicated role assignment endpoint
 - Role deletion behavior must prevent deletion when role is system-protected or still assigned (unless reassigned first)
+- Admin UI should use a shared dialog component for role create/edit interactions
+- Role description must be editable via the same dialog used for create/edit role operations
 
 ## 6) Group Management Requirements
 - Any authenticated user can create a group and becomes the group owner

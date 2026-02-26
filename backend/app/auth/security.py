@@ -9,6 +9,7 @@ from app.core.config import Settings
 
 
 DEV_ACCESS_SECRET = "dev-access-secret-change-me-32-bytes"
+DEV_EMAIL_VERIFICATION_SECRET = "dev-email-verification-secret-change-me"
 
 
 def hash_password(password: str) -> str:
@@ -49,6 +50,26 @@ def decode_access_token(token: str, settings: Settings) -> dict:
         kwargs["audience"] = settings.jwt_audience
 
     return jwt.decode(token, secret, algorithms=["HS256"], **kwargs)
+
+
+def generate_email_verification_token(user_id: str, email: str, settings: Settings) -> tuple[str, int]:
+    expires_delta = timedelta(seconds=settings.email_verification_token_ttl_seconds)
+    expires_at = datetime.now(UTC) + expires_delta
+    payload = {
+        "sub": user_id,
+        "email": email,
+        "type": "email_verification",
+        "exp": expires_at,
+        "iat": datetime.now(UTC),
+    }
+    secret = settings.email_verification_token_secret or settings.jwt_access_token_secret or DEV_EMAIL_VERIFICATION_SECRET
+    token = jwt.encode(payload, secret, algorithm="HS256")
+    return token, settings.email_verification_token_ttl_seconds
+
+
+def decode_email_verification_token(token: str, settings: Settings) -> dict:
+    secret = settings.email_verification_token_secret or settings.jwt_access_token_secret or DEV_EMAIL_VERIFICATION_SECRET
+    return jwt.decode(token, secret, algorithms=["HS256"])
 
 
 def generate_refresh_token() -> str:

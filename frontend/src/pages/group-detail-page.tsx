@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useState } from "react";
 
+import { ConfirmationDialog } from "../components/shared/confirmation-dialog";
 import { UserSearchCombobox } from "../components/shared/user-search-combobox";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
@@ -106,10 +107,14 @@ export function GroupDetailPage({ accessToken, groupId, onBack }: GroupDetailPag
                 <p className="text-sm font-medium">{member.displayName}</p>
                 <p className="text-xs text-slate-500 dark:text-slate-400">{member.email} · {member.membershipRole}</p>
               </div>
-              <Button
-                type="button"
+              <ConfirmationDialog
+                triggerLabel="Remove"
+                title="Remove Member"
+                description={`Remove ${member.displayName} from this group?`}
+                confirmLabel="Remove"
+                confirmTone="danger"
                 disabled={!group.canManage || member.membershipRole === "owner"}
-                onClick={async () => {
+                onConfirm={async () => {
                   try {
                     await removeGroupMember(accessToken, groupId, member.userId);
                     await loadData();
@@ -118,9 +123,7 @@ export function GroupDetailPage({ accessToken, groupId, onBack }: GroupDetailPag
                     setMessage(error instanceof Error ? error.message : "Unable to remove member");
                   }
                 }}
-              >
-                Remove
-              </Button>
+              />
             </li>
           ))}
         </ul>

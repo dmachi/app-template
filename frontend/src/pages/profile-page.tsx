@@ -3,7 +3,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { FormField } from "../components/form-field";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
-import { getMyProfile, patchMyProfile } from "../lib/api";
+import { getMyProfile, patchMyProfile, resendMyVerificationEmail } from "../lib/api";
 
 type ProfilePageProps = {
   accessToken: string;
@@ -12,6 +12,7 @@ type ProfilePageProps = {
 export function ProfilePage({ accessToken }: ProfilePageProps) {
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
+  const [emailVerified, setEmailVerified] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -20,6 +21,7 @@ export function ProfilePage({ accessToken }: ProfilePageProps) {
       .then((profile) => {
         setDisplayName(profile.displayName ?? "");
         setEmail(profile.email ?? "");
+        setEmailVerified(Boolean(profile.emailVerified));
       })
       .catch((error) => {
         setMessage(error instanceof Error ? error.message : "Unable to load profile");
@@ -31,10 +33,26 @@ export function ProfilePage({ accessToken }: ProfilePageProps) {
     event.preventDefault();
     setMessage(null);
     try {
-      await patchMyProfile(accessToken, { displayName });
-      setMessage("Profile updated");
+      const updated = await patchMyProfile(accessToken, { displayName, email });
+      setEmail(updated.email ?? email);
+      setEmailVerified(Boolean(updated.emailVerified));
+      if (updated.emailVerified) {
+        setMessage("Profile updated");
+      } else {
+        setMessage("Profile updated. Please check your email for a verification link.");
+      }
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Unable to save profile");
+    }
+  }
+
+  async function handleResendVerification() {
+    setMessage(null);
+    try {
+      const response = await resendMyVerificationEmail(accessToken);
+      setMessage(response.message || "Verification email sent");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Unable to resend verification email");
     }
   }
 
@@ -50,9 +68,15 @@ export function ProfilePage({ accessToken }: ProfilePageProps) {
           <Input value={displayName} onChange={(event) => setDisplayName(event.target.value)} required />
         </FormField>
         <FormField label="Email address">
-          <Input value={email} readOnly disabled />
+          <Input type="email" value={email} onChange={(event) => setEmail(event.target.value)} required />
         </FormField>
-        <Button type="submit">Save</Button>
+        <p className="text-sm text-slate-600 dark:text-slate-300">
+          Email verification status: <strong>{emailVerified ? "Verified" : "Unverified"}</strong>
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <Button type="submit">Save</Button>
+          {!emailVerified ? <Button type="button" className="bg-transparent" onClick={handleResendVerification}>Resend Verification Email</Button> : null}
+        </div>
       </form>
       {message ? <p className="text-sm">{message}</p> : null}
     </section>

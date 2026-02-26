@@ -39,12 +39,17 @@ Exit criteria:
 ### Milestone 2 — Authentication Core
 Deliverables:
 - Local auth provider (register/login/logout)
+- Email verification flow for local registration (pending user until verified)
+- Configurable email delivery for registration workflows:
+  - local SMTP relay mode (no SMTP auth)
+  - external SMTP mode (authenticated)
+- Frontend verification landing route (`/verify-email`) for token validation success/failure UX
 - Provider abstraction and provider metadata endpoint
 - Session storage and middleware
 - Detailed endpoint tests for auth flows and error cases
 
 Exit criteria:
-- User can register/login/logout via local auth
+- User can register, receive verification email link, verify email, and then login/logout via local auth
 - Protected endpoint auth works with 401/403 behavior
 - Endpoint tests cover success, validation failures, auth failures, and token lifecycle behavior
 
@@ -77,7 +82,7 @@ Exit criteria:
 ### Milestone 5 — Admin Users, Roles, and Global Group Management
 Deliverables:
 - Admin user list/edit endpoints and pages
-- Role CRUD + user role assignment
+- Role CRUD (including optional role description) + user role assignment
 - Admin all-groups list/edit/delete
 - Endpoint authorization tests for role-protected operations
 
@@ -85,6 +90,7 @@ Exit criteria:
 - Superuser can manage users
 - Configured user-management roles can manage users when enabled by configuration
 - Superuser can manage roles and all groups
+- `superuser` role is protected and cannot be deleted
 - Non-privileged access is denied for privileged operations
 - Role/permission endpoint tests verify allowed and denied paths
 

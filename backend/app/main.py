@@ -11,6 +11,7 @@ from app.auth.store import AuthStore
 from app.core.config import get_settings
 from app.core.errors import register_error_handlers
 from app.db.factory import create_database_adapter
+from app.notifications.email import create_mail_sender
 
 
 @asynccontextmanager
@@ -20,6 +21,8 @@ async def lifespan(app: FastAPI):
     database_adapter.connect()
 
     app.state.database_adapter = database_adapter
+    app.state.settings = settings
+    app.state.mail_sender = create_mail_sender(settings)
     if settings.app_env == "test" or os.getenv("PYTEST_CURRENT_TEST"):
         app.state.auth_store = AuthStore()
     else:

@@ -14,7 +14,8 @@ dependencies = [
   "pymongo>=4.8.0",
   "PyJWT>=2.9.0",
   "passlib[argon2]>=1.7.4",
-  "email-validator>=2.2.0"
+  "email-validator>=2.2.0",
+  "dkimpy>=1.1.8"
 ]
 
 [project.optional-dependencies]
@@ -27,6 +28,7 @@ dev = [
 
 [project.scripts]
 seed-superuser = "app.cli.seed_superuser:main"
+send-test-email = "app.cli.send_test_email:main"
 
 [tool.setuptools.packages.find]
 where = ["."]

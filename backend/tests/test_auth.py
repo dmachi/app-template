@@ -1,4 +1,6 @@
 from datetime import UTC, datetime, timedelta
+from urllib.parse import unquote
+import re
 
 import jwt
 
@@ -21,6 +23,23 @@ def register_user(client, username="user1", email="user1@example.org", password=
     return response.json()
 
 
+def latest_verification_token() -> str:
+    mail_sender = app.state.mail_sender
+    assert hasattr(mail_sender, "outbox")
+    assert mail_sender.outbox
+    body = mail_sender.outbox[-1].text_body
+    match = re.search(r"token=([^\s]+)", body)
+    assert match is not None
+    return unquote(match.group(1))
+
+
+def verify_latest_email(client) -> dict:
+    token = latest_verification_token()
+    response = client.get("/api/v1/auth/verify-email", params={"token": token})
+    assert response.status_code == 200
+    return response.json()
+
+
 def login_user(client, username_or_email="user1", password="Password123"):
     response = client.post(
         "/api/v1/auth/login",
@@ -38,11 +57,15 @@ def test_auth_providers_metadata(client):
 
 
 def test_register_login_me_refresh_logout_flow(client):
-    register_user(client)
-
-    login_response = login_user(client)
-    assert login_response.status_code == 200
-    tokens = login_response.json()
+    register_payload = register_user(client)
+    assert register_payload["status"] == "active"
+    assert register_payload["emailVerified"] is False
+    assert register_payload.get("accessToken")
+    assert register_payload.get("refreshToken")
+    tokens = {
+        "accessToken": register_payload["accessToken"],
+        "refreshToken": register_payload["refreshToken"],
+    }
 
     me_response = client.get(
         "/api/v1/auth/me",
@@ -66,6 +89,7 @@ def test_register_login_me_refresh_logout_flow(client):
 
 def test_login_invalid_credentials(client):
     register_user(client, username="user2", email="user2@example.org")
+    verify_latest_email(client)
 
     response = login_user(client, username_or_email="user2", password="wrong-password")
     assert response.status_code == 401
@@ -129,6 +153,7 @@ def test_auth_me_invalid_token_returns_401(client):
 
 def test_auth_me_expired_token_returns_401(client):
     register_user(client, username="expired1", email="expired1@example.org")
+    verify_latest_email(client)
     auth_store = app.state.auth_store
     user = auth_store.authenticate_local_user("expired1", "Password123")
     assert user is not None
@@ -154,6 +179,7 @@ def test_auth_me_expired_token_returns_401(client):
 
 def test_user_management_check_403_and_200(client):
     register_user(client, username="user3", email="user3@example.org")
+    verify_latest_email(client)
     login_response = login_user(client, username_or_email="user3")
     tokens = login_response.json()
 
@@ -181,6 +207,7 @@ def test_user_management_check_403_and_200(client):
 
 def test_refresh_rotation_invalidates_previous_refresh_token(client):
     register_user(client, username="rotate1", email="rotate1@example.org")
+    verify_latest_email(client)
     login_response = login_user(client, username_or_email="rotate1")
     tokens = login_response.json()
 
@@ -224,3 +251,34 @@ def test_external_provider_respects_enabled_config(client):
         assert response.json()["error"]["code"] == "PROVIDER_DISABLED"
     finally:
         app.dependency_overrides.pop(get_settings, None)
+
+
+def test_register_sets_pending_and_requires_email_verification(client):
+    app.dependency_overrides[get_settings] = lambda: get_settings().model_copy(
+        update={"email_verification_required_for_login": True}
+    )
+    try:
+        register_payload = register_user(client, username="pending1", email="pending1@example.org")
+        assert register_payload["status"] == "pending"
+        assert register_payload["emailVerified"] is False
+        assert "accessToken" not in register_payload
+
+        before_verify = login_user(client, username_or_email="pending1")
+        assert before_verify.status_code == 401
+        assert before_verify.json()["error"]["code"] == "INVALID_CREDENTIALS"
+
+        verified = verify_latest_email(client)
+        assert verified["success"] is True
+        assert verified["status"] == "active"
+        assert verified["emailVerified"] is True
+
+        after_verify = login_user(client, username_or_email="pending1")
+        assert after_verify.status_code == 200
+    finally:
+        app.dependency_overrides.pop(get_settings, None)
+
+
+def test_verify_email_rejects_invalid_token(client):
+    response = client.get("/api/v1/auth/verify-email", params={"token": "not-a-token"})
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "VERIFICATION_TOKEN_INVALID"

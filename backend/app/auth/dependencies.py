@@ -30,6 +30,8 @@ def get_current_user(
         user = auth_store.get_user(auth_context.user_id)
         if user is None:
             raise ApiError(status_code=401, code="TOKEN_INVALID", message="Token subject not found")
+        if user.status != "active":
+            raise ApiError(status_code=403, code="USER_DISABLED", message="User account is disabled")
         return user
 
     if not authorization or not authorization.startswith("Bearer "):
@@ -50,6 +52,8 @@ def get_current_user(
     user = auth_store.get_user(user_id)
     if user is None:
         raise ApiError(status_code=401, code="TOKEN_INVALID", message="Token subject not found")
+    if user.status != "active":
+        raise ApiError(status_code=403, code="USER_DISABLED", message="User account is disabled")
 
     return user
 
@@ -60,5 +64,14 @@ def require_user_management_role(
 ) -> UserRecord:
     allowed_roles = set(settings.user_management_role_list)
     if not any(role in allowed_roles for role in current_user.roles):
+        raise ApiError(status_code=403, code="INSUFFICIENT_ROLE", message="Insufficient role")
+    return current_user
+
+
+def require_superuser(
+    current_user: UserRecord = Depends(get_current_user),
+    settings: Settings = Depends(get_settings),
+) -> UserRecord:
+    if settings.superuser_role_name not in current_user.roles:
         raise ApiError(status_code=403, code="INSUFFICIENT_ROLE", message="Insufficient role")
     return current_user

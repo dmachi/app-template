@@ -2,7 +2,7 @@ from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 from app.auth.security import generate_refresh_token, hash_password, hash_refresh_token, verify_password
-from app.auth.store import GroupRecord, UserRecord
+from app.auth.store import GroupRecord, InvitationRecord, UserRecord
 from app.core.config import Settings
 
 
@@ -12,6 +12,14 @@ class MongoAuthStore:
         self._groups = database_adapter.get_collection("groups")
         self._memberships = database_adapter.get_collection("group_memberships")
         self._sessions = database_adapter.get_collection("sessions")
+        self._roles = database_adapter.get_collection("roles")
+        self._invitations = database_adapter.get_collection("invitations")
+
+        self._roles.update_one(
+            {"name": "superuser"},
+            {"$setOnInsert": {"name": "superuser", "description": "System superuser role", "created_at": datetime.now(UTC)}},
+            upsert=True,
+        )
 
     @staticmethod
     def normalize_email(email: str) -> str:
@@ -38,8 +46,12 @@ class MongoAuthStore:
             password_hash=doc["password_hash"],
             display_name=doc.get("display_name") or doc["username"],
             status=doc.get("status") or "active",
+            email_verified=doc.get("email_verified") or False,
+            email_verified_at=doc.get("email_verified_at"),
             roles=doc.get("roles") or [],
             preferences=doc.get("preferences") or {},
+            created_at=doc.get("created_at") or datetime.now(UTC),
+            updated_at=doc.get("updated_at") or datetime.now(UTC),
         )
 
     def _doc_to_group(self, doc) -> GroupRecord:
@@ -61,6 +73,8 @@ class MongoAuthStore:
         password_hash: str,
         display_name: str,
         status: str = "active",
+        email_verified: bool = False,
+        email_verified_at: datetime | None = None,
         roles: list[str] | None = None,
         preferences: dict | None = None,
     ) -> UserRecord:
@@ -76,6 +90,8 @@ class MongoAuthStore:
                     "password_hash": password_hash,
                     "display_name": display_name.strip(),
                     "status": status,
+                    "email_verified": email_verified,
+                    "email_verified_at": self._to_utc_naive(email_verified_at) if email_verified_at else None,
                     "roles": list(roles or []),
                     "preferences": dict(preferences or {}),
                     "updated_at": datetime.now(UTC),
@@ -108,7 +124,9 @@ class MongoAuthStore:
                 "email_normalized": normalized_email,
                 "password_hash": hash_password(password),
                 "display_name": (display_name or username).strip(),
-                "status": "active",
+                "status": "pending",
+                "email_verified": False,
+                "email_verified_at": None,
                 "roles": [],
                 "preferences": {},
                 "created_at": now,
@@ -129,6 +147,8 @@ class MongoAuthStore:
             }
         )
         if doc is None:
+            return None
+        if (doc.get("status") or "active") != "active":
             return None
         if not verify_password(password, doc["password_hash"]):
             return None
@@ -166,10 +186,29 @@ class MongoAuthStore:
         ).limit(limit)
         return [self._doc_to_user(doc) for doc in cursor]
 
-    def update_user_profile(self, user_id: str, display_name: str | None = None, preferences: dict | None = None) -> UserRecord | None:
+    def update_user_profile(
+        self,
+        user_id: str,
+        display_name: str | None = None,
+        email: str | None = None,
+        preferences: dict | None = None,
+    ) -> UserRecord | None:
         update_fields = {}
         if display_name is not None:
             update_fields["display_name"] = display_name.strip()
+        if email is not None:
+            normalized_email = self.normalize_email(email)
+            current = self._users.find_one({"id": user_id})
+            if current is None:
+                return None
+            if normalized_email != (current.get("email_normalized") or self.normalize_email(current.get("email", ""))):
+                existing = self._users.find_one({"email_normalized": normalized_email})
+                if existing and existing.get("id") != user_id:
+                    raise ValueError("EMAIL_ALREADY_EXISTS")
+                update_fields["email"] = email.strip()
+                update_fields["email_normalized"] = normalized_email
+                update_fields["email_verified"] = False
+                update_fields["email_verified_at"] = None
         if preferences is not None:
             update_fields["preferences"] = preferences
         if not update_fields:
@@ -180,6 +219,112 @@ class MongoAuthStore:
         if result.matched_count == 0:
             return None
         return self.get_user(user_id)
+
+    def list_users(self) -> list[UserRecord]:
+        cursor = self._users.find({}).sort("username", 1)
+        return [self._doc_to_user(doc) for doc in cursor]
+
+    def admin_update_user(
+        self,
+        user_id: str,
+        display_name: str | None = None,
+        status: str | None = None,
+        roles: list[str] | None = None,
+        preferences: dict | None = None,
+    ) -> UserRecord | None:
+        update_fields = {"updated_at": datetime.now(UTC)}
+        if display_name is not None:
+            update_fields["display_name"] = display_name.strip()
+        if status is not None:
+            update_fields["status"] = status
+        if roles is not None:
+            update_fields["roles"] = list(roles)
+        if preferences is not None:
+            update_fields["preferences"] = dict(preferences)
+
+        result = self._users.update_one({"id": user_id}, {"$set": update_fields})
+        if result.matched_count == 0:
+            return None
+        return self.get_user(user_id)
+
+    def list_roles(self) -> list[dict[str, str | None]]:
+        role_docs = {doc["name"]: doc.get("description") for doc in self._roles.find({}) if doc.get("name")}
+        for user_doc in self._users.find({}, {"roles": 1}):
+            for role in user_doc.get("roles", []):
+                if role not in role_docs:
+                    role_docs[role] = None
+        if "superuser" not in role_docs:
+            role_docs["superuser"] = "System superuser role"
+
+        return [
+            {"name": name, "description": role_docs.get(name)}
+            for name in sorted(role_docs.keys())
+        ]
+
+    def create_role(self, role_name: str, description: str | None = None) -> dict[str, str | None]:
+        normalized = role_name.strip()
+        if not normalized:
+            raise ValueError("ROLE_NAME_INVALID")
+        if self._roles.find_one({"name": normalized}):
+            raise ValueError("ROLE_EXISTS")
+
+        self._roles.insert_one(
+            {
+                "name": normalized,
+                "description": description.strip() if description else None,
+                "created_at": datetime.now(UTC),
+                "updated_at": datetime.now(UTC),
+            }
+        )
+        return {"name": normalized, "description": description.strip() if description else None}
+
+    def update_role(self, role_name: str, description: str | None = None) -> dict[str, str | None] | None:
+        normalized = role_name.strip()
+        result = self._roles.update_one(
+            {"name": normalized},
+            {"$set": {"description": description.strip() if description else None, "updated_at": datetime.now(UTC)}},
+        )
+        if result.matched_count == 0:
+            return None
+        doc = self._roles.find_one({"name": normalized})
+        return {"name": normalized, "description": doc.get("description") if doc else None}
+
+    def delete_role(self, role_name: str) -> bool:
+        normalized = role_name.strip()
+        if normalized == "superuser":
+            raise ValueError("ROLE_PROTECTED")
+
+        result = self._roles.delete_one({"name": normalized})
+        if result.deleted_count == 0:
+            return False
+
+        self._users.update_many({}, {"$pull": {"roles": normalized}, "$set": {"updated_at": datetime.now(UTC)}})
+        return True
+
+    def role_exists(self, role_name: str) -> bool:
+        return any(role["name"] == role_name for role in self.list_roles())
+
+    def mark_email_verified(self, user_id: str) -> UserRecord | None:
+        user = self.get_user(user_id)
+        if user is None:
+            return None
+
+        next_status = "active" if user.status == "pending" else user.status
+        self._users.update_one(
+            {"id": user_id},
+            {
+                "$set": {
+                    "email_verified": True,
+                    "email_verified_at": datetime.now(UTC),
+                    "status": next_status,
+                    "updated_at": datetime.now(UTC),
+                }
+            },
+        )
+        return self.get_user(user_id)
+
+    def list_groups(self) -> list[GroupRecord]:
+        return [self._doc_to_group(doc) for doc in self._groups.find({}).sort("name", 1)]
 
     def create_group(self, owner_user_id: str, name: str, description: str | None = None) -> GroupRecord:
         group_id = str(uuid4())
@@ -326,3 +471,155 @@ class MongoAuthStore:
             {"$set": {"revoked_at": datetime.now(UTC)}},
         )
         return result.matched_count > 0
+
+    def create_invitation(
+        self,
+        invited_email: str,
+        invited_by_user_id: str,
+        group_ids: list[str],
+        settings: Settings,
+    ) -> tuple[str, InvitationRecord]:
+        token = generate_refresh_token()
+        token_hash = hash_refresh_token(token)
+        now = datetime.now(UTC)
+        invitation_id = str(uuid4())
+        doc = {
+            "id": invitation_id,
+            "token_hash": token_hash,
+            "invited_email": invited_email.strip(),
+            "invited_email_normalized": self.normalize_email(invited_email),
+            "invited_by_user_id": invited_by_user_id,
+            "group_ids": list(dict.fromkeys(group_ids)),
+            "created_at": now,
+            "expires_at": now + timedelta(seconds=settings.email_invitation_ttl_seconds),
+            "accepted_at": None,
+            "accepted_by_user_id": None,
+            "revoked_at": None,
+        }
+        self._invitations.insert_one(doc)
+        return token, InvitationRecord(
+            id=invitation_id,
+            token_hash=token_hash,
+            invited_email=doc["invited_email"],
+            invited_email_normalized=doc["invited_email_normalized"],
+            invited_by_user_id=doc["invited_by_user_id"],
+            group_ids=doc["group_ids"],
+            created_at=doc["created_at"],
+            expires_at=doc["expires_at"],
+        )
+
+    def get_invitation_by_token(self, token: str) -> InvitationRecord | None:
+        token_hash = hash_refresh_token(token)
+        now = datetime.now(UTC)
+        doc = self._invitations.find_one(
+            {
+                "token_hash": token_hash,
+                "accepted_at": None,
+                "revoked_at": None,
+                "expires_at": {"$gt": now},
+            }
+        )
+        if doc is None:
+            return None
+        return InvitationRecord(
+            id=doc["id"],
+            token_hash=doc["token_hash"],
+            invited_email=doc["invited_email"],
+            invited_email_normalized=doc["invited_email_normalized"],
+            invited_by_user_id=doc["invited_by_user_id"],
+            group_ids=doc.get("group_ids") or [],
+            created_at=doc.get("created_at") or now,
+            expires_at=doc.get("expires_at") or now,
+            accepted_at=doc.get("accepted_at"),
+            accepted_by_user_id=doc.get("accepted_by_user_id"),
+            revoked_at=doc.get("revoked_at"),
+        )
+
+    def get_outstanding_invitation_by_id(self, invitation_id: str) -> InvitationRecord | None:
+        now = datetime.now(UTC)
+        doc = self._invitations.find_one(
+            {
+                "id": invitation_id,
+                "accepted_at": None,
+                "revoked_at": None,
+                "expires_at": {"$gt": now},
+            }
+        )
+        if doc is None:
+            return None
+        return InvitationRecord(
+            id=doc["id"],
+            token_hash=doc["token_hash"],
+            invited_email=doc["invited_email"],
+            invited_email_normalized=doc["invited_email_normalized"],
+            invited_by_user_id=doc["invited_by_user_id"],
+            group_ids=doc.get("group_ids") or [],
+            created_at=doc.get("created_at") or now,
+            expires_at=doc.get("expires_at") or now,
+            accepted_at=doc.get("accepted_at"),
+            accepted_by_user_id=doc.get("accepted_by_user_id"),
+            revoked_at=doc.get("revoked_at"),
+        )
+
+    def revoke_invitation(self, invitation_id: str) -> bool:
+        result = self._invitations.update_one(
+            {
+                "id": invitation_id,
+                "accepted_at": None,
+                "revoked_at": None,
+                "expires_at": {"$gt": datetime.now(UTC)},
+            },
+            {"$set": {"revoked_at": datetime.now(UTC)}},
+        )
+        return result.modified_count > 0
+
+    def list_outstanding_invitations(self) -> list[InvitationRecord]:
+        now = datetime.now(UTC)
+        docs = list(
+            self._invitations.find(
+                {
+                    "accepted_at": None,
+                    "revoked_at": None,
+                    "expires_at": {"$gt": now},
+                }
+            ).sort("created_at", -1)
+        )
+        return [
+            InvitationRecord(
+                id=doc["id"],
+                token_hash=doc["token_hash"],
+                invited_email=doc["invited_email"],
+                invited_email_normalized=doc["invited_email_normalized"],
+                invited_by_user_id=doc["invited_by_user_id"],
+                group_ids=doc.get("group_ids") or [],
+                created_at=doc.get("created_at") or now,
+                expires_at=doc.get("expires_at") or now,
+                accepted_at=doc.get("accepted_at"),
+                accepted_by_user_id=doc.get("accepted_by_user_id"),
+                revoked_at=doc.get("revoked_at"),
+            )
+            for doc in docs
+        ]
+
+    def accept_invitation(self, token: str, user_id: str) -> InvitationRecord | None:
+        invitation = self.get_invitation_by_token(token)
+        if invitation is None:
+            return None
+
+        user = self.get_user(user_id)
+        if user is None:
+            return None
+
+        for group_id in invitation.group_ids:
+            if self.get_group(group_id) is None:
+                continue
+            self.add_group_member(group_id=group_id, user_id=user_id)
+
+        now = datetime.now(UTC)
+        self._invitations.update_one(
+            {"token_hash": invitation.token_hash, "accepted_at": None},
+            {"$set": {"accepted_at": now, "accepted_by_user_id": user_id}},
+        )
+        invitation.accepted_at = now
+        invitation.accepted_by_user_id = user_id
+        return invitation

@@ -1,4 +1,6 @@
 from app.main import app
+from urllib.parse import unquote
+import re
 
 
 def register_and_login(client, username: str, email: str, password: str = "Password123") -> tuple[dict, dict]:
@@ -12,6 +14,16 @@ def register_and_login(client, username: str, email: str, password: str = "Passw
         },
     )
     assert register.status_code == 200
+
+    mail_sender = app.state.mail_sender
+    assert hasattr(mail_sender, "outbox")
+    assert mail_sender.outbox
+    body = mail_sender.outbox[-1].text_body
+    match = re.search(r"token=([^\s]+)", body)
+    assert match is not None
+
+    verify = client.get("/api/v1/auth/verify-email", params={"token": unquote(match.group(1))})
+    assert verify.status_code == 200
 
     login = client.post(
         "/api/v1/auth/login",
@@ -71,6 +83,94 @@ def test_users_search_matches_display_name_username_and_email(client):
     )
     assert by_display_name.status_code == 200
     assert any(item["displayName"] == "Alphauser" for item in by_display_name.json()["items"])
+
+
+def test_profile_email_change_resets_verification_without_deactivating(client):
+    _, tokens = register_and_login(client, username="emailchange1", email="emailchange1@example.org")
+
+    before = client.get("/api/v1/users/me", headers=auth_headers(tokens["accessToken"]))
+    assert before.status_code == 200
+    assert before.json()["status"] == "active"
+    assert before.json()["emailVerified"] is True
+
+    updated = client.patch(
+        "/api/v1/users/me",
+        headers=auth_headers(tokens["accessToken"]),
+        json={"email": "new.emailchange1@example.org"},
+    )
+    assert updated.status_code == 200
+    assert updated.json()["status"] == "active"
+    assert updated.json()["email"] == "new.emailchange1@example.org"
+    assert updated.json()["emailVerified"] is False
+
+    login_new_email = client.post(
+        "/api/v1/auth/login",
+        json={"usernameOrEmail": "new.emailchange1@example.org", "password": "Password123"},
+    )
+    assert login_new_email.status_code == 200
+
+
+def test_resend_verification_email_for_unverified_address(client):
+    _, tokens = register_and_login(client, username="resend1", email="resend1@example.org")
+
+    changed = client.patch(
+        "/api/v1/users/me",
+        headers=auth_headers(tokens["accessToken"]),
+        json={"email": "resend1.new@example.org"},
+    )
+    assert changed.status_code == 200
+    assert changed.json()["emailVerified"] is False
+
+    mail_sender = app.state.mail_sender
+    assert hasattr(mail_sender, "outbox")
+    outbox_before = len(mail_sender.outbox)
+
+    resent = client.post(
+        "/api/v1/users/me/resend-verification",
+        headers=auth_headers(tokens["accessToken"]),
+    )
+    assert resent.status_code == 200
+    assert resent.json()["success"] is True
+    assert resent.json()["sent"] is True
+    assert len(mail_sender.outbox) == outbox_before + 1
+
+
+def test_resend_verification_email_noop_when_already_verified(client):
+    _, tokens = register_and_login(client, username="resend2", email="resend2@example.org")
+
+    resent = client.post(
+        "/api/v1/users/me/resend-verification",
+        headers=auth_headers(tokens["accessToken"]),
+    )
+    assert resent.status_code == 200
+    assert resent.json()["success"] is True
+    assert resent.json()["sent"] is False
+
+
+def test_users_basic_view_requires_auth_and_shows_name_and_organization(client):
+    register_payload, owner_tokens = register_and_login(client, username="viewerowner", email="viewerowner@example.org")
+    _, viewer_tokens = register_and_login(client, username="vieweruser", email="vieweruser@example.org")
+
+    updated = client.patch(
+        "/api/v1/users/me",
+        headers=auth_headers(owner_tokens["accessToken"]),
+        json={"displayName": "Owner Visible Name", "preferences": {"organization": "Acme Org", "theme": "dark"}},
+    )
+    assert updated.status_code == 200
+
+    unauthenticated = client.get(f"/api/v1/users/{register_payload['id']}")
+    assert unauthenticated.status_code == 401
+
+    visible = client.get(
+        f"/api/v1/users/{register_payload['id']}",
+        headers=auth_headers(viewer_tokens["accessToken"]),
+    )
+    assert visible.status_code == 200
+    assert visible.json() == {
+        "id": register_payload["id"],
+        "displayName": "Owner Visible Name",
+        "organization": "Acme Org",
+    }
 
 
 def test_group_owner_crud_flow(client):

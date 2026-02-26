@@ -1,12 +1,15 @@
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, EmailStr, Field
+import jwt
 
 from app.auth.dependencies import get_current_user, require_user_management_role
 from app.auth.external_providers import get_external_provider_adapter
 from app.auth.providers import get_enabled_providers
-from app.auth.security import generate_access_token
+from app.auth.security import decode_email_verification_token, generate_access_token
 from app.core.config import Settings, get_settings
 from app.core.errors import ApiError
+from app.notifications.email import MailDeliveryError
+from app.notifications.verification import send_email_verification
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 meta_router = APIRouter(prefix="/meta", tags=["meta"])
@@ -30,6 +33,10 @@ class RefreshRequest(BaseModel):
 
 class LogoutRequest(BaseModel):
     refreshToken: str = Field(min_length=1)
+
+
+class InvitationAcceptRequest(BaseModel):
+    token: str = Field(min_length=1)
 
 
 def _issue_auth_tokens(user, settings: Settings, auth_store):
@@ -58,7 +65,10 @@ def auth_providers(settings: Settings = Depends(get_settings)) -> dict:
 
 
 @router.post("/register")
-def register(payload: RegisterRequest, request: Request):
+def register(payload: RegisterRequest, request: Request, settings: Settings = Depends(get_settings)):
+    if not settings.local_registration_enabled:
+        raise ApiError(status_code=403, code="REGISTRATION_DISABLED", message="Local registration is disabled")
+
     auth_store = request.app.state.auth_store
 
     try:
@@ -76,10 +86,94 @@ def register(payload: RegisterRequest, request: Request):
             raise ApiError(status_code=409, code=code, message="Username already exists") from exc
         raise ApiError(status_code=400, code="REGISTRATION_FAILED", message="Registration failed") from exc
 
-    return {
+    if not settings.email_verification_required_for_login:
+        activated = auth_store.admin_update_user(user_id=user.id, status="active")
+        if activated is not None:
+            user = activated
+
+    try:
+        send_email_verification(
+            mail_sender=request.app.state.mail_sender,
+            settings=settings,
+            user_id=user.id,
+            email=user.email,
+            display_name=user.display_name,
+        )
+    except MailDeliveryError as exc:
+        raise ApiError(status_code=500, code="EMAIL_DELIVERY_FAILED", message="Unable to send verification email") from exc
+
+    response = {
         "id": user.id,
         "email": user.email,
         "status": user.status,
+        "emailVerified": user.email_verified,
+    }
+    if not settings.email_verification_required_for_login:
+        response.update(_issue_auth_tokens(user=user, settings=settings, auth_store=auth_store))
+    return response
+
+
+@router.get("/verify-email")
+def verify_email(token: str, request: Request, settings: Settings = Depends(get_settings)) -> dict:
+    try:
+        payload = decode_email_verification_token(token, settings)
+    except jwt.ExpiredSignatureError as exc:
+        raise ApiError(status_code=400, code="VERIFICATION_TOKEN_EXPIRED", message="Verification token has expired") from exc
+    except jwt.InvalidTokenError as exc:
+        raise ApiError(status_code=400, code="VERIFICATION_TOKEN_INVALID", message="Verification token is invalid") from exc
+
+    if payload.get("type") != "email_verification":
+        raise ApiError(status_code=400, code="VERIFICATION_TOKEN_INVALID", message="Verification token is invalid")
+
+    user_id = payload.get("sub")
+    email = payload.get("email")
+    if not user_id or not email:
+        raise ApiError(status_code=400, code="VERIFICATION_TOKEN_INVALID", message="Verification token is invalid")
+
+    auth_store = request.app.state.auth_store
+    user = auth_store.get_user(user_id)
+    if user is None:
+        raise ApiError(status_code=404, code="USER_NOT_FOUND", message="User not found")
+    if auth_store.normalize_email(email) != user.email_normalized:
+        raise ApiError(status_code=400, code="VERIFICATION_TOKEN_INVALID", message="Verification token is invalid")
+
+    updated = auth_store.mark_email_verified(user_id)
+    if updated is None:
+        raise ApiError(status_code=404, code="USER_NOT_FOUND", message="User not found")
+
+    return {
+        "success": True,
+        "status": updated.status,
+        "emailVerified": updated.email_verified,
+    }
+
+
+@router.get("/invitations/{token}")
+def get_invitation(token: str, request: Request) -> dict:
+    auth_store = request.app.state.auth_store
+    invitation = auth_store.get_invitation_by_token(token)
+    if invitation is None:
+        raise ApiError(status_code=404, code="INVITATION_NOT_FOUND", message="Invitation not found or expired")
+
+    return {
+        "valid": True,
+        "invitedEmail": invitation.invited_email,
+        "groupIds": invitation.group_ids,
+        "expiresAt": invitation.expires_at.isoformat(),
+    }
+
+
+@router.post("/invitations/accept")
+def accept_invitation(payload: InvitationAcceptRequest, request: Request, current_user=Depends(get_current_user)) -> dict:
+    auth_store = request.app.state.auth_store
+    accepted = auth_store.accept_invitation(payload.token, current_user.id)
+    if accepted is None:
+        raise ApiError(status_code=404, code="INVITATION_NOT_FOUND", message="Invitation not found or expired")
+
+    return {
+        "success": True,
+        "groupIds": accepted.group_ids,
+        "acceptedByUserId": current_user.id,
     }
 
 
@@ -147,6 +241,7 @@ def me(current_user=Depends(get_current_user)) -> dict:
         "displayName": current_user.display_name,
         "roles": current_user.roles,
         "status": current_user.status,
+        "emailVerified": current_user.email_verified,
     }
 
 

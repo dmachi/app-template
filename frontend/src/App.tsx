@@ -3,50 +3,118 @@ import { FormEvent, useEffect, useState } from "react";
 import { AuthMenu } from "./components/shared/auth-menu";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
+import { AdminGroupsPage } from "./pages/admin-groups-page";
+import { AdminInvitationsPage } from "./pages/admin-invitations-page";
+import { AdminRolesPage } from "./pages/admin-roles-page";
+import { AdminUserDetailPage } from "./pages/admin-user-detail-page";
+import { AdminUsersPage } from "./pages/admin-users-page";
+import { AcceptInvitePage } from "./pages/accept-invite-page";
 import { GroupDetailPage } from "./pages/group-detail-page";
 import { GroupsPage } from "./pages/groups-page";
 import { ProfilePage } from "./pages/profile-page";
 import { SecurityPage } from "./pages/security-page";
 import { ThemePage } from "./pages/theme-page";
-import { getAuthProviders, getMyProfile, login, logout, refreshSession, register, startRedirectProvider, type AuthProviderMeta } from "./lib/api";
+import { VerifyEmailPage } from "./pages/verify-email-page";
+import {
+  canAccessUserManagement,
+  acceptInvitation,
+  getAuthProviders,
+  getMyProfile,
+  login,
+  logout,
+  refreshSession,
+  register,
+  startRedirectProvider,
+  type AuthProviderMeta,
+} from "./lib/api";
 
-type View = "home" | "login" | "register" | "profile" | "security" | "groups" | "group-detail" | "theme";
+type View =
+  | "home"
+  | "login"
+  | "register"
+  | "accept-invite"
+  | "verify-email"
+  | "profile"
+  | "security"
+  | "groups"
+  | "group-detail"
+  | "theme"
+  | "admin-invitations"
+  | "admin-users"
+  | "admin-user-detail"
+  | "admin-roles"
+  | "admin-groups";
 type ThemeOption = "light" | "dark" | "system";
 const REFRESH_TOKEN_STORAGE_KEY = "bst.refreshToken";
+const INVITE_TOKEN_STORAGE_KEY = "bst.pendingInviteToken";
 
-function parseSettingsRoute(pathname: string): { view: View; groupId: string | null } {
+function normalizePathname(pathname: string): string {
+  if (pathname !== "/" && pathname.endsWith("/")) {
+    return pathname.slice(0, -1);
+  }
+  return pathname;
+}
+
+function parseSettingsRoute(pathname: string): { view: View; groupId: string | null; adminUserId: string | null } {
+  pathname = normalizePathname(pathname);
+
   if (pathname === "/") {
-    return { view: "home", groupId: null };
+    return { view: "home", groupId: null, adminUserId: null };
   }
   if (pathname === "/settings") {
-    return { view: "profile", groupId: null };
+    return { view: "profile", groupId: null, adminUserId: null };
   }
   if (pathname === "/login") {
-    return { view: "login", groupId: null };
+    return { view: "login", groupId: null, adminUserId: null };
   }
   if (pathname === "/register") {
-    return { view: "register", groupId: null };
+    return { view: "register", groupId: null, adminUserId: null };
+  }
+  if (pathname === "/verify-email") {
+    return { view: "verify-email", groupId: null, adminUserId: null };
+  }
+  if (pathname === "/accept-invite") {
+    return { view: "accept-invite", groupId: null, adminUserId: null };
   }
   if (pathname === "/settings/profile") {
-    return { view: "profile", groupId: null };
+    return { view: "profile", groupId: null, adminUserId: null };
   }
   if (pathname === "/settings/security") {
-    return { view: "security", groupId: null };
+    return { view: "security", groupId: null, adminUserId: null };
   }
   if (pathname === "/settings/groups") {
-    return { view: "groups", groupId: null };
+    return { view: "groups", groupId: null, adminUserId: null };
   }
   if (pathname === "/settings/theme") {
-    return { view: "theme", groupId: null };
+    return { view: "theme", groupId: null, adminUserId: null };
+  }
+  if (pathname === "/admin") {
+    return { view: "admin-users", groupId: null, adminUserId: null };
+  }
+  if (pathname === "/invitations") {
+    return { view: "admin-invitations", groupId: null, adminUserId: null };
+  }
+  if (pathname === "/admin/users") {
+    return { view: "admin-users", groupId: null, adminUserId: null };
+  }
+  if (pathname === "/admin/roles") {
+    return { view: "admin-roles", groupId: null, adminUserId: null };
+  }
+  if (pathname === "/admin/groups") {
+    return { view: "admin-groups", groupId: null, adminUserId: null };
+  }
+  const adminUserMatch = pathname.match(/^\/admin\/users\/([^/]+)$/);
+  if (adminUserMatch) {
+    return { view: "admin-user-detail", groupId: null, adminUserId: adminUserMatch[1] };
   }
   const groupMatch = pathname.match(/^\/settings\/group\/([^/]+)$/);
   if (groupMatch) {
-    return { view: "group-detail", groupId: groupMatch[1] };
+    return { view: "group-detail", groupId: groupMatch[1], adminUserId: null };
   }
-  return { view: "home", groupId: null };
+  return { view: "home", groupId: null, adminUserId: null };
 }
 
-function buildSettingsPath(view: View, groupId: string | null): string {
+function buildSettingsPath(view: View, groupId: string | null, adminUserId: string | null): string {
   if (view === "home") {
     return "/";
   }
@@ -59,6 +127,12 @@ function buildSettingsPath(view: View, groupId: string | null): string {
   if (view === "register") {
     return "/register";
   }
+  if (view === "verify-email") {
+    return "/verify-email";
+  }
+  if (view === "accept-invite") {
+    return "/accept-invite";
+  }
   if (view === "groups") {
     return "/settings/groups";
   }
@@ -67,6 +141,21 @@ function buildSettingsPath(view: View, groupId: string | null): string {
   }
   if (view === "theme") {
     return "/settings/theme";
+  }
+  if (view === "admin-users") {
+    return "/admin/users";
+  }
+  if (view === "admin-invitations") {
+    return "/invitations";
+  }
+  if (view === "admin-user-detail" && adminUserId) {
+    return `/admin/users/${adminUserId}`;
+  }
+  if (view === "admin-roles") {
+    return "/admin/roles";
+  }
+  if (view === "admin-groups") {
+    return "/admin/groups";
   }
   if (view === "group-detail" && groupId) {
     return `/settings/group/${groupId}`;
@@ -83,7 +172,15 @@ export function App() {
   const [view, setView] = useState<View>("home");
   const [currentUsername, setCurrentUsername] = useState<string>("User");
   const [theme, setTheme] = useState<ThemeOption>("system");
+  const [canAccessAdmin, setCanAccessAdmin] = useState<boolean | null>(null);
+  const [adminAccessChecked, setAdminAccessChecked] = useState(false);
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
+  const [selectedAdminUserId, setSelectedAdminUserId] = useState<string | null>(null);
+  const [emailVerificationToken, setEmailVerificationToken] = useState<string | null>(null);
+  const [invitationToken, setInvitationToken] = useState<string | null>(null);
+  const [pendingInvitationToken, setPendingInvitationToken] = useState<string | null>(null);
+  const [acceptingInvitation, setAcceptingInvitation] = useState(false);
+  const [invitationAcceptanceMessage, setInvitationAcceptanceMessage] = useState<string | null>(null);
   const [authProviders, setAuthProviders] = useState<AuthProviderMeta[]>([]);
   const [registrationEnabled, setRegistrationEnabled] = useState(true);
   const [authMetaLoaded, setAuthMetaLoaded] = useState(false);
@@ -143,12 +240,58 @@ export function App() {
 
   useEffect(() => {
     const syncFromLocation = () => {
-      if (window.location.pathname === "/settings") {
+      console.debug("[route-debug] syncFromLocation:start", {
+        pathname: window.location.pathname,
+        restoringSession,
+        accessTokenPresent: Boolean(accessToken),
+      });
+
+      const normalizedPath = normalizePathname(window.location.pathname);
+      if (normalizedPath !== window.location.pathname) {
+        console.debug("[route-debug] normalizePathname", {
+          from: window.location.pathname,
+          to: normalizedPath,
+        });
+        window.history.replaceState({}, "", normalizedPath);
+      }
+
+      if (normalizedPath === "/settings") {
+        console.debug("[route-debug] canonical redirect", { from: "/settings", to: "/settings/profile" });
         window.history.replaceState({}, "", "/settings/profile");
       }
-      const { view: nextView, groupId } = parseSettingsRoute(window.location.pathname);
+      if (normalizedPath === "/admin") {
+        console.debug("[route-debug] canonical redirect", { from: "/admin", to: "/admin/users" });
+        window.history.replaceState({}, "", "/admin/users");
+      }
+      const { view: nextView, groupId, adminUserId } = parseSettingsRoute(window.location.pathname);
+      const params = new URLSearchParams(window.location.search);
+      const token = params.get("token");
+      const inviteToken = params.get("inviteToken");
+      const storedPendingInviteToken = window.localStorage.getItem(INVITE_TOKEN_STORAGE_KEY);
+      console.debug("[route-debug] syncFromLocation:parsed", {
+        pathname: window.location.pathname,
+        nextView,
+        groupId,
+        adminUserId,
+        tokenPresent: Boolean(token),
+        inviteTokenPresent: Boolean(inviteToken),
+        storedPendingInviteTokenPresent: Boolean(storedPendingInviteToken),
+      });
       setView(nextView);
       setSelectedGroupId(groupId);
+      setSelectedAdminUserId(adminUserId);
+      setEmailVerificationToken(nextView === "verify-email" ? token : null);
+      setInvitationToken(nextView === "accept-invite" ? token : null);
+
+      if (nextView === "accept-invite" && token) {
+        setPendingInvitationToken(token);
+        window.localStorage.setItem(INVITE_TOKEN_STORAGE_KEY, token);
+      } else if (inviteToken) {
+        setPendingInvitationToken(inviteToken);
+        window.localStorage.setItem(INVITE_TOKEN_STORAGE_KEY, inviteToken);
+      } else if (storedPendingInviteToken) {
+        setPendingInvitationToken(storedPendingInviteToken);
+      }
     };
 
     syncFromLocation();
@@ -175,8 +318,13 @@ export function App() {
   useEffect(() => {
     if (!accessToken) {
       setCurrentUsername("User");
+      setCanAccessAdmin(false);
+      setAdminAccessChecked(false);
       return;
     }
+
+    setCanAccessAdmin(null);
+    setAdminAccessChecked(false);
 
     getMyProfile(accessToken)
       .then((profile) => {
@@ -187,6 +335,16 @@ export function App() {
       .catch(() => {
         setCurrentUsername("User");
         setTheme("system");
+      });
+
+    canAccessUserManagement(accessToken)
+      .then((isAllowed) => {
+        setCanAccessAdmin(isAllowed);
+        setAdminAccessChecked(true);
+      })
+      .catch(() => {
+        setCanAccessAdmin(false);
+        setAdminAccessChecked(true);
       });
   }, [accessToken]);
 
@@ -208,12 +366,22 @@ export function App() {
     event.preventDefault();
     setError(null);
     try {
-      await register(registerUsername, registerEmail, registerPassword, registerDisplayName || undefined);
+      const response = await register(registerUsername, registerEmail, registerPassword, registerDisplayName || undefined);
+      setRegisterPassword("");
+
+      if (response.accessToken && response.refreshToken) {
+        setAccessToken(response.accessToken);
+        setRefreshToken(response.refreshToken);
+        window.localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, response.refreshToken);
+        navigateSettings("home");
+        setError("Registration successful. You are signed in. Please verify your email from the link we sent.");
+        return;
+      }
+
       navigateSettings("login");
       setUsernameOrEmail(registerUsername || registerEmail);
       setPassword("");
-      setRegisterPassword("");
-      setError("Registration successful. Please login.");
+      setError("Registration successful. Check your email for a verification link before logging in.");
     } catch (registerError) {
       setError(registerError instanceof Error ? registerError.message : "Unable to register");
     }
@@ -222,6 +390,9 @@ export function App() {
   async function handleProviderStart(providerId: string) {
     setError(null);
     try {
+      if (pendingInvitationToken) {
+        window.localStorage.setItem(INVITE_TOKEN_STORAGE_KEY, pendingInvitationToken);
+      }
       const result = await startRedirectProvider(providerId);
       if (result.redirectUrl) {
         window.location.href = result.redirectUrl;
@@ -248,12 +419,34 @@ export function App() {
       setPassword("");
       setView("home");
       setSelectedGroupId(null);
+      setSelectedAdminUserId(null);
+      setEmailVerificationToken(null);
+      setInvitationToken(null);
+      setPendingInvitationToken(null);
+      setAcceptingInvitation(false);
+      setInvitationAcceptanceMessage(null);
+      window.localStorage.removeItem(INVITE_TOKEN_STORAGE_KEY);
       window.history.replaceState({}, "", "/");
     }
   }
 
-  function navigateSettings(nextView: View, groupId: string | null = null, replace = false) {
-    const path = buildSettingsPath(nextView, groupId);
+  function navigateToAuthWithInvite(nextView: "login" | "register") {
+    const path = buildSettingsPath(nextView, null, null);
+    const params = new URLSearchParams();
+    if (pendingInvitationToken) {
+      params.set("inviteToken", pendingInvitationToken);
+    }
+    const target = params.toString() ? `${path}?${params.toString()}` : path;
+    window.history.pushState({}, "", target);
+    setView(nextView);
+    setSelectedGroupId(null);
+    setSelectedAdminUserId(null);
+    setEmailVerificationToken(null);
+    setInvitationToken(null);
+  }
+
+  function navigateSettings(nextView: View, groupId: string | null = null, replace = false, adminUserId: string | null = null) {
+    const path = buildSettingsPath(nextView, groupId, adminUserId);
     if (replace) {
       window.history.replaceState({}, "", path);
     } else {
@@ -261,54 +454,169 @@ export function App() {
     }
     setView(nextView);
     setSelectedGroupId(groupId);
+    setSelectedAdminUserId(adminUserId);
+    setEmailVerificationToken(null);
   }
 
   useEffect(() => {
-    if (!accessToken) {
+    if (!accessToken || !pendingInvitationToken || acceptingInvitation) {
       return;
     }
 
-    const parsed = parseSettingsRoute(window.location.pathname);
+    setAcceptingInvitation(true);
+    setInvitationAcceptanceMessage("Accepting invitation...");
+
+    acceptInvitation(accessToken, pendingInvitationToken)
+      .then(() => {
+        setInvitationAcceptanceMessage("Invitation accepted. Group membership has been updated.");
+        setPendingInvitationToken(null);
+        setInvitationToken(null);
+        window.localStorage.removeItem(INVITE_TOKEN_STORAGE_KEY);
+        if (view === "accept-invite") {
+          navigateSettings("home", null, true);
+        }
+      })
+      .catch((inviteError) => {
+        setInvitationAcceptanceMessage(inviteError instanceof Error ? inviteError.message : "Unable to accept invitation");
+      })
+      .finally(() => setAcceptingInvitation(false));
+  }, [accessToken, pendingInvitationToken, acceptingInvitation, view]);
+
+  useEffect(() => {
+    console.debug("[route-debug] auth-guard:enter", {
+      restoringSession,
+      accessTokenPresent: Boolean(accessToken),
+      canAccessAdmin,
+      adminAccessChecked,
+      pathname: window.location.pathname,
+    });
+
+    if (restoringSession) {
+      console.debug("[route-debug] auth-guard:skip restoringSession");
+      return;
+    }
+
+    if (!accessToken) {
+      console.debug("[route-debug] auth-guard:skip no-access-token");
+      return;
+    }
+
+    const normalizedPath = normalizePathname(window.location.pathname);
+    const parsed = parseSettingsRoute(normalizedPath);
     const validPath =
-      window.location.pathname === "/" ||
-      window.location.pathname === "/settings" ||
-      window.location.pathname === "/login" ||
-      window.location.pathname === "/register" ||
-      window.location.pathname === "/settings/profile" ||
-      window.location.pathname === "/settings/security" ||
-      window.location.pathname === "/settings/groups" ||
-      window.location.pathname === "/settings/theme" ||
-      /^\/settings\/group\/[^/]+$/.test(window.location.pathname);
+      normalizedPath === "/" ||
+      normalizedPath === "/settings" ||
+      normalizedPath === "/login" ||
+      normalizedPath === "/register" ||
+      normalizedPath === "/verify-email" ||
+      normalizedPath === "/accept-invite" ||
+      normalizedPath === "/settings/profile" ||
+      normalizedPath === "/settings/security" ||
+      normalizedPath === "/settings/groups" ||
+      normalizedPath === "/settings/theme" ||
+      normalizedPath === "/admin" ||
+      normalizedPath === "/invitations" ||
+      normalizedPath === "/admin/users" ||
+      normalizedPath === "/admin/roles" ||
+      normalizedPath === "/admin/groups" ||
+      /^\/admin\/users\/[^/]+$/.test(normalizedPath) ||
+      /^\/settings\/group\/[^/]+$/.test(normalizedPath);
 
     if (!validPath) {
+      console.debug("[route-debug] auth-guard:redirect invalid-path", {
+        pathname: normalizedPath,
+        target: "/",
+      });
       navigateSettings("home", null, true);
       return;
     }
 
     if (parsed.view === "group-detail" && !parsed.groupId) {
+      console.debug("[route-debug] auth-guard:redirect invalid-group-detail", {
+        pathname: normalizedPath,
+        target: "/settings/groups",
+      });
       navigateSettings("groups", null, true);
       return;
     }
 
     if (parsed.view === "login" || parsed.view === "register") {
+      console.debug("[route-debug] auth-guard:redirect auth-page-while-authenticated", {
+        pathname: normalizedPath,
+        target: "/",
+      });
       navigateSettings("home", null, true);
-    }
-  }, [accessToken]);
-
-  useEffect(() => {
-    if (accessToken) {
       return;
     }
 
+    if (parsed.view === "verify-email") {
+      return;
+    }
+
+    if (parsed.view === "accept-invite") {
+      return;
+    }
+
+    if (parsed.view === "admin-users" || parsed.view === "admin-invitations" || parsed.view === "admin-user-detail" || parsed.view === "admin-roles" || parsed.view === "admin-groups") {
+      if (!adminAccessChecked) {
+        console.debug("[route-debug] auth-guard:wait admin-access-check", {
+          pathname: normalizedPath,
+        });
+        return;
+      }
+      if (!canAccessAdmin) {
+        console.debug("[route-debug] auth-guard:redirect admin-denied", {
+          pathname: normalizedPath,
+          target: "/",
+        });
+        navigateSettings("home", null, true);
+      }
+      console.debug("[route-debug] auth-guard:admin-route-resolved", {
+        pathname: normalizedPath,
+        canAccessAdmin,
+      });
+      return;
+    }
+
+    console.debug("[route-debug] auth-guard:allow", {
+      pathname: normalizedPath,
+      view: parsed.view,
+    });
+  }, [accessToken, canAccessAdmin, adminAccessChecked, restoringSession]);
+
+  useEffect(() => {
+    console.debug("[route-debug] public-guard:enter", {
+      restoringSession,
+      accessTokenPresent: Boolean(accessToken),
+      pathname: window.location.pathname,
+    });
+
+    if (restoringSession) {
+      console.debug("[route-debug] public-guard:skip restoringSession");
+      return;
+    }
+
+    if (accessToken) {
+      console.debug("[route-debug] public-guard:skip authenticated");
+      return;
+    }
+
+    const normalizedPath = normalizePathname(window.location.pathname);
     const validPath =
-      window.location.pathname === "/" ||
-      window.location.pathname === "/login" ||
-      window.location.pathname === "/register";
+      normalizedPath === "/" ||
+      normalizedPath === "/login" ||
+      normalizedPath === "/register" ||
+      normalizedPath === "/verify-email" ||
+      normalizedPath === "/accept-invite";
 
     if (!validPath) {
+      console.debug("[route-debug] public-guard:redirect invalid-public-path", {
+        pathname: normalizedPath,
+        target: "/",
+      });
       navigateSettings("home", null, true);
     }
-  }, [accessToken]);
+  }, [accessToken, restoringSession]);
 
   if (restoringSession) {
     return (
@@ -365,9 +673,9 @@ export function App() {
             </section>
           ) : null}
 
-          {(view === "login" || view === "register") ? (
+          {(view === "login" || view === "register" || view === "verify-email" || view === "accept-invite") ? (
             <div className="grid w-full max-w-xl gap-3">
-              <h2 className="text-xl font-medium">{view === "login" ? "Login" : "Register"}</h2>
+              <h2 className="text-xl font-medium">{view === "login" ? "Login" : view === "register" ? "Register" : view === "verify-email" ? "Verify Email" : "Accept Invitation"}</h2>
 
               {!authMetaLoaded ? <p className="text-sm">Loading auth options...</p> : null}
 
@@ -427,6 +735,30 @@ export function App() {
                 <p className="text-sm">No authentication providers are enabled.</p>
               ) : null}
 
+              {view === "verify-email" ? (
+                <VerifyEmailPage
+                  token={emailVerificationToken}
+                  isAuthenticated={false}
+                  onGoHome={() => navigateSettings("home")}
+                  onGoLogin={() => navigateSettings("login")}
+                />
+              ) : null}
+
+              {view === "accept-invite" ? (
+                <AcceptInvitePage
+                  token={invitationToken}
+                  registrationEnabled={registrationEnabled}
+                  authProviders={authProviders}
+                  isAuthenticated={false}
+                  acceptanceMessage={invitationAcceptanceMessage}
+                  accepting={acceptingInvitation}
+                  onLogin={() => navigateToAuthWithInvite("login")}
+                  onRegister={() => navigateToAuthWithInvite("register")}
+                  onProviderStart={handleProviderStart}
+                  onGoHome={() => navigateSettings("home")}
+                />
+              ) : null}
+
               {error ? <p className="text-sm text-red-600 dark:text-red-400">{error}</p> : null}
             </div>
           ) : null}
@@ -451,6 +783,7 @@ export function App() {
             onRegister={() => {}}
             onSettings={() => navigateSettings("profile", null, window.location.pathname === "/settings/profile")}
             onLogout={handleLogout}
+            extraMenuItems={canAccessAdmin ? [{ label: "Admin", onSelect: () => navigateSettings("admin-users") }] : []}
           />
         </div>
       </header>
@@ -475,36 +808,71 @@ export function App() {
         <main className="w-full px-6 py-6">
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-[220px_minmax(0,1fr)]">
             <aside className="rounded-md border border-slate-200 p-3 dark:border-slate-800">
-              <nav className="grid gap-2">
-                <Button
-                  type="button"
-                  className={view === "profile" ? "bg-slate-100 dark:bg-slate-800" : ""}
-                  onClick={() => navigateSettings("profile")}
-                >
-                  Profile
-                </Button>
-                <Button
-                  type="button"
-                  className={view === "security" ? "bg-slate-100 dark:bg-slate-800" : ""}
-                  onClick={() => navigateSettings("security")}
-                >
-                  Security
-                </Button>
-                <Button
-                  type="button"
-                  className={view === "groups" || view === "group-detail" ? "bg-slate-100 dark:bg-slate-800" : ""}
-                  onClick={() => navigateSettings("groups")}
-                >
-                  Groups - Group Management
-                </Button>
-                <Button
-                  type="button"
-                  className={view === "theme" ? "bg-slate-100 dark:bg-slate-800" : ""}
-                  onClick={() => navigateSettings("theme")}
-                >
-                  Theme
-                </Button>
-              </nav>
+              {view === "profile" || view === "security" || view === "groups" || view === "group-detail" || view === "theme" ? (
+                <nav className="grid gap-2">
+                  <Button
+                    type="button"
+                    className={view === "profile" ? "bg-slate-100 dark:bg-slate-800" : ""}
+                    onClick={() => navigateSettings("profile")}
+                  >
+                    Profile
+                  </Button>
+                  <Button
+                    type="button"
+                    className={view === "security" ? "bg-slate-100 dark:bg-slate-800" : ""}
+                    onClick={() => navigateSettings("security")}
+                  >
+                    Security
+                  </Button>
+                  <Button
+                    type="button"
+                    className={view === "groups" || view === "group-detail" ? "bg-slate-100 dark:bg-slate-800" : ""}
+                    onClick={() => navigateSettings("groups")}
+                  >
+                    Groups - Group Management
+                  </Button>
+                  <Button
+                    type="button"
+                    className={view === "theme" ? "bg-slate-100 dark:bg-slate-800" : ""}
+                    onClick={() => navigateSettings("theme")}
+                  >
+                    Theme
+                  </Button>
+                </nav>
+              ) : null}
+
+              {view === "admin-users" || view === "admin-invitations" || view === "admin-user-detail" || view === "admin-roles" || view === "admin-groups" ? (
+                <nav className="grid gap-2">
+                  <Button
+                    type="button"
+                    className={view === "admin-users" || view === "admin-user-detail" ? "bg-slate-100 dark:bg-slate-800" : ""}
+                    onClick={() => navigateSettings("admin-users")}
+                  >
+                    Users
+                  </Button>
+                  <Button
+                    type="button"
+                    className={view === "admin-invitations" ? "bg-slate-100 dark:bg-slate-800" : ""}
+                    onClick={() => navigateSettings("admin-invitations")}
+                  >
+                    Invitations
+                  </Button>
+                  <Button
+                    type="button"
+                    className={view === "admin-roles" ? "bg-slate-100 dark:bg-slate-800" : ""}
+                    onClick={() => navigateSettings("admin-roles")}
+                  >
+                    Roles
+                  </Button>
+                  <Button
+                    type="button"
+                    className={view === "admin-groups" ? "bg-slate-100 dark:bg-slate-800" : ""}
+                    onClick={() => navigateSettings("admin-groups")}
+                  >
+                    All Groups
+                  </Button>
+                </nav>
+              ) : null}
             </aside>
 
             <section>
@@ -526,6 +894,45 @@ export function App() {
                 />
               ) : null}
               {view === "theme" ? <ThemePage accessToken={accessToken} theme={theme} onThemeChange={setTheme} /> : null}
+              {view === "verify-email" ? (
+                <VerifyEmailPage
+                  token={emailVerificationToken}
+                  isAuthenticated={true}
+                  onGoHome={() => navigateSettings("home")}
+                  onGoLogin={() => navigateSettings("login")}
+                />
+              ) : null}
+              {view === "accept-invite" ? (
+                <AcceptInvitePage
+                  token={invitationToken}
+                  registrationEnabled={registrationEnabled}
+                  authProviders={authProviders}
+                  isAuthenticated={true}
+                  acceptanceMessage={invitationAcceptanceMessage}
+                  accepting={acceptingInvitation}
+                  onLogin={() => navigateSettings("login")}
+                  onRegister={() => navigateSettings("register")}
+                  onProviderStart={handleProviderStart}
+                  onGoHome={() => navigateSettings("home")}
+                />
+              ) : null}
+              {view === "admin-users" ? (
+                <AdminUsersPage
+                  accessToken={accessToken}
+                  onOpenUser={(userId) => navigateSettings("admin-user-detail", null, false, userId)}
+                  onOpenInvitations={() => navigateSettings("admin-invitations")}
+                />
+              ) : null}
+              {view === "admin-invitations" ? <AdminInvitationsPage accessToken={accessToken} /> : null}
+              {view === "admin-user-detail" && selectedAdminUserId ? (
+                <AdminUserDetailPage
+                  accessToken={accessToken}
+                  userId={selectedAdminUserId}
+                  onBack={() => navigateSettings("admin-users")}
+                />
+              ) : null}
+              {view === "admin-roles" ? <AdminRolesPage accessToken={accessToken} /> : null}
+              {view === "admin-groups" ? <AdminGroupsPage accessToken={accessToken} /> : null}
             </section>
           </div>
         </main>
