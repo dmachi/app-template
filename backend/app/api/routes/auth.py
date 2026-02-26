@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, EmailStr, Field
 
 from app.auth.dependencies import get_current_user, require_user_management_role
+from app.auth.external_providers import get_external_provider_adapter
 from app.auth.providers import get_enabled_providers
 from app.auth.security import generate_access_token
 from app.core.config import Settings, get_settings
@@ -112,6 +113,27 @@ def logout(payload: LogoutRequest, request: Request) -> dict:
     if not revoked:
         raise ApiError(status_code=401, code="TOKEN_INVALID", message="Refresh token is invalid")
     return {"success": True}
+
+
+@router.get("/{provider}/start")
+def auth_provider_start(provider: str, request: Request, settings: Settings = Depends(get_settings)) -> dict:
+    adapter = get_external_provider_adapter(provider, settings)
+    result = adapter.initiate_auth(request, settings)
+    return {
+        "provider": result.provider,
+        "mode": result.mode,
+        "redirectUrl": result.redirect_url,
+    }
+
+
+@router.get("/{provider}/callback")
+def auth_provider_callback(provider: str, request: Request, settings: Settings = Depends(get_settings)) -> dict:
+    adapter = get_external_provider_adapter(provider, settings)
+    result = adapter.handle_callback(request, settings)
+    return {
+        "provider": result.provider,
+        "status": result.status,
+    }
 
 
 @router.get("/me")

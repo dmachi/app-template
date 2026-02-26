@@ -54,6 +54,12 @@ Deliverables:
 - Identity normalization and account linking
 - Login UI provider selection integration
 
+Scaffold status (2026-02-26):
+- Backend routing scaffolding is implemented for `GET /auth/{provider}/start` and `GET /auth/{provider}/callback`.
+- Provider adapter scaffolding exists for `uva-netbadge`, with explicit placeholder responses (`501 PROVIDER_NOT_IMPLEMENTED`).
+- Provider enable/disable behavior is scaffolded and test-covered.
+- NetBadge protocol implementation, identity normalization/linking logic, and frontend login-selection integration are intentionally deferred.
+
 Exit criteria:
 - Auth works with enabled external provider in configured environment
 - Provider enable/disable works without code changes

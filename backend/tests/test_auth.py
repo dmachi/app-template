@@ -3,6 +3,7 @@ from datetime import UTC, datetime, timedelta
 import jwt
 
 from app.auth.security import DEV_ACCESS_SECRET
+from app.core.config import get_settings
 from app.main import app
 
 
@@ -188,3 +189,37 @@ def test_refresh_rotation_invalidates_previous_refresh_token(client):
     replay = client.post("/api/v1/auth/refresh", json={"refreshToken": tokens["refreshToken"]})
     assert replay.status_code == 401
     assert replay.json()["error"]["code"] == "TOKEN_INVALID"
+
+
+def test_external_provider_start_unknown_or_disabled_returns_404(client):
+    response = client.get("/api/v1/auth/unknown-provider/start")
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == "PROVIDER_DISABLED"
+
+
+def test_external_provider_start_local_returns_not_redirect(client):
+    response = client.get("/api/v1/auth/local/start")
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "PROVIDER_NOT_REDIRECT"
+
+
+def test_external_provider_netbadge_scaffold_not_implemented_start_and_callback(client):
+    start = client.get("/api/v1/auth/uva-netbadge/start")
+    assert start.status_code == 501
+    start_payload = start.json()
+    assert start_payload["error"]["code"] == "PROVIDER_NOT_IMPLEMENTED"
+
+    callback = client.get("/api/v1/auth/uva-netbadge/callback?state=abc&code=123")
+    assert callback.status_code == 501
+    callback_payload = callback.json()
+    assert callback_payload["error"]["code"] == "PROVIDER_NOT_IMPLEMENTED"
+
+
+def test_external_provider_respects_enabled_config(client):
+    app.dependency_overrides[get_settings] = lambda: get_settings().model_copy(update={"auth_providers_enabled": "local"})
+    try:
+        response = client.get("/api/v1/auth/uva-netbadge/start")
+        assert response.status_code == 404
+        assert response.json()["error"]["code"] == "PROVIDER_DISABLED"
+    finally:
+        app.dependency_overrides.pop(get_settings, None)
