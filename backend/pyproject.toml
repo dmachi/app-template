@@ -25,6 +25,9 @@ dev = [
   "mypy>=1.11.0"
 ]
 
+[project.scripts]
+seed-superuser = "app.cli.seed_superuser:main"
+
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["app*"]

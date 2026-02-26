@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     app_name: str = "Basic System Template"
     app_env: Literal["development", "test", "production"] = "development"
     api_prefix: str = "/api/v1"
+    cors_allow_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
 
     auth_mode: Literal["jwt"] = "jwt"
     jwt_access_token_secret: str | None = None
@@ -56,6 +57,10 @@ class Settings(BaseSettings):
     @property
     def user_management_role_list(self) -> list[str]:
         return [item.strip() for item in self.user_management_roles.split(",") if item.strip()]
+
+    @property
+    def cors_allow_origin_list(self) -> list[str]:
+        return [item.strip() for item in self.cors_allow_origins.split(",") if item.strip()]
 
     @property
     def resolved_database_url(self) -> str:

@@ -1,7 +1,14 @@
+import os
+
 import pytest
 from fastapi.testclient import TestClient
 
 from app.db.mongo import MongoDatabaseAdapter
+
+os.environ["APP_ENV"] = "test"
+os.environ.setdefault("JWT_ACCESS_TOKEN_SECRET", "test-access-secret-32-bytes-minimum")
+os.environ.setdefault("JWT_REFRESH_TOKEN_SECRET", "test-refresh-secret-32-bytes-minimum")
+
 from app.main import app
 
 

@@ -140,7 +140,7 @@ def test_auth_me_expired_token_returns_401(client):
             "iat": datetime.now(UTC) - timedelta(minutes=10),
             "exp": datetime.now(UTC) - timedelta(minutes=5),
         },
-        DEV_ACCESS_SECRET,
+        get_settings().jwt_access_token_secret or DEV_ACCESS_SECRET,
         algorithm="HS256",
     )
     response = client.get(

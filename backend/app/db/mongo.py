@@ -22,3 +22,8 @@ class MongoDatabaseAdapter:
         if self._client is not None:
             self._client.close()
             self._client = None
+
+    def get_collection(self, collection_name: str):
+        if self._client is None:
+            raise RuntimeError("Mongo client is not connected")
+        return self._client[self._database_name][collection_name]
