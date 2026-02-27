@@ -113,7 +113,20 @@ Exit criteria:
 - Connected users receive realtime notifications in-app
 - Multi-process deployments correctly route websocket events via Redis
 
-### Milestone 7 — Audit, Hardening, and Template Packaging
+### Milestone 7 — Template Extension Architecture and Downstream Update Safety
+Deliverables:
+- Introduce template extension boundaries so downstream apps extend without modifying template-owned files
+- Settings navigation/page registry for adding new settings menu items and pages via app extension modules
+- Profile property extension mechanism for adding app-specific user profile fields
+- Directory ownership conventions distinguishing template core from downstream extension code
+- Upstream sync guidance for pulling template updates while preserving downstream custom pages
+
+Exit criteria:
+- New settings pages can be added through extension registration without editing core shell routing/layout
+- Additional profile properties can be added through extension contracts without rewriting base profile implementation
+- Documented downstream update workflow allows pulling template changes with minimal conflicts in customized pages
+
+### Milestone 8 — Audit, Hardening, and Template Packaging
 Deliverables:
 - Audit events for auth/admin/group operations
 - Rate limiting, CSRF protections, and secure cookie defaults
@@ -142,7 +155,8 @@ Exit criteria:
 6. Group APIs and UI
 7. Admin APIs and UI
 8. Notifications/realtime APIs and UI
-9. Audit/observability and packaging
+9. Template extension architecture and registries
+10. Audit/observability and packaging
 
 ## 5) Testing Strategy (MVP)
 Detailed testing standards are defined in `testing.md`.

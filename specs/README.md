@@ -1,6 +1,6 @@
 # Basic System Template — Specifications
 
-_Last updated: 2026-02-26_
+_Last updated: 2026-02-27_
 
 ## Purpose
 This `specs/` package defines the baseline requirements for a reusable software system template that includes:
@@ -16,7 +16,7 @@ This `specs/` package defines the baseline requirements for a reusable software 
 - Administrative user management (list/edit users)
 - Administrative role management and role assignment to users
 - Group management where users create/manage their own groups and superusers can view/manage all groups
-- In-app notifications with realtime websocket delivery and offline fallback email
+- In-app notifications with realtime websocket delivery (offline fallback email is post-MVP)
 
 ## Document Map
 - `overview.md` — Product goals, architecture, scope, and assumptions
@@ -35,6 +35,10 @@ This `specs/` package defines the baseline requirements for a reusable software 
 
 ## Project Status
 These are draft baseline specs intended to be refined before implementation.
+
+Milestone sequencing note:
+- Milestone 7 is now dedicated to template extension architecture and downstream update safety.
+- Audit/hardening/template packaging work is Milestone 8.
 
 ## Suggested Next Refinement Steps
 1. Confirm non-Mongo database adapters needed for phase 1 vs phase 2
