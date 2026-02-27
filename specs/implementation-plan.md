@@ -101,20 +101,17 @@ Deliverables:
   - acknowledgement requirement
   - task/state-gated clearing semantics
   - navigation semantics for click target behavior
-  - delivery options metadata (in-app + optional fallback email)
+  - delivery options metadata (in-app)
 - Websocket event channel from frontend to backend for notifications and related realtime events
 - Redis-backed process bus for fanout across multi-process backend deployments
 - Delivery strategy:
   - in-app websocket first when recipient is actively connected
-  - fallback email after configurable offline threshold (default target: 3 minutes) for eligible notifications
-- Tests for notification lifecycle, websocket delivery, Redis fanout, and fallback email timing/eligibility
+- Tests for notification lifecycle, websocket delivery, and Redis fanout
 
 Exit criteria:
 - Notifications can be created and consumed via API and UI
 - Connected users receive realtime notifications in-app
 - Multi-process deployments correctly route websocket events via Redis
-- Eligible offline users receive fallback email after configured threshold
-- Task/state-gated notifications cannot be cleared until completion checks pass
 
 ### Milestone 7 — Audit, Hardening, and Template Packaging
 Deliverables:
@@ -130,6 +127,11 @@ Exit criteria:
 - Security controls verified in integration testing
 - Template is reusable with environment-only customization
 - Frontend browser tests pass for critical flows (login, token refresh handling, profile navigation)
+
+### Post-MVP Deferred Work
+- Email fallback scheduler (offline threshold detection + exponential retry)
+- Completion-check background scheduler (task-gate evaluation)
+- Notification open-endpoint redirect behavior
 
 ## 4) Recommended Build Order by Component
 1. Config + infrastructure
