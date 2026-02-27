@@ -352,6 +352,12 @@ def admin_list_groups(request: Request, _: UserRecord = Depends(require_admin_gr
     return {"items": [_serialize_group(group, request) for group in groups]}
 
 
+@router.get("/groups/assignable-roles")
+def admin_list_assignable_roles_for_groups(request: Request, _: UserRecord = Depends(require_admin_groups_role)) -> dict:
+    auth_store = request.app.state.auth_store
+    return {"items": [role for role in auth_store.list_roles() if role.get("name") != ROLE_SUPERUSER]}
+
+
 @router.patch("/groups/{group_id}")
 def admin_patch_group(
     group_id: str,
@@ -374,6 +380,8 @@ def admin_assign_group_roles(
     _: UserRecord = Depends(require_admin_groups_role),
 ) -> dict:
     auth_store = request.app.state.auth_store
+    if ROLE_SUPERUSER in payload.roles:
+        raise ApiError(status_code=400, code="ROLE_NOT_ASSIGNABLE", message="Superuser cannot be assigned to groups")
     unknown_roles = [role for role in payload.roles if not auth_store.role_exists(role)]
     if unknown_roles:
         raise ApiError(status_code=400, code="ROLE_NOT_FOUND", message=f"Unknown role(s): {', '.join(unknown_roles)}")

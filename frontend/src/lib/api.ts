@@ -417,6 +417,14 @@ export async function adminListGroups(accessToken: string): Promise<{ items: any
   );
 }
 
+export async function adminListAssignableGroupRoles(accessToken: string): Promise<{ items: AdminRoleItem[] }> {
+  return parseJson(
+    await fetch(`${API_BASE}/admin/groups/assignable-roles`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    }),
+  );
+}
+
 export async function adminPatchGroup(
   accessToken: string,
   groupId: string,
@@ -436,6 +444,16 @@ export async function adminDeleteGroup(accessToken: string, groupId: string): Pr
     await fetch(`${API_BASE}/admin/groups/${groupId}`, {
       method: "DELETE",
       headers: { Authorization: `Bearer ${accessToken}` },
+    }),
+  );
+}
+
+export async function adminAssignGroupRoles(accessToken: string, groupId: string, roles: string[]): Promise<any> {
+  return parseJson(
+    await fetch(`${API_BASE}/admin/groups/${groupId}/roles`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify({ roles }),
     }),
   );
 }

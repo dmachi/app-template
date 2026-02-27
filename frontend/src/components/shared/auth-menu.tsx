@@ -1,4 +1,5 @@
 import { Button } from "../ui/button";
+import { Avatar, AvatarFallback } from "../ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -34,6 +35,14 @@ export function AuthMenu({
   onLogout,
   extraMenuItems = [],
 }: AuthMenuProps) {
+  const avatarLabel = (currentUserName || "User").trim();
+  const avatarInitials = avatarLabel
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() || "")
+    .join("") || "U";
+
   if (!isAuthenticated) {
     return (
       <div className="flex items-center gap-2">
@@ -52,9 +61,15 @@ export function AuthMenu({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button type="button" className="h-10 w-10 rounded-full p-0" aria-label="User menu">
-          <span className="text-base">👤</span>
-        </Button>
+        <button
+          type="button"
+          aria-label="User menu"
+          className="inline-flex h-10 w-10 items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2 dark:focus-visible:ring-slate-300"
+        >
+          <Avatar className="h-10 w-10">
+            <AvatarFallback className="text-xs font-medium">{avatarInitials}</AvatarFallback>
+          </Avatar>
+        </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuLabel>{currentUserName || "User"}</DropdownMenuLabel>

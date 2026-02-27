@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { AdminUserActions } from "../components/shared/admin-user-actions";
+import { RoleBadges } from "../components/shared/role-badges";
 import { Input } from "../components/ui/input";
 import { adminListOutstandingInvitations, adminListUsers, type AdminUserListItem } from "../lib/api";
 
@@ -102,22 +103,7 @@ export function AdminUsersPage({ accessToken, onOpenUser, onOpenInvitations }: A
                 <div className="text-xs uppercase tracking-wide">{user.status}</div>
               </div>
               <div className="text-xs text-slate-500 dark:text-slate-400">@{user.username} · {user.email}</div>
-              <div className="mt-2 flex flex-wrap gap-1">
-                {(user.roles || []).length > 0 ? (
-                  user.roles.map((role) => (
-                    <span
-                      key={`${user.id}-${role}`}
-                      className="rounded-full border border-slate-300 px-2 py-0.5 text-xs dark:border-slate-600"
-                    >
-                      {role}
-                    </span>
-                  ))
-                ) : (
-                  <span className="rounded-full border border-slate-200 px-2 py-0.5 text-xs text-slate-500 dark:border-slate-700 dark:text-slate-400">
-                    no roles
-                  </span>
-                )}
-              </div>
+              <RoleBadges roles={user.roles || []} />
             </button>
           ))}
           {filteredUsers.length === 0 ? <p className="text-sm text-slate-500 dark:text-slate-400">No users match the current filter.</p> : null}

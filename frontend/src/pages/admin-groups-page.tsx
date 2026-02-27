@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 
 import { ConfirmationDialog } from "../components/shared/confirmation-dialog";
+import { RoleBadges } from "../components/shared/role-badges";
+import { RoleAssignmentField } from "../components/shared/role-assignment-field";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
-import { adminDeleteGroup, adminListGroups, adminPatchGroup } from "../lib/api";
+import { adminAssignGroupRoles, adminDeleteGroup, adminListAssignableGroupRoles, adminListGroups, adminPatchGroup, type AdminRoleItem } from "../lib/api";
 
 type AdminGroupsPageProps = {
   accessToken: string;
@@ -14,6 +16,7 @@ type GroupItem = {
   name: string;
   description?: string;
   ownerDisplayName?: string;
+  roles?: string[];
 };
 
 export function AdminGroupsPage({ accessToken }: AdminGroupsPageProps) {
@@ -21,6 +24,8 @@ export function AdminGroupsPage({ accessToken }: AdminGroupsPageProps) {
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
+  const [assignableRoles, setAssignableRoles] = useState<AdminRoleItem[]>([]);
   const [message, setMessage] = useState<string | null>(null);
 
   async function loadGroups() {
@@ -28,8 +33,13 @@ export function AdminGroupsPage({ accessToken }: AdminGroupsPageProps) {
     setGroups(payload.items);
   }
 
+  async function loadAssignableRoles() {
+    const payload = await adminListAssignableGroupRoles(accessToken);
+    setAssignableRoles(payload.items);
+  }
+
   useEffect(() => {
-    loadGroups().catch((error) => {
+    Promise.all([loadGroups(), loadAssignableRoles()]).catch((error) => {
       setMessage(error instanceof Error ? error.message : "Unable to load groups");
     });
   }, [accessToken]);
@@ -42,6 +52,7 @@ export function AdminGroupsPage({ accessToken }: AdminGroupsPageProps) {
     }
     setName(selectedGroup.name || "");
     setDescription(selectedGroup.description || "");
+    setSelectedRoles(selectedGroup.roles || []);
   }, [selectedGroupId, selectedGroup?.name, selectedGroup?.description]);
 
   async function handleSaveGroup() {
@@ -55,6 +66,20 @@ export function AdminGroupsPage({ accessToken }: AdminGroupsPageProps) {
       setMessage("Group updated");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Unable to update group");
+    }
+  }
+
+  async function handleSaveGroupRoles() {
+    if (!selectedGroup) {
+      return;
+    }
+    setMessage(null);
+    try {
+      await adminAssignGroupRoles(accessToken, selectedGroup.id, selectedRoles);
+      await loadGroups();
+      setMessage("Group roles updated");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Unable to update group roles");
     }
   }
 
@@ -82,6 +107,7 @@ export function AdminGroupsPage({ accessToken }: AdminGroupsPageProps) {
             <button type="button" className="mr-auto text-left" onClick={() => setSelectedGroupId(group.id)}>
               <div className="font-medium">{group.name}</div>
               <div className="text-xs text-slate-500 dark:text-slate-400">owner: {group.ownerDisplayName || "unknown"}</div>
+              <RoleBadges roles={group.roles || []} />
             </button>
             <ConfirmationDialog
               triggerLabel="Delete"
@@ -106,6 +132,17 @@ export function AdminGroupsPage({ accessToken }: AdminGroupsPageProps) {
             <Input value={description} onChange={(event) => setDescription(event.target.value)} />
           </label>
           <Button type="button" onClick={handleSaveGroup}>Save Group</Button>
+
+          <div className="grid gap-2 rounded-md border border-slate-200 p-3 dark:border-slate-700">
+            <RoleAssignmentField
+              selectedRoles={selectedRoles}
+              availableRoles={assignableRoles.map((role) => role.name)}
+              onChange={setSelectedRoles}
+              label="Assigned Roles"
+              removeConfirmationContext="this group"
+            />
+            <Button type="button" onClick={handleSaveGroupRoles}>Save Group Roles</Button>
+          </div>
         </div>
       ) : null}
 

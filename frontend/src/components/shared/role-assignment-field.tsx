@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 
 import { ConfirmationDialog } from "./confirmation-dialog";
+import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 
 type RoleAssignmentFieldProps = {
@@ -8,9 +9,16 @@ type RoleAssignmentFieldProps = {
   availableRoles: string[];
   onChange: (roles: string[]) => void;
   label?: string;
+  removeConfirmationContext?: string;
 };
 
-export function RoleAssignmentField({ selectedRoles, availableRoles, onChange, label = "Roles" }: RoleAssignmentFieldProps) {
+export function RoleAssignmentField({
+  selectedRoles,
+  availableRoles,
+  onChange,
+  label = "Roles",
+  removeConfirmationContext = "this item",
+}: RoleAssignmentFieldProps) {
   const [roleToAdd, setRoleToAdd] = useState("");
 
   const selectableRoles = useMemo(
@@ -36,18 +44,18 @@ export function RoleAssignmentField({ selectedRoles, availableRoles, onChange, l
       <div className="flex flex-wrap gap-2">
         {selectedRoles.length > 0 ? (
           selectedRoles.map((role) => (
-            <span key={role} className="inline-flex items-center gap-1 rounded-full border border-slate-300 px-2 py-0.5 text-xs dark:border-slate-700">
+            <Badge key={role} variant="outline" className="inline-flex items-center gap-1">
               <span>{role}</span>
               <ConfirmationDialog
                 triggerLabel="×"
                 title="Remove Role"
-                description={`Remove role \"${role}\" from this user?`}
+                description={`Remove role \"${role}\" from ${removeConfirmationContext}?`}
                 confirmLabel="Remove"
                 confirmTone="danger"
                 triggerClassName="border-0 px-1 py-0 leading-none"
                 onConfirm={() => handleRemoveRole(role)}
               />
-            </span>
+            </Badge>
           ))
         ) : (
           <span className="text-xs text-slate-500 dark:text-slate-400">No roles assigned.</span>

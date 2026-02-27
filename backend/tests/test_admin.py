@@ -139,6 +139,40 @@ def test_admin_roles_and_groups_are_restricted(client):
     groups_denied = client.get("/api/v1/admin/groups", headers=auth_headers(manager_token))
     assert groups_denied.status_code == 403
 
+    assignable_roles_denied = client.get("/api/v1/admin/groups/assignable-roles", headers=auth_headers(manager_token))
+    assert assignable_roles_denied.status_code == 403
+
+    manager.roles = ["AdminGroups"]
+    manager_login_as_group_admin = client.post(
+        "/api/v1/auth/login",
+        json={"usernameOrEmail": "manager2", "password": "Password123"},
+    )
+    manager_group_admin_token = manager_login_as_group_admin.json()["accessToken"]
+
+    groups_allowed = client.get("/api/v1/admin/groups", headers=auth_headers(manager_group_admin_token))
+    assert groups_allowed.status_code == 200
+
+    assignable_roles_allowed = client.get("/api/v1/admin/groups/assignable-roles", headers=auth_headers(manager_group_admin_token))
+    assert assignable_roles_allowed.status_code == 200
+    assert any(item["name"] == "AdminGroups" for item in assignable_roles_allowed.json()["items"])
+    assert all(item["name"] != "Superuser" for item in assignable_roles_allowed.json()["items"])
+
+    assign_group_roles = client.put(
+        f"/api/v1/admin/groups/{group_id}/roles",
+        headers=auth_headers(manager_group_admin_token),
+        json={"roles": ["InviteUsers"]},
+    )
+    assert assign_group_roles.status_code == 200
+    assert "InviteUsers" in assign_group_roles.json()["roles"]
+
+    assign_superuser_to_group = client.put(
+        f"/api/v1/admin/groups/{group_id}/roles",
+        headers=auth_headers(manager_group_admin_token),
+        json={"roles": ["Superuser"]},
+    )
+    assert assign_superuser_to_group.status_code == 400
+    assert assign_superuser_to_group.json()["error"]["code"] == "ROLE_NOT_ASSIGNABLE"
+
     manager.roles = ["Superuser"]
     super_login = client.post(
         "/api/v1/auth/login",
