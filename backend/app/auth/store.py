@@ -316,6 +316,7 @@ class AuthStore:
         self,
         user_id: str,
         display_name: str | None = None,
+        email: str | None = None,
         status: str | None = None,
         roles: list[str] | None = None,
         preferences: dict[str, Any] | None = None,
@@ -326,6 +327,17 @@ class AuthStore:
 
         if display_name is not None:
             user.display_name = display_name.strip()
+        if email is not None:
+            normalized_email = self.normalize_email(email)
+            if normalized_email != user.email_normalized:
+                if normalized_email in self._users_by_email:
+                    raise ValueError("EMAIL_ALREADY_EXISTS")
+                self._users_by_email.pop(user.email_normalized, None)
+                user.email = email.strip()
+                user.email_normalized = normalized_email
+                user.email_verified = False
+                user.email_verified_at = None
+                self._users_by_email[normalized_email] = user
         if status is not None:
             user.status = status
         if roles is not None:

@@ -184,7 +184,7 @@ export async function resendMyVerificationEmail(accessToken: string): Promise<{ 
   );
 }
 
-export async function getUserBasic(accessToken: string, userId: string): Promise<{ id: string; displayName: string; organization: string | null }> {
+export async function getUserBasic(accessToken: string, userId: string): Promise<{ id: string; displayName: string }> {
   return parseJson(
     await fetch(`${API_BASE}/users/${userId}`, {
       headers: { Authorization: `Bearer ${accessToken}` },
@@ -470,8 +470,10 @@ export async function adminListUsers(accessToken: string): Promise<{ items: Admi
 
 export type AdminUserDetail = AdminUserListItem & {
   emailNormalized: string;
-  organization: string | null;
+  emailVerified: boolean;
   preferences: Record<string, unknown>;
+  profileProperties: Record<string, unknown>;
+  profilePropertyCatalog: ProfilePropertyCatalogItem[];
   createdAt: string;
   updatedAt: string;
 };
@@ -493,10 +495,50 @@ export async function adminResetUserPassword(accessToken: string, userId: string
   );
 }
 
+export async function adminResendUserVerificationEmail(
+  accessToken: string,
+  userId: string,
+): Promise<{ success: boolean; sent: boolean; message: string }> {
+  return parseJson(
+    await fetch(`${API_BASE}/admin/users/${userId}/resend-verification`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}` },
+    }),
+  );
+}
+
+export type AdminUserGroupMembership = {
+  id: string;
+  name: string;
+  description: string | null;
+  roles: string[];
+  ownerUserId: string;
+  ownerDisplayName: string | null;
+  memberCount: number;
+  createdAt: string;
+  updatedAt: string;
+  isOwner: boolean;
+};
+
+export async function adminListUserGroups(accessToken: string, userId: string): Promise<{ items: AdminUserGroupMembership[] }> {
+  return parseJson(
+    await fetch(`${API_BASE}/admin/users/${userId}/groups`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    }),
+  );
+}
+
 export async function adminPatchUser(
   accessToken: string,
   userId: string,
-  body: { displayName?: string; status?: string; roles?: string[]; preferences?: Record<string, unknown> },
+  body: {
+    displayName?: string;
+    email?: string;
+    status?: string;
+    roles?: string[];
+    preferences?: Record<string, unknown>;
+    profileProperties?: Record<string, unknown>;
+  },
 ): Promise<any> {
   return parseJson(
     await fetch(`${API_BASE}/admin/users/${userId}`, {
@@ -542,6 +584,18 @@ export async function adminListOutstandingInvitations(accessToken: string): Prom
 export async function adminResendInvitation(accessToken: string, invitationId: string): Promise<{ success: boolean; invitation: AdminOutstandingInvitation }> {
   return parseJson(
     await fetch(`${API_BASE}/admin/users/invitations/${encodeURIComponent(invitationId)}/resend`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}` },
+    }),
+  );
+}
+
+export async function adminCopyInvitationLink(
+  accessToken: string,
+  invitationId: string,
+): Promise<{ success: boolean; invitation: AdminOutstandingInvitation; invitationLink: string }> {
+  return parseJson(
+    await fetch(`${API_BASE}/admin/users/invitations/${encodeURIComponent(invitationId)}/copy-link`, {
       method: "POST",
       headers: { Authorization: `Bearer ${accessToken}` },
     }),

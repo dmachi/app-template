@@ -5,6 +5,7 @@ import { RoleAssignmentField } from "../components/shared/role-assignment-field"
 import { UserSearchCombobox } from "../components/shared/user-search-combobox";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
+import { showClientToast } from "../lib/client-toast";
 import { addGroupMember, adminAssignGroupRoles, adminListAssignableGroupRoles, deleteGroup, getGroup, listGroupMembers, patchGroup, removeGroupMember } from "../lib/api";
 
 type GroupDetailPageProps = {
@@ -21,7 +22,6 @@ export function GroupDetailPage({ accessToken, groupId, canAssignRoles = false, 
   const [description, setDescription] = useState("");
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
   const [assignableRoles, setAssignableRoles] = useState<string[]>([]);
-  const [message, setMessage] = useState<string | null>(null);
 
   async function loadData() {
     const [groupPayload, membersPayload] = await Promise.all([
@@ -37,7 +37,7 @@ export function GroupDetailPage({ accessToken, groupId, canAssignRoles = false, 
 
   useEffect(() => {
     loadData().catch((error) => {
-      setMessage(error instanceof Error ? error.message : "Unable to load group");
+      showClientToast({ title: "Groups", message: error instanceof Error ? error.message : "Unable to load group", severity: "error" });
     });
   }, [accessToken, groupId]);
 
@@ -52,7 +52,7 @@ export function GroupDetailPage({ accessToken, groupId, canAssignRoles = false, 
         setAssignableRoles(payload.items.map((role) => role.name));
       })
       .catch((error) => {
-        setMessage(error instanceof Error ? error.message : "Unable to load assignable roles");
+        showClientToast({ title: "Groups", message: error instanceof Error ? error.message : "Unable to load assignable roles", severity: "error" });
       });
   }, [accessToken, canAssignRoles]);
 
@@ -61,9 +61,9 @@ export function GroupDetailPage({ accessToken, groupId, canAssignRoles = false, 
     try {
       await patchGroup(accessToken, groupId, { name, description });
       await loadData();
-      setMessage("Group updated");
+      showClientToast({ title: "Groups", message: "Group updated", severity: "success" });
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Unable to update group");
+      showClientToast({ title: "Groups", message: error instanceof Error ? error.message : "Unable to update group", severity: "error" });
     }
   }
 
@@ -71,9 +71,9 @@ export function GroupDetailPage({ accessToken, groupId, canAssignRoles = false, 
     try {
       await adminAssignGroupRoles(accessToken, groupId, selectedRoles);
       await loadData();
-      setMessage("Group roles updated");
+      showClientToast({ title: "Groups", message: "Group roles updated", severity: "success" });
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Unable to update group roles");
+      showClientToast({ title: "Groups", message: error instanceof Error ? error.message : "Unable to update group roles", severity: "error" });
     }
   }
 
@@ -84,7 +84,6 @@ export function GroupDetailPage({ accessToken, groupId, canAssignRoles = false, 
           Back to Groups
         </Button>
         <p className="text-sm">Loading group details...</p>
-        {message ? <p className="text-sm text-red-600 dark:text-red-400">{message}</p> : null}
       </section>
     );
   }
@@ -121,10 +120,10 @@ export function GroupDetailPage({ accessToken, groupId, canAssignRoles = false, 
           onConfirm={async () => {
             try {
               await deleteGroup(accessToken, groupId);
-              setMessage("Group deleted");
+              showClientToast({ title: "Groups", message: "Group deleted", severity: "success" });
               onBack();
             } catch (error) {
-              setMessage(error instanceof Error ? error.message : "Unable to delete group");
+              showClientToast({ title: "Groups", message: error instanceof Error ? error.message : "Unable to delete group", severity: "error" });
             }
           }}
         />
@@ -156,9 +155,9 @@ export function GroupDetailPage({ accessToken, groupId, canAssignRoles = false, 
               try {
                 await addGroupMember(accessToken, groupId, user.username);
                 await loadData();
-                setMessage("Member added");
+                showClientToast({ title: "Groups", message: "Member added", severity: "success" });
               } catch (error) {
-                setMessage(error instanceof Error ? error.message : "Unable to add member");
+                showClientToast({ title: "Groups", message: error instanceof Error ? error.message : "Unable to add member", severity: "error" });
               }
             }}
           />
@@ -182,9 +181,9 @@ export function GroupDetailPage({ accessToken, groupId, canAssignRoles = false, 
                   try {
                     await removeGroupMember(accessToken, groupId, member.userId);
                     await loadData();
-                    setMessage("Member removed");
+                    showClientToast({ title: "Groups", message: "Member removed", severity: "success" });
                   } catch (error) {
-                    setMessage(error instanceof Error ? error.message : "Unable to remove member");
+                    showClientToast({ title: "Groups", message: error instanceof Error ? error.message : "Unable to remove member", severity: "error" });
                   }
                 }}
               />
@@ -192,7 +191,6 @@ export function GroupDetailPage({ accessToken, groupId, canAssignRoles = false, 
           ))}
         </ul>
       </div>
-      {message ? <p className="text-sm">{message}</p> : null}
     </section>
   );
 }

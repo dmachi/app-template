@@ -19,6 +19,7 @@ import { ProfilePage } from "./pages/profile-page";
 import { SecurityPage } from "./pages/security-page";
 import { ThemePage } from "./pages/theme-page";
 import { VerifyEmailPage } from "./pages/verify-email-page";
+import { CLIENT_TOAST_EVENT, type ClientToastEventDetail } from "./lib/client-toast";
 import {
   API_BASE,
   acceptInvitation,
@@ -46,6 +47,14 @@ type RealtimeNotificationToast = {
   clearanceMode: string;
   requiresAcknowledgement: boolean;
   openEndpoint: string | null;
+  open: boolean;
+};
+
+type ClientPopupToast = {
+  id: string;
+  title: string;
+  message: string;
+  severity: "info" | "success" | "warning" | "error";
   open: boolean;
 };
 
@@ -254,8 +263,35 @@ export function App() {
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [realtimePopups, setRealtimePopups] = useState<RealtimeNotificationToast[]>([]);
+  const [clientPopups, setClientPopups] = useState<ClientPopupToast[]>([]);
   const [homeNotifications, setHomeNotifications] = useState<NotificationItem[]>([]);
   const [notificationRefreshSignal, setNotificationRefreshSignal] = useState(0);
+
+  useEffect(() => {
+    function onClientToast(event: Event) {
+      const customEvent = event as CustomEvent<ClientToastEventDetail>;
+      const detail = customEvent.detail;
+      if (!detail || !detail.message) {
+        return;
+      }
+
+      setClientPopups((current) => [
+        ...current,
+        {
+          id: `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+          title: detail.title || "Update",
+          message: detail.message,
+          severity: detail.severity || "info",
+          open: true,
+        },
+      ]);
+    }
+
+    window.addEventListener(CLIENT_TOAST_EVENT, onClientToast as EventListener);
+    return () => {
+      window.removeEventListener(CLIENT_TOAST_EVENT, onClientToast as EventListener);
+    };
+  }, []);
 
   async function refreshHomeNotifications(token: string) {
     const payload = await listMyNotifications(token);
@@ -294,6 +330,10 @@ export function App() {
 
   function removeToast(toastId: string) {
     setRealtimePopups((current) => current.filter((item) => item.id !== toastId));
+  }
+
+  function removeClientToast(toastId: string) {
+    setClientPopups((current) => current.filter((item) => item.id !== toastId));
   }
 
   async function onToastManualClose(toastId: string) {
@@ -1272,6 +1312,33 @@ export function App() {
               </div>
             </div>
             <ToastClose aria-label="Close" onClick={() => onToastManualClose(popup.id)} />
+          </Toast>
+        ))}
+        {clientPopups.map((popup) => (
+          <Toast
+            key={popup.id}
+            open={popup.open}
+            duration={4000}
+            onOpenChange={(open) => {
+              if (!open) {
+                removeClientToast(popup.id);
+              }
+            }}
+            className={
+              popup.severity === "error"
+                ? "border-red-300 bg-red-50 text-red-900 dark:border-red-700 dark:bg-red-950 dark:text-red-200"
+                : popup.severity === "warning"
+                  ? "border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200"
+                  : popup.severity === "success"
+                    ? "border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-700 dark:bg-emerald-950 dark:text-emerald-200"
+                    : "border-sky-300 bg-sky-50 text-sky-900 dark:border-sky-700 dark:bg-sky-950 dark:text-sky-200"
+            }
+          >
+            <div className="grid gap-1">
+              <ToastTitle>{popup.title}</ToastTitle>
+              <ToastDescription>{popup.message}</ToastDescription>
+            </div>
+            <ToastClose aria-label="Close" onClick={() => removeClientToast(popup.id)} />
           </Toast>
         ))}
         <ToastViewport />

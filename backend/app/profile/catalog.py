@@ -99,6 +99,13 @@ PROFILE_PROPERTY_DEFINITIONS: tuple[ProfilePropertyDefinition, ...] = (
         placeholder="https://example.org",
     ),
     ProfilePropertyDefinition(
+        key="organization",
+        label="Organization",
+        description="Organization, department, or affiliation.",
+        value_type="text",
+        placeholder="Department of ...",
+    ),
+    ProfilePropertyDefinition(
         key="externalLinks",
         label="Additional Links",
         description="Arbitrary external links (e.g., lab pages, social profiles, publications).",

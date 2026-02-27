@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { Button } from "../components/ui/button";
+import { showClientToast } from "../lib/client-toast";
 import {
   acknowledgeNotification,
   checkNotificationCompletion,
@@ -18,7 +19,6 @@ type NotificationsPageProps = {
 export function NotificationsPage({ accessToken, refreshSignal = 0 }: NotificationsPageProps) {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [message, setMessage] = useState<string | null>(null);
 
   async function loadNotifications() {
     setLoading(true);
@@ -26,7 +26,7 @@ export function NotificationsPage({ accessToken, refreshSignal = 0 }: Notificati
       const payload = await listMyNotifications(accessToken);
       setNotifications(payload.items);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Unable to load notifications");
+      showClientToast({ title: "Notifications", message: error instanceof Error ? error.message : "Unable to load notifications", severity: "error" });
     } finally {
       setLoading(false);
     }
@@ -37,43 +37,46 @@ export function NotificationsPage({ accessToken, refreshSignal = 0 }: Notificati
   }, [accessToken, refreshSignal]);
 
   async function onRead(notificationId: string) {
-    setMessage(null);
     try {
       await markNotificationRead(accessToken, notificationId);
       await loadNotifications();
+      showClientToast({ title: "Notifications", message: "Marked as read.", severity: "success" });
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Unable to mark as read");
+      showClientToast({ title: "Notifications", message: error instanceof Error ? error.message : "Unable to mark as read", severity: "error" });
     }
   }
 
   async function onAcknowledge(notificationId: string) {
-    setMessage(null);
     try {
       await acknowledgeNotification(accessToken, notificationId);
       await loadNotifications();
+      showClientToast({ title: "Notifications", message: "Notification acknowledged.", severity: "success" });
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Unable to acknowledge notification");
+      showClientToast({ title: "Notifications", message: error instanceof Error ? error.message : "Unable to acknowledge notification", severity: "error" });
     }
   }
 
   async function onCheckCompletion(notificationId: string) {
-    setMessage(null);
     try {
       const result = await checkNotificationCompletion(accessToken, notificationId);
-      setMessage(result.completed ? "Completion check passed." : "Completion check did not pass yet.");
+      showClientToast({
+        title: "Notifications",
+        message: result.completed ? "Completion check passed." : "Completion check did not pass yet.",
+        severity: result.completed ? "success" : "info",
+      });
       await loadNotifications();
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Unable to check completion");
+      showClientToast({ title: "Notifications", message: error instanceof Error ? error.message : "Unable to check completion", severity: "error" });
     }
   }
 
   async function onClear(notificationId: string) {
-    setMessage(null);
     try {
       await clearNotification(accessToken, notificationId);
       await loadNotifications();
+      showClientToast({ title: "Notifications", message: "Notification cleared.", severity: "success" });
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Unable to clear notification");
+      showClientToast({ title: "Notifications", message: error instanceof Error ? error.message : "Unable to clear notification", severity: "error" });
     }
   }
 
@@ -124,8 +127,6 @@ export function NotificationsPage({ accessToken, refreshSignal = 0 }: Notificati
           </div>
         ))}
       </div>
-
-      {message ? <p className="text-sm">{message}</p> : null}
     </section>
   );
 }

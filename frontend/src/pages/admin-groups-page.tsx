@@ -5,6 +5,7 @@ import { RoleBadges } from "../components/shared/role-badges";
 import { RoleAssignmentField } from "../components/shared/role-assignment-field";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
+import { showClientToast } from "../lib/client-toast";
 import { adminAssignGroupRoles, adminDeleteGroup, adminListAssignableGroupRoles, adminListGroups, adminPatchGroup, type AdminRoleItem } from "../lib/api";
 
 type AdminGroupsPageProps = {
@@ -26,7 +27,6 @@ export function AdminGroupsPage({ accessToken }: AdminGroupsPageProps) {
   const [description, setDescription] = useState("");
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
   const [assignableRoles, setAssignableRoles] = useState<AdminRoleItem[]>([]);
-  const [message, setMessage] = useState<string | null>(null);
 
   async function loadGroups() {
     const payload = await adminListGroups(accessToken);
@@ -40,7 +40,7 @@ export function AdminGroupsPage({ accessToken }: AdminGroupsPageProps) {
 
   useEffect(() => {
     Promise.all([loadGroups(), loadAssignableRoles()]).catch((error) => {
-      setMessage(error instanceof Error ? error.message : "Unable to load groups");
+      showClientToast({ title: "Groups", message: error instanceof Error ? error.message : "Unable to load groups", severity: "error" });
     });
   }, [accessToken]);
 
@@ -59,13 +59,12 @@ export function AdminGroupsPage({ accessToken }: AdminGroupsPageProps) {
     if (!selectedGroup) {
       return;
     }
-    setMessage(null);
     try {
       await adminPatchGroup(accessToken, selectedGroup.id, { name, description });
       await loadGroups();
-      setMessage("Group updated");
+      showClientToast({ title: "Groups", message: "Group updated", severity: "success" });
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Unable to update group");
+      showClientToast({ title: "Groups", message: error instanceof Error ? error.message : "Unable to update group", severity: "error" });
     }
   }
 
@@ -73,27 +72,25 @@ export function AdminGroupsPage({ accessToken }: AdminGroupsPageProps) {
     if (!selectedGroup) {
       return;
     }
-    setMessage(null);
     try {
       await adminAssignGroupRoles(accessToken, selectedGroup.id, selectedRoles);
       await loadGroups();
-      setMessage("Group roles updated");
+      showClientToast({ title: "Groups", message: "Group roles updated", severity: "success" });
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Unable to update group roles");
+      showClientToast({ title: "Groups", message: error instanceof Error ? error.message : "Unable to update group roles", severity: "error" });
     }
   }
 
   async function handleDeleteGroup(groupId: string) {
-    setMessage(null);
     try {
       await adminDeleteGroup(accessToken, groupId);
       if (selectedGroupId === groupId) {
         setSelectedGroupId(null);
       }
       await loadGroups();
-      setMessage("Group deleted");
+      showClientToast({ title: "Groups", message: "Group deleted", severity: "success" });
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Unable to delete group");
+      showClientToast({ title: "Groups", message: error instanceof Error ? error.message : "Unable to delete group", severity: "error" });
     }
   }
 
@@ -145,8 +142,6 @@ export function AdminGroupsPage({ accessToken }: AdminGroupsPageProps) {
           </div>
         </div>
       ) : null}
-
-      {message ? <p className="text-sm">{message}</p> : null}
     </section>
   );
 }

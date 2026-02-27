@@ -3,23 +3,22 @@ import { FormEvent, useState } from "react";
 import { FormField } from "../components/form-field";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
+import { showClientToast } from "../lib/client-toast";
 
 export function SecurityPage() {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [message, setMessage] = useState<string | null>(null);
 
   function handlePasswordReset(event: FormEvent) {
     event.preventDefault();
-    setMessage(null);
 
     if (newPassword !== confirmPassword) {
-      setMessage("New password and confirmation must match");
+      showClientToast({ title: "Security", message: "New password and confirmation must match", severity: "warning" });
       return;
     }
 
-    setMessage("Password reset will be connected in a future milestone.");
+    showClientToast({ title: "Security", message: "Password reset will be connected in a future milestone.", severity: "info" });
   }
 
   return (
@@ -46,8 +45,6 @@ export function SecurityPage() {
         <h3 className="text-base font-medium">API Credentials</h3>
         <p className="text-sm text-slate-600 dark:text-slate-300">API credential management will be added in a future milestone.</p>
       </div>
-
-      {message ? <p className="text-sm">{message}</p> : null}
     </section>
   );
 }

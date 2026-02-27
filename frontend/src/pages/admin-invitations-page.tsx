@@ -2,7 +2,9 @@ import { useEffect, useState } from "react";
 
 import { InviteUsersDialog } from "../components/shared/invite-users-dialog";
 import { Button } from "../components/ui/button";
+import { showClientToast } from "../lib/client-toast";
 import {
+  adminCopyInvitationLink,
   adminListOutstandingInvitations,
   adminResendInvitation,
   adminRevokeInvitation,
@@ -16,7 +18,6 @@ type AdminInvitationsPageProps = {
 export function AdminInvitationsPage({ accessToken }: AdminInvitationsPageProps) {
   const [invitations, setInvitations] = useState<AdminOutstandingInvitation[]>([]);
   const [loading, setLoading] = useState(true);
-  const [message, setMessage] = useState<string | null>(null);
 
   async function loadInvitations() {
     setLoading(true);
@@ -24,7 +25,7 @@ export function AdminInvitationsPage({ accessToken }: AdminInvitationsPageProps)
       const payload = await adminListOutstandingInvitations(accessToken);
       setInvitations(payload.items);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Unable to load invitations");
+      showClientToast({ title: "Invitations", message: error instanceof Error ? error.message : "Unable to load invitations", severity: "error" });
     } finally {
       setLoading(false);
     }
@@ -35,24 +36,33 @@ export function AdminInvitationsPage({ accessToken }: AdminInvitationsPageProps)
   }, [accessToken]);
 
   async function handleResend(invitationId: string) {
-    setMessage(null);
     try {
       await adminResendInvitation(accessToken, invitationId);
       await loadInvitations();
-      setMessage("Invitation resent.");
+      showClientToast({ title: "Invitations", message: "Invitation resent.", severity: "success" });
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Unable to resend invitation");
+      showClientToast({ title: "Invitations", message: error instanceof Error ? error.message : "Unable to resend invitation", severity: "error" });
     }
   }
 
   async function handleRevoke(invitationId: string) {
-    setMessage(null);
     try {
       await adminRevokeInvitation(accessToken, invitationId);
       await loadInvitations();
-      setMessage("Invitation revoked.");
+      showClientToast({ title: "Invitations", message: "Invitation revoked.", severity: "success" });
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Unable to revoke invitation");
+      showClientToast({ title: "Invitations", message: error instanceof Error ? error.message : "Unable to revoke invitation", severity: "error" });
+    }
+  }
+
+  async function handleCopyLink(invitationId: string) {
+    try {
+      const payload = await adminCopyInvitationLink(accessToken, invitationId);
+      await navigator.clipboard.writeText(payload.invitationLink);
+      await loadInvitations();
+      showClientToast({ title: "Invitations", message: "Invitation link copied to clipboard.", severity: "success" });
+    } catch (error) {
+      showClientToast({ title: "Invitations", message: error instanceof Error ? error.message : "Unable to copy invitation link", severity: "error" });
     }
   }
 
@@ -84,14 +94,13 @@ export function AdminInvitationsPage({ accessToken }: AdminInvitationsPageProps)
             </div>
             <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">Expires: {new Date(invitation.expiresAt).toLocaleString()}</div>
             <div className="mt-2 flex gap-2">
+              <Button type="button" onClick={() => handleCopyLink(invitation.id)}>Copy Link</Button>
               <Button type="button" onClick={() => handleResend(invitation.id)}>Resend</Button>
               <Button type="button" onClick={() => handleRevoke(invitation.id)}>Revoke</Button>
             </div>
           </div>
         ))}
       </div>
-
-      {message ? <p className="text-sm">{message}</p> : null}
     </section>
   );
 }

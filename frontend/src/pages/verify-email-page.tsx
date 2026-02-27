@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { Button } from "../components/ui/button";
+import { showClientToast } from "../lib/client-toast";
 import { verifyEmail } from "../lib/api";
 
 type VerifyEmailPageProps = {
@@ -20,6 +21,7 @@ export function VerifyEmailPage({ token, isAuthenticated, onGoHome, onGoLogin }:
       setLoading(false);
       setVerified(false);
       setMessage("Verification token is missing or invalid.");
+      showClientToast({ title: "Email Verification", message: "Verification token is missing or invalid.", severity: "error" });
       return;
     }
 
@@ -28,10 +30,13 @@ export function VerifyEmailPage({ token, isAuthenticated, onGoHome, onGoLogin }:
       .then(() => {
         setVerified(true);
         setMessage("Email verified successfully.");
+        showClientToast({ title: "Email Verification", message: "Email verified successfully.", severity: "success" });
       })
       .catch((error) => {
         setVerified(false);
-        setMessage(error instanceof Error ? error.message : "Unable to verify email.");
+        const errorMessage = error instanceof Error ? error.message : "Unable to verify email.";
+        setMessage(errorMessage);
+        showClientToast({ title: "Email Verification", message: errorMessage, severity: "error" });
       })
       .finally(() => setLoading(false));
   }, [token]);

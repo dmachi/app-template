@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { Button } from "../components/ui/button";
+import { showClientToast } from "../lib/client-toast";
 import { getInvitation, type AuthProviderMeta } from "../lib/api";
 
 type AcceptInvitePageProps = {
@@ -35,16 +36,21 @@ export function AcceptInvitePage({
     if (!token) {
       setLoading(false);
       setMessage("Invitation token is missing.");
+      showClientToast({ title: "Invitation", message: "Invitation token is missing.", severity: "error" });
       return;
     }
 
     setLoading(true);
     getInvitation(token)
       .then((payload) => {
-        setMessage(`Invitation is valid for ${payload.invitedEmail}. Sign in or register to accept it.`);
+        const infoMessage = `Invitation is valid for ${payload.invitedEmail}. Sign in or register to accept it.`;
+        setMessage(infoMessage);
+        showClientToast({ title: "Invitation", message: "Invitation token validated.", severity: "success" });
       })
       .catch((error) => {
-        setMessage(error instanceof Error ? error.message : "Invitation not found or expired.");
+        const errorMessage = error instanceof Error ? error.message : "Invitation not found or expired.";
+        setMessage(errorMessage);
+        showClientToast({ title: "Invitation", message: errorMessage, severity: "error" });
       })
       .finally(() => setLoading(false));
   }, [token]);

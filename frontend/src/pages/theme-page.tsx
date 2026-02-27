@@ -1,6 +1,7 @@
 import { FormEvent, useState } from "react";
 
 import { Button } from "../components/ui/button";
+import { showClientToast } from "../lib/client-toast";
 import { patchMyProfile } from "../lib/api";
 
 type ThemeOption = "light" | "dark" | "system";
@@ -12,16 +13,18 @@ type ThemePageProps = {
 };
 
 export function ThemePage({ accessToken, theme, onThemeChange }: ThemePageProps) {
-  const [message, setMessage] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
   async function handleSave(event: FormEvent) {
     event.preventDefault();
-    setMessage(null);
+    setSaving(true);
     try {
       await patchMyProfile(accessToken, { preferences: { theme } });
-      setMessage("Theme preference updated");
+      showClientToast({ title: "Theme", message: "Theme preference updated", severity: "success" });
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Unable to save theme preference");
+      showClientToast({ title: "Theme", message: error instanceof Error ? error.message : "Unable to save theme preference", severity: "error" });
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -47,9 +50,8 @@ export function ThemePage({ accessToken, theme, onThemeChange }: ThemePageProps)
           <input type="radio" name="theme" value="system" checked={theme === "system"} onChange={(event) => handleThemeChange(event.target.value)} />
           System
         </label>
-        <Button type="submit">Save Theme</Button>
+        <Button type="submit" disabled={saving}>{saving ? "Saving..." : "Save Theme"}</Button>
       </form>
-      {message ? <p className="text-sm">{message}</p> : null}
     </section>
   );
 }

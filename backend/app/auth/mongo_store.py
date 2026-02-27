@@ -327,6 +327,7 @@ class MongoAuthStore:
         self,
         user_id: str,
         display_name: str | None = None,
+        email: str | None = None,
         status: str | None = None,
         roles: list[str] | None = None,
         preferences: dict | None = None,
@@ -334,6 +335,20 @@ class MongoAuthStore:
         update_fields = {"updated_at": datetime.now(UTC)}
         if display_name is not None:
             update_fields["display_name"] = display_name.strip()
+        if email is not None:
+            normalized_email = self.normalize_email(email)
+            current = self._users.find_one({"id": user_id})
+            if current is None:
+                return None
+            current_normalized = current.get("email_normalized") or self.normalize_email(current.get("email", ""))
+            if normalized_email != current_normalized:
+                existing = self._users.find_one({"email_normalized": normalized_email})
+                if existing and existing.get("id") != user_id:
+                    raise ValueError("EMAIL_ALREADY_EXISTS")
+                update_fields["email"] = email.strip()
+                update_fields["email_normalized"] = normalized_email
+                update_fields["email_verified"] = False
+                update_fields["email_verified_at"] = None
         if status is not None:
             update_fields["status"] = status
         if roles is not None:

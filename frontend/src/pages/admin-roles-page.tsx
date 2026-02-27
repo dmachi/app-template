@@ -2,6 +2,7 @@ import { Button } from "../components/ui/button";
 import { ConfirmationDialog } from "../components/shared/confirmation-dialog";
 import { RoleDialog } from "../components/shared/role-dialog";
 import { Badge } from "../components/ui/badge";
+import { showClientToast } from "../lib/client-toast";
 import { adminCreateRole, adminDeleteRole, adminListRoles, adminPatchRole, type AdminRoleItem } from "../lib/api";
 import { useEffect, useState } from "react";
 
@@ -19,7 +20,6 @@ const CORE_ROLES = new Set([
 
 export function AdminRolesPage({ accessToken }: AdminRolesPageProps) {
   const [roles, setRoles] = useState<AdminRoleItem[]>([]);
-  const [message, setMessage] = useState<string | null>(null);
 
   async function loadRoles() {
     const payload = await adminListRoles(accessToken);
@@ -28,40 +28,37 @@ export function AdminRolesPage({ accessToken }: AdminRolesPageProps) {
 
   useEffect(() => {
     loadRoles().catch((error) => {
-      setMessage(error instanceof Error ? error.message : "Unable to load roles");
+      showClientToast({ title: "Roles", message: error instanceof Error ? error.message : "Unable to load roles", severity: "error" });
     });
   }, [accessToken]);
 
   async function handleCreateRole(values: { name: string; description: string }) {
-    setMessage(null);
     try {
       await adminCreateRole(accessToken, values.name, values.description || undefined);
       await loadRoles();
-      setMessage("Role created");
+      showClientToast({ title: "Roles", message: "Role created", severity: "success" });
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Unable to create role");
+      showClientToast({ title: "Roles", message: error instanceof Error ? error.message : "Unable to create role", severity: "error" });
     }
   }
 
   async function handleEditRole(values: { name: string; description: string }) {
-    setMessage(null);
     try {
       await adminPatchRole(accessToken, values.name, values.description || undefined);
       await loadRoles();
-      setMessage("Role updated");
+      showClientToast({ title: "Roles", message: "Role updated", severity: "success" });
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Unable to update role");
+      showClientToast({ title: "Roles", message: error instanceof Error ? error.message : "Unable to update role", severity: "error" });
     }
   }
 
   async function handleDeleteRole(roleName: string) {
-    setMessage(null);
     try {
       await adminDeleteRole(accessToken, roleName);
       await loadRoles();
-      setMessage("Role deleted");
+      showClientToast({ title: "Roles", message: "Role deleted", severity: "success" });
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Unable to delete role");
+      showClientToast({ title: "Roles", message: error instanceof Error ? error.message : "Unable to delete role", severity: "error" });
     }
   }
 
@@ -108,8 +105,6 @@ export function AdminRolesPage({ accessToken }: AdminRolesPageProps) {
           </div>
         ))}
       </div>
-
-      {message ? <p className="text-sm">{message}</p> : null}
     </section>
   );
 }

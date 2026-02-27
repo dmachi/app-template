@@ -28,15 +28,37 @@ def _profile_properties_from_preferences(preferences: Any) -> dict[str, Any]:
     return raw if isinstance(raw, dict) else {}
 
 
-def _serialize_basic_user(user: UserRecord) -> dict:
-    organization = user.preferences.get("organization") if isinstance(user.preferences, dict) else None
-    if not isinstance(organization, str):
-        organization = None
+def _migrate_legacy_organization_preferences(auth_store, user: UserRecord) -> UserRecord:
+    if not isinstance(user.preferences, dict):
+        return user
 
+    if "organization" not in user.preferences:
+        return user
+
+    preferences = dict(user.preferences)
+    legacy_organization = preferences.pop("organization", None)
+    profile_properties = _profile_properties_from_preferences(preferences)
+
+    if isinstance(legacy_organization, str):
+        normalized = legacy_organization.strip()
+        existing = profile_properties.get("organization")
+        existing_text = existing.strip() if isinstance(existing, str) else ""
+        if normalized and not existing_text:
+            profile_properties["organization"] = normalized
+
+    preferences["profileProperties"] = profile_properties
+
+    updated = auth_store.update_user_profile(
+        user_id=user.id,
+        preferences=preferences,
+    )
+    return updated or user
+
+
+def _serialize_basic_user(user: UserRecord) -> dict:
     return {
         "id": user.id,
         "displayName": user.display_name,
-        "organization": organization,
     }
 
 
@@ -98,6 +120,8 @@ def get_me(
     current_user: UserRecord = Depends(get_current_user),
     settings: Settings = Depends(get_settings),
 ) -> dict:
+    auth_store = request.app.state.auth_store
+    current_user = _migrate_legacy_organization_preferences(auth_store, current_user)
     profile_properties_config = settings.profile_properties_config
     role_sources = _serialize_role_sources(request, current_user)
     profile_properties = sanitize_profile_properties(

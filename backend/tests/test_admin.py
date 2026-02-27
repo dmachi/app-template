@@ -48,6 +48,7 @@ def test_admin_users_requires_privileged_role(client):
 def test_admin_users_allowed_for_admin_users_role(client):
     register_and_login(client, username="adminusers1", email="adminusers1@example.org")
     register_and_login(client, username="target1", email="target1@example.org")
+    register_and_login(client, username="target2", email="target2@example.org")
 
     auth_store = app.state.auth_store
     admin_users = auth_store.authenticate_local_user("adminusers1", "Password123")
@@ -74,6 +75,23 @@ def test_admin_users_allowed_for_admin_users_role(client):
     assert patched.status_code == 200
     assert patched.json()["displayName"] == "Target Updated"
 
+    patched_email = client.patch(
+        f"/api/v1/admin/users/{target.id}",
+        headers=auth_headers(manager_token),
+        json={"email": "target1+updated@example.org"},
+    )
+    assert patched_email.status_code == 200
+    assert patched_email.json()["email"] == "target1+updated@example.org"
+    assert patched_email.json()["emailVerified"] is False
+
+    duplicate_email = client.patch(
+        f"/api/v1/admin/users/{target.id}",
+        headers=auth_headers(manager_token),
+        json={"email": "target2@example.org"},
+    )
+    assert duplicate_email.status_code == 409
+    assert duplicate_email.json()["error"]["code"] == "EMAIL_ALREADY_EXISTS"
+
     detail = client.get(
         f"/api/v1/admin/users/{target.id}",
         headers=auth_headers(manager_token),
@@ -82,6 +100,8 @@ def test_admin_users_allowed_for_admin_users_role(client):
     assert detail.json()["id"] == target.id
     assert detail.json()["username"] == "target1"
     assert detail.json()["preferences"] == {}
+    assert detail.json()["profileProperties"] == {}
+    assert isinstance(detail.json()["profilePropertyCatalog"], list)
 
     reset = client.post(
         f"/api/v1/admin/users/{target.id}/reset-password",
@@ -89,6 +109,14 @@ def test_admin_users_allowed_for_admin_users_role(client):
     )
     assert reset.status_code == 200
     assert reset.json()["success"] is True
+
+    resend_verification = client.post(
+        f"/api/v1/admin/users/{target.id}/resend-verification",
+        headers=auth_headers(manager_token),
+    )
+    assert resend_verification.status_code == 200
+    assert resend_verification.json()["success"] is True
+    assert resend_verification.json()["sent"] is True
 
     disable = client.patch(
         f"/api/v1/admin/users/{target.id}",
@@ -104,6 +132,54 @@ def test_admin_users_allowed_for_admin_users_role(client):
     )
     assert disabled_login.status_code == 401
     assert disabled_login.json()["error"]["code"] == "INVALID_CREDENTIALS"
+
+
+def test_admin_user_groups_endpoint_returns_memberships_with_owner_flag(client):
+    owner_tokens = register_and_login(client, username="groupowner_admin", email="groupowner_admin@example.org")
+    member_tokens = register_and_login(client, username="groupmember_admin", email="groupmember_admin@example.org")
+    admin_tokens = register_and_login(client, username="adminviewer_groups", email="adminviewer_groups@example.org")
+
+    auth_store = app.state.auth_store
+    owner = auth_store.authenticate_local_user("groupowner_admin", "Password123")
+    member = auth_store.authenticate_local_user("groupmember_admin", "Password123")
+    admin_user = auth_store.authenticate_local_user("adminviewer_groups", "Password123")
+    assert owner is not None
+    assert member is not None
+    assert admin_user is not None
+
+    owner.roles = ["GroupManager"]
+    admin_user.roles = ["AdminUsers"]
+
+    created_group = client.post(
+        "/api/v1/groups",
+        headers=auth_headers(owner_tokens["accessToken"]),
+        json={"name": "Admin Detail Group", "description": "for admin user groups endpoint"},
+    )
+    assert created_group.status_code == 200
+    group_id = created_group.json()["id"]
+
+    add_member = client.post(
+        f"/api/v1/groups/{group_id}/members",
+        headers=auth_headers(owner_tokens["accessToken"]),
+        json={"usernameOrEmail": "groupmember_admin"},
+    )
+    assert add_member.status_code == 200
+
+    owner_groups = client.get(
+        f"/api/v1/admin/users/{owner.id}/groups",
+        headers=auth_headers(admin_tokens["accessToken"]),
+    )
+    assert owner_groups.status_code == 200
+    owner_items = owner_groups.json()["items"]
+    assert any(item["id"] == group_id and item["isOwner"] is True for item in owner_items)
+
+    member_groups = client.get(
+        f"/api/v1/admin/users/{member.id}/groups",
+        headers=auth_headers(admin_tokens["accessToken"]),
+    )
+    assert member_groups.status_code == 200
+    member_items = member_groups.json()["items"]
+    assert any(item["id"] == group_id and item["isOwner"] is False for item in member_items)
 
 
 def test_admin_roles_and_groups_are_restricted(client):
@@ -390,3 +466,68 @@ def test_admin_invitation_resend_and_revoke(client):
     )
     assert after_revoke.status_code == 200
     assert after_revoke.json()["items"] == []
+
+
+    def test_admin_copy_invitation_link_flow(client):
+        owner_tokens = register_and_login(client, username="inviteowner3", email="inviteowner3@example.org")
+
+        auth_store = app.state.auth_store
+        owner_for_group = auth_store.authenticate_local_user("inviteowner3", "Password123")
+        assert owner_for_group is not None
+        owner_for_group.roles = ["GroupManager", "InviteUsers"]
+
+        created_group = client.post(
+            "/api/v1/groups",
+            headers=auth_headers(owner_tokens["accessToken"]),
+            json={"name": "Invite Group 3", "description": "group for invite copy link"},
+        )
+        assert created_group.status_code == 200
+        group_id = created_group.json()["id"]
+
+        owner = auth_store.authenticate_local_user("inviteowner3", "Password123")
+        assert owner is not None
+        owner.roles = ["InviteUsers"]
+
+        owner_login = client.post(
+            "/api/v1/auth/login",
+            json={"usernameOrEmail": "inviteowner3", "password": "Password123"},
+        )
+        owner_token = owner_login.json()["accessToken"]
+
+        invite = client.post(
+            "/api/v1/admin/users/invitations",
+            headers=auth_headers(owner_token),
+            json={
+                "emails": ["copylink@example.org"],
+                "groupIds": [group_id],
+            },
+        )
+        assert invite.status_code == 200
+        assert invite.json()["invited"] == 1
+
+        outstanding = client.get(
+            "/api/v1/admin/users/invitations",
+            headers=auth_headers(owner_token),
+        )
+        assert outstanding.status_code == 200
+        invitation_id = outstanding.json()["items"][0]["id"]
+
+        outbox_before_copy = len(app.state.mail_sender.outbox)
+        copy_link = client.post(
+            f"/api/v1/admin/users/invitations/{invitation_id}/copy-link",
+            headers=auth_headers(owner_token),
+        )
+        assert copy_link.status_code == 200
+        payload = copy_link.json()
+        assert payload["success"] is True
+        assert payload["invitation"]["id"] != invitation_id
+        assert "token=" in payload["invitationLink"]
+        assert len(app.state.mail_sender.outbox) == outbox_before_copy
+
+        refreshed = client.get(
+            "/api/v1/admin/users/invitations",
+            headers=auth_headers(owner_token),
+        )
+        assert refreshed.status_code == 200
+        assert len(refreshed.json()["items"]) == 1
+        assert refreshed.json()["items"][0]["id"] == payload["invitation"]["id"]

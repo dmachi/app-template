@@ -283,7 +283,7 @@ def test_resend_verification_email_noop_when_already_verified(client):
     assert resent.json()["sent"] is False
 
 
-def test_users_basic_view_requires_auth_and_shows_name_and_organization(client):
+def test_users_basic_view_requires_auth_and_shows_name(client):
     register_payload, owner_tokens = register_and_login(client, username="viewerowner", email="viewerowner@example.org")
     _, viewer_tokens = register_and_login(client, username="vieweruser", email="vieweruser@example.org")
 
@@ -305,7 +305,6 @@ def test_users_basic_view_requires_auth_and_shows_name_and_organization(client):
     assert visible.json() == {
         "id": register_payload["id"],
         "displayName": "Owner Visible Name",
-        "organization": "Acme Org",
     }
 
 

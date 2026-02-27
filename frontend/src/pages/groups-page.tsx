@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
+import { ChevronRight } from "lucide-react";
 
 import { CreateGroupDialog } from "../components/shared/create-group-dialog";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
+import { showClientToast } from "../lib/client-toast";
 import { adminListGroups, createGroup, listMyGroupCollections } from "../lib/api";
 
 type GroupsPageProps = {
@@ -32,7 +34,6 @@ export function GroupsPage({ accessToken, canViewAllGroups, onOpenGroup }: Group
   const [allGroups, setAllGroups] = useState<GroupItem[]>([]);
   const [filterMode, setFilterMode] = useState<FilterMode>("all");
   const [query, setQuery] = useState("");
-  const [message, setMessage] = useState<string | null>(null);
 
   async function loadGroups() {
     const [myGroupsPayload, allGroupsPayload] = await Promise.all([
@@ -47,7 +48,7 @@ export function GroupsPage({ accessToken, canViewAllGroups, onOpenGroup }: Group
 
   useEffect(() => {
     loadGroups().catch((error) => {
-      setMessage(error instanceof Error ? error.message : "Unable to load groups");
+      showClientToast({ title: "Groups", message: error instanceof Error ? error.message : "Unable to load groups", severity: "error" });
     });
   }, [accessToken, canViewAllGroups]);
 
@@ -116,9 +117,14 @@ export function GroupsPage({ accessToken, canViewAllGroups, onOpenGroup }: Group
       <CreateGroupDialog
         triggerLabel="Create Group"
         onCreate={async ({ name, description }) => {
-          await createGroup(accessToken, { name, description });
-          await loadGroups();
-          setMessage("Group created");
+          try {
+            await createGroup(accessToken, { name, description });
+            await loadGroups();
+            showClientToast({ title: "Groups", message: "Group created", severity: "success" });
+          } catch (error) {
+            showClientToast({ title: "Groups", message: error instanceof Error ? error.message : "Unable to create group", severity: "error" });
+            throw error;
+          }
         }}
       />
 
@@ -170,15 +176,20 @@ export function GroupsPage({ accessToken, canViewAllGroups, onOpenGroup }: Group
                   {!group.isMine && !group.isMember && canViewAllGroups ? "admin-visible" : null}
                 </p>
               </div>
-              <Button type="button" onClick={() => onOpenGroup(group.id)}>
-                Open
+              <Button
+                type="button"
+                className="bg-transparent"
+                onClick={() => onOpenGroup(group.id)}
+                aria-label={`Open ${group.name}`}
+                title={`Open ${group.name}`}
+              >
+                <ChevronRight className="h-4 w-4" aria-hidden="true" />
               </Button>
             </li>
           ))}
         </ul>
         {filteredGroups.length === 0 ? <p className="text-sm text-slate-500 dark:text-slate-400">No groups match the current filters.</p> : null}
       </div>
-      {message ? <p className="text-sm">{message}</p> : null}
     </section>
   );
 }
