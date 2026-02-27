@@ -58,6 +58,17 @@ def test_auth_providers_metadata(client):
     assert isinstance(payload.get("profilePropertyCatalog"), list)
 
 
+def test_auth_providers_metadata_supports_frontend_icon_path(client):
+    previous_icon = app.state.settings.app_icon
+    app.state.settings.app_icon = "/app-icon.svg"
+    try:
+        meta_response = client.get("/api/v1/meta/auth-providers")
+        assert meta_response.status_code == 200
+        assert meta_response.json()["appIcon"] == "/app-icon.svg"
+    finally:
+        app.state.settings.app_icon = previous_icon
+
+
 def test_register_requires_profile_properties_marked_required(client):
     previous = app.state.settings.profile_properties
     app.state.settings.profile_properties = "!orcid"

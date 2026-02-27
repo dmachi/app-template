@@ -83,6 +83,18 @@ type ThemeOption = "light" | "dark" | "system";
 const REFRESH_TOKEN_STORAGE_KEY = "bst.refreshToken";
 const INVITE_TOKEN_STORAGE_KEY = "bst.pendingInviteToken";
 
+function isImageIconSource(iconValue: string): boolean {
+  const normalized = (iconValue || "").trim().toLowerCase();
+  return normalized.startsWith("/") || normalized.startsWith("http://") || normalized.startsWith("https://") || normalized.startsWith("data:image/");
+}
+
+function renderAppIcon(iconValue: string) {
+  if (isImageIconSource(iconValue)) {
+    return <img src={iconValue} alt="" className="h-6 w-6 object-contain" />;
+  }
+  return <span>{iconValue || "🧩"}</span>;
+}
+
 function normalizePathname(pathname: string): string {
   if (pathname !== "/" && pathname.endsWith("/")) {
     return pathname.slice(0, -1);
@@ -1007,7 +1019,7 @@ export function App() {
         <header className="w-full border-b border-slate-200 dark:border-slate-800">
           <div className="flex w-full items-center justify-between px-6 py-3">
             <a href="/" className="flex items-center gap-2 text-xl font-semibold">
-              <span>{appIcon}</span>
+              {renderAppIcon(appIcon)}
               <span>{appName}</span>
             </a>
           </div>
@@ -1028,7 +1040,7 @@ export function App() {
         <header className="w-full border-b border-slate-200 dark:border-slate-800">
           <div className="flex w-full items-center justify-between px-6 py-3">
             <a href="/" className="flex items-center gap-2 text-xl font-semibold">
-              <span>{appIcon}</span>
+              {renderAppIcon(appIcon)}
               <span>{appName}</span>
             </a>
             <AuthMenu
@@ -1258,7 +1270,7 @@ export function App() {
       <header className="w-full border-b border-slate-200 dark:border-slate-800">
         <div className="flex w-full items-center justify-between px-6 py-3">
           <a href="/" className="flex items-center gap-2 text-xl font-semibold">
-            <span>{appIcon}</span>
+            {renderAppIcon(appIcon)}
             <span>{appName}</span>
           </a>
           <AuthMenu

@@ -45,7 +45,8 @@ Out of the box, this template includes:
 3. Start backend dependencies:
    - `docker compose -f docker-compose.backend.yml up -d`
 4. Run backend API:
-   - `uvicorn app.main:app --app-dir backend --reload --host 0.0.0.0 --port 8000`
+   - `cd backend`
+   - `uvicorn app.main:app --reload --host 0.0.0.0 --port 8000`
 5. Run frontend:
    - `cd frontend && npm install && npm run dev`
 
@@ -68,7 +69,7 @@ Configuration is primarily loaded from `backend/.env` via `backend/app/core/conf
 | Parameter | Default | Description |
 |---|---|---|
 | `APP_NAME` | `Basic System Template` | Display name returned in metadata and used in UI contexts. |
-| `APP_ICON` | `🧩` | App icon/emoji used in frontend header metadata. |
+| `APP_ICON` | `/app-icon.svg` | App icon value. Supports emoji/text or a frontend-served asset path/URL (for example `/app-icon.svg` from `frontend/public/`). |
 | `APP_ENV` | `development` | Runtime mode (`development`, `test`, `production`). |
 | `API_PREFIX` | `/api/v1` | API base path prefix. |
 | `CORS_ALLOW_ORIGINS` | `http://localhost:5173,http://127.0.0.1:5173` | Comma-separated allowed CORS origins. |
