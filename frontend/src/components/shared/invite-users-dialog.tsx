@@ -13,6 +13,10 @@ type GroupOption = {
 type InviteUsersDialogProps = {
   accessToken: string;
   onInvited?: () => Promise<void> | void;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  hideTrigger?: boolean;
+  triggerLabel?: string;
 };
 
 function parseEmails(value: string): string[] {
@@ -26,18 +30,35 @@ function parseEmails(value: string): string[] {
   );
 }
 
-export function InviteUsersDialog({ accessToken, onInvited }: InviteUsersDialogProps) {
-  const [open, setOpen] = useState(false);
+export function InviteUsersDialog({
+  accessToken,
+  onInvited,
+  open,
+  onOpenChange,
+  hideTrigger = false,
+  triggerLabel = "Invite Users",
+}: InviteUsersDialogProps) {
+  const [internalOpen, setInternalOpen] = useState(false);
   const [emailsRaw, setEmailsRaw] = useState("");
   const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>([]);
   const [groupOptions, setGroupOptions] = useState<GroupOption[]>([]);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
+  const isControlled = typeof open === "boolean";
+  const dialogOpen = isControlled ? Boolean(open) : internalOpen;
+
+  function setDialogOpen(nextOpen: boolean) {
+    if (!isControlled) {
+      setInternalOpen(nextOpen);
+    }
+    onOpenChange?.(nextOpen);
+  }
+
   const selectedGroupSet = useMemo(() => new Set(selectedGroupIds), [selectedGroupIds]);
 
   useEffect(() => {
-    if (!open) {
+    if (!dialogOpen) {
       return;
     }
 
@@ -51,7 +72,7 @@ export function InviteUsersDialog({ accessToken, onInvited }: InviteUsersDialogP
         const deduped = Array.from(new Map(merged.map((group) => [group.id, { id: group.id, name: group.name }])).values());
         setGroupOptions(deduped);
       });
-  }, [open, accessToken]);
+  }, [dialogOpen, accessToken]);
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -95,10 +116,12 @@ export function InviteUsersDialog({ accessToken, onInvited }: InviteUsersDialogP
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button type="button">Invite Users</Button>
-      </DialogTrigger>
+    <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      {!hideTrigger ? (
+        <DialogTrigger asChild>
+          <Button type="button">{triggerLabel}</Button>
+        </DialogTrigger>
+      ) : null}
       <DialogContent>
         <DialogHeader className="mb-2">
           <DialogTitle>Invite Users</DialogTitle>

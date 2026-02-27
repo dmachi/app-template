@@ -1,12 +1,21 @@
 import { Button } from "../components/ui/button";
 import { ConfirmationDialog } from "../components/shared/confirmation-dialog";
 import { RoleDialog } from "../components/shared/role-dialog";
+import { Badge } from "../components/ui/badge";
 import { adminCreateRole, adminDeleteRole, adminListRoles, adminPatchRole, type AdminRoleItem } from "../lib/api";
 import { useEffect, useState } from "react";
 
 type AdminRolesPageProps = {
   accessToken: string;
 };
+
+const CORE_ROLES = new Set([
+  "Superuser",
+  "AdminUsers",
+  "AdminGroups",
+  "GroupManager",
+  "InviteUsers",
+]);
 
 export function AdminRolesPage({ accessToken }: AdminRolesPageProps) {
   const [roles, setRoles] = useState<AdminRoleItem[]>([]);
@@ -75,6 +84,7 @@ export function AdminRolesPage({ accessToken }: AdminRolesPageProps) {
               <p className="font-medium">{role.name}</p>
               <p className="text-xs text-slate-500 dark:text-slate-400">{role.description || "No description"}</p>
             </div>
+            {CORE_ROLES.has(role.name) ? <Badge variant="secondary">Core role</Badge> : null}
             <RoleDialog
               triggerLabel="Edit"
               title="Edit Role"
@@ -85,15 +95,16 @@ export function AdminRolesPage({ accessToken }: AdminRolesPageProps) {
               submitLabel="Save Role"
               onSubmit={handleEditRole}
             />
-            <ConfirmationDialog
-              triggerLabel="Delete"
-              title="Delete Role"
-              description={`Delete role \"${role.name}\"?`}
-              confirmLabel="Delete"
-              confirmTone="danger"
-              onConfirm={() => handleDeleteRole(role.name)}
-              disabled={role.name === "superuser"}
-            />
+            {!CORE_ROLES.has(role.name) ? (
+              <ConfirmationDialog
+                triggerLabel="Delete"
+                title="Delete Role"
+                description={`Delete role \"${role.name}\"?`}
+                confirmLabel="Delete"
+                confirmTone="danger"
+                onConfirm={() => handleDeleteRole(role.name)}
+              />
+            ) : null}
           </div>
         ))}
       </div>

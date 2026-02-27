@@ -56,6 +56,47 @@ def test_users_me_get_and_patch(client):
     assert payload["preferences"] == {"theme": "dark"}
 
 
+def test_users_me_includes_direct_and_inherited_role_sources(client):
+    _, owner_tokens = register_and_login(client, username="rolesowner", email="rolesowner@example.org")
+    _, member_tokens = register_and_login(client, username="rolesmember", email="rolesmember@example.org")
+
+    auth_store = app.state.auth_store
+    owner = auth_store.authenticate_local_user("rolesowner", "Password123")
+    member = auth_store.authenticate_local_user("rolesmember", "Password123")
+    assert owner is not None
+    assert member is not None
+
+    owner.roles = ["GroupManager"]
+    member.roles = ["AdminUsers"]
+
+    created_group = client.post(
+        "/api/v1/groups",
+        headers=auth_headers(owner_tokens["accessToken"]),
+        json={"name": "Inherited Role Group", "description": "for role source test"},
+    )
+    assert created_group.status_code == 200
+    group_id = created_group.json()["id"]
+
+    add_member = client.post(
+        f"/api/v1/groups/{group_id}/members",
+        headers=auth_headers(owner_tokens["accessToken"]),
+        json={"usernameOrEmail": "rolesmember"},
+    )
+    assert add_member.status_code == 200
+
+    auth_store.set_group_roles(group_id, ["InviteUsers"])
+
+    me = client.get("/api/v1/users/me", headers=auth_headers(member_tokens["accessToken"]))
+    assert me.status_code == 200
+    payload = me.json()
+
+    assert set(payload["roleSources"]["direct"]) == {"AdminUsers"}
+    inherited = {item["name"]: item["groups"] for item in payload["roleSources"]["inherited"]}
+    assert "InviteUsers" in inherited
+    assert "Inherited Role Group" in inherited["InviteUsers"]
+    assert set(payload["roles"]) == {"AdminUsers", "InviteUsers"}
+
+
 def test_users_search_matches_display_name_username_and_email(client):
     _, owner_tokens = register_and_login(client, username="searchowner", email="search.owner@example.org")
     register_and_login(client, username="alphauser", email="alpha.member@example.org")

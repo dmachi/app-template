@@ -31,6 +31,36 @@ def _serialize_basic_user(user: UserRecord) -> dict:
     }
 
 
+def _serialize_role_sources(request: Request, user: UserRecord) -> dict:
+    auth_store = request.app.state.auth_store
+
+    direct_roles = sorted(set(user.roles))
+    inherited_role_groups: dict[str, set[str]] = {}
+
+    for group in auth_store.list_groups():
+        if not auth_store.is_group_member(group.id, user.id):
+            continue
+        for role_name in group.roles:
+            inherited_role_groups.setdefault(role_name, set()).add(group.name)
+
+    inherited_roles = [
+        {
+            "name": role_name,
+            "groups": sorted(group_names),
+        }
+        for role_name, group_names in sorted(inherited_role_groups.items())
+        if role_name not in direct_roles
+    ]
+
+    effective_roles = sorted(set(direct_roles).union(inherited_role_groups.keys()))
+
+    return {
+        "direct": direct_roles,
+        "inherited": inherited_roles,
+        "effective": effective_roles,
+    }
+
+
 @router.get("/search")
 def search_users(
     query: str,
@@ -54,7 +84,8 @@ def search_users(
 
 
 @router.get("/me")
-def get_me(current_user: UserRecord = Depends(get_current_user)) -> dict:
+def get_me(request: Request, current_user: UserRecord = Depends(get_current_user)) -> dict:
+    role_sources = _serialize_role_sources(request, current_user)
     return {
         "id": current_user.id,
         "username": current_user.username,
@@ -62,7 +93,11 @@ def get_me(current_user: UserRecord = Depends(get_current_user)) -> dict:
         "displayName": current_user.display_name,
         "status": current_user.status,
         "emailVerified": current_user.email_verified,
-        "roles": current_user.roles,
+        "roles": role_sources["effective"],
+        "roleSources": {
+            "direct": role_sources["direct"],
+            "inherited": role_sources["inherited"],
+        },
         "preferences": current_user.preferences,
     }
 

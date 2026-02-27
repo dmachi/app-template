@@ -1,22 +1,26 @@
 import { FormEvent, useEffect, useState } from "react";
 
 import { ConfirmationDialog } from "../components/shared/confirmation-dialog";
+import { RoleAssignmentField } from "../components/shared/role-assignment-field";
 import { UserSearchCombobox } from "../components/shared/user-search-combobox";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
-import { addGroupMember, getGroup, listGroupMembers, patchGroup, removeGroupMember } from "../lib/api";
+import { addGroupMember, adminAssignGroupRoles, adminListAssignableGroupRoles, deleteGroup, getGroup, listGroupMembers, patchGroup, removeGroupMember } from "../lib/api";
 
 type GroupDetailPageProps = {
   accessToken: string;
   groupId: string;
+  canAssignRoles?: boolean;
   onBack: () => void;
 };
 
-export function GroupDetailPage({ accessToken, groupId, onBack }: GroupDetailPageProps) {
+export function GroupDetailPage({ accessToken, groupId, canAssignRoles = false, onBack }: GroupDetailPageProps) {
   const [group, setGroup] = useState<any | null>(null);
   const [members, setMembers] = useState<any[]>([]);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
+  const [assignableRoles, setAssignableRoles] = useState<string[]>([]);
   const [message, setMessage] = useState<string | null>(null);
 
   async function loadData() {
@@ -28,6 +32,7 @@ export function GroupDetailPage({ accessToken, groupId, onBack }: GroupDetailPag
     setMembers(membersPayload.items);
     setName(groupPayload.name ?? "");
     setDescription(groupPayload.description ?? "");
+    setSelectedRoles(groupPayload.roles ?? []);
   }
 
   useEffect(() => {
@@ -35,6 +40,21 @@ export function GroupDetailPage({ accessToken, groupId, onBack }: GroupDetailPag
       setMessage(error instanceof Error ? error.message : "Unable to load group");
     });
   }, [accessToken, groupId]);
+
+  useEffect(() => {
+    if (!canAssignRoles) {
+      setAssignableRoles([]);
+      return;
+    }
+
+    adminListAssignableGroupRoles(accessToken)
+      .then((payload) => {
+        setAssignableRoles(payload.items.map((role) => role.name));
+      })
+      .catch((error) => {
+        setMessage(error instanceof Error ? error.message : "Unable to load assignable roles");
+      });
+  }, [accessToken, canAssignRoles]);
 
   async function handleSaveGroup(event: FormEvent) {
     event.preventDefault();
@@ -44,6 +64,16 @@ export function GroupDetailPage({ accessToken, groupId, onBack }: GroupDetailPag
       setMessage("Group updated");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Unable to update group");
+    }
+  }
+
+  async function handleSaveGroupRoles() {
+    try {
+      await adminAssignGroupRoles(accessToken, groupId, selectedRoles);
+      await loadData();
+      setMessage("Group roles updated");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Unable to update group roles");
     }
   }
 
@@ -80,7 +110,41 @@ export function GroupDetailPage({ accessToken, groupId, onBack }: GroupDetailPag
         <Button type="submit" disabled={!group.canManage}>
           Save Group
         </Button>
+        <ConfirmationDialog
+          triggerLabel="Delete Group"
+          title="Delete Group"
+          description={`Delete group \"${group.name}\"? This action cannot be undone.`}
+          confirmLabel="Delete"
+          confirmTone="danger"
+          disabled={!group.canManage}
+          triggerClassName="border-red-300 text-red-700 hover:bg-red-50 dark:border-red-800 dark:text-red-300 dark:hover:bg-red-950"
+          onConfirm={async () => {
+            try {
+              await deleteGroup(accessToken, groupId);
+              setMessage("Group deleted");
+              onBack();
+            } catch (error) {
+              setMessage(error instanceof Error ? error.message : "Unable to delete group");
+            }
+          }}
+        />
       </form>
+
+      {canAssignRoles ? (
+        <div className="grid gap-2 rounded-md border border-slate-200 p-3 dark:border-slate-800">
+          <h3 className="text-base font-medium">Assigned Roles</h3>
+          <RoleAssignmentField
+            selectedRoles={selectedRoles}
+            availableRoles={assignableRoles}
+            onChange={setSelectedRoles}
+            label="Group Roles"
+            removeConfirmationContext="this group"
+          />
+          <Button type="button" onClick={handleSaveGroupRoles} disabled={!group.canManage}>
+            Save Group Roles
+          </Button>
+        </div>
+      ) : null}
 
       <div className="grid gap-2 rounded-md border border-slate-200 p-3 dark:border-slate-800">
         <h3 className="text-base font-medium">Memberships</h3>

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 
+import { InviteUsersDialog } from "../components/shared/invite-users-dialog";
 import { Button } from "../components/ui/button";
 import {
   adminListOutstandingInvitations,
@@ -57,7 +58,15 @@ export function AdminInvitationsPage({ accessToken }: AdminInvitationsPageProps)
 
   return (
     <section className="grid gap-3">
-      <h2 className="text-lg font-medium">Outstanding Invitations</h2>
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="text-lg font-medium">Outstanding Invitations</h2>
+        <InviteUsersDialog
+          accessToken={accessToken}
+          onInvited={async () => {
+            await loadInvitations();
+          }}
+        />
+      </div>
       {loading ? <p className="text-sm">Loading invitations...</p> : null}
       {invitations.length === 0 && !loading ? (
         <p className="text-sm text-slate-500 dark:text-slate-400">No outstanding invitations.</p>

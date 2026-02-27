@@ -1,9 +1,9 @@
 import { FormEvent, useEffect, useState } from "react";
 
 import { AuthMenu } from "./components/shared/auth-menu";
+import { InviteUsersDialog } from "./components/shared/invite-users-dialog";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
-import { AdminGroupsPage } from "./pages/admin-groups-page";
 import { AdminInvitationsPage } from "./pages/admin-invitations-page";
 import { AdminRolesPage } from "./pages/admin-roles-page";
 import { AdminUserDetailPage } from "./pages/admin-user-detail-page";
@@ -42,8 +42,7 @@ type View =
   | "admin-invitations"
   | "admin-users"
   | "admin-user-detail"
-  | "admin-roles"
-  | "admin-groups";
+  | "admin-roles";
 type ThemeOption = "light" | "dark" | "system";
 const REFRESH_TOKEN_STORAGE_KEY = "bst.refreshToken";
 const INVITE_TOKEN_STORAGE_KEY = "bst.pendingInviteToken";
@@ -88,6 +87,15 @@ function parseSettingsRoute(pathname: string): { view: View; groupId: string | n
   if (pathname === "/settings/theme") {
     return { view: "theme", groupId: null, adminUserId: null };
   }
+  if (pathname === "/settings/admin/users") {
+    return { view: "admin-users", groupId: null, adminUserId: null };
+  }
+  if (pathname === "/settings/admin/invitations") {
+    return { view: "admin-invitations", groupId: null, adminUserId: null };
+  }
+  if (pathname === "/settings/admin/roles") {
+    return { view: "admin-roles", groupId: null, adminUserId: null };
+  }
   if (pathname === "/admin") {
     return { view: "admin-users", groupId: null, adminUserId: null };
   }
@@ -100,12 +108,13 @@ function parseSettingsRoute(pathname: string): { view: View; groupId: string | n
   if (pathname === "/admin/roles") {
     return { view: "admin-roles", groupId: null, adminUserId: null };
   }
-  if (pathname === "/admin/groups") {
-    return { view: "admin-groups", groupId: null, adminUserId: null };
-  }
   const adminUserMatch = pathname.match(/^\/admin\/users\/([^/]+)$/);
   if (adminUserMatch) {
     return { view: "admin-user-detail", groupId: null, adminUserId: adminUserMatch[1] };
+  }
+  const settingsAdminUserMatch = pathname.match(/^\/settings\/admin\/users\/([^/]+)$/);
+  if (settingsAdminUserMatch) {
+    return { view: "admin-user-detail", groupId: null, adminUserId: settingsAdminUserMatch[1] };
   }
   const groupMatch = pathname.match(/^\/settings\/group\/([^/]+)$/);
   if (groupMatch) {
@@ -143,19 +152,16 @@ function buildSettingsPath(view: View, groupId: string | null, adminUserId: stri
     return "/settings/theme";
   }
   if (view === "admin-users") {
-    return "/admin/users";
+    return "/settings/admin/users";
   }
   if (view === "admin-invitations") {
-    return "/invitations";
+    return "/settings/admin/invitations";
   }
   if (view === "admin-user-detail" && adminUserId) {
-    return `/admin/users/${adminUserId}`;
+    return `/settings/admin/users/${adminUserId}`;
   }
   if (view === "admin-roles") {
-    return "/admin/roles";
-  }
-  if (view === "admin-groups") {
-    return "/admin/groups";
+    return "/settings/admin/roles";
   }
   if (view === "group-detail" && groupId) {
     return `/settings/group/${groupId}`;
@@ -196,6 +202,7 @@ export function App() {
   const [registerEmail, setRegisterEmail] = useState("");
   const [registerPassword, setRegisterPassword] = useState("");
   const [registerDisplayName, setRegisterDisplayName] = useState("");
+  const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   function resolveThemePreference(preference: unknown): ThemeOption {
@@ -219,11 +226,11 @@ export function App() {
     if (capabilities.invitations) {
       return "admin-invitations";
     }
-    if (capabilities.groups) {
-      return "admin-groups";
-    }
     if (capabilities.roles) {
       return "admin-roles";
+    }
+    if (capabilities.groups) {
+      return "groups";
     }
     return null;
   }
@@ -234,9 +241,6 @@ export function App() {
     }
     if (nextView === "admin-invitations") {
       return capabilities.invitations;
-    }
-    if (nextView === "admin-groups") {
-      return capabilities.groups;
     }
     if (nextView === "admin-roles") {
       return capabilities.roles;
@@ -298,8 +302,20 @@ export function App() {
         window.history.replaceState({}, "", "/settings/profile");
       }
       if (normalizedPath === "/admin") {
-        console.debug("[route-debug] canonical redirect", { from: "/admin", to: "/admin/users" });
-        window.history.replaceState({}, "", "/admin/users");
+        console.debug("[route-debug] canonical redirect", { from: "/admin", to: "/settings/admin/users" });
+        window.history.replaceState({}, "", "/settings/admin/users");
+      }
+      if (normalizedPath === "/admin/users") {
+        window.history.replaceState({}, "", "/settings/admin/users");
+      }
+      if (normalizedPath === "/admin/roles") {
+        window.history.replaceState({}, "", "/settings/admin/roles");
+      }
+      if (normalizedPath === "/admin/groups") {
+        window.history.replaceState({}, "", "/settings/groups");
+      }
+      if (normalizedPath === "/invitations") {
+        window.history.replaceState({}, "", "/settings/admin/invitations");
       }
       const { view: nextView, groupId, adminUserId } = parseSettingsRoute(window.location.pathname);
       const params = new URLSearchParams(window.location.search);
@@ -472,6 +488,7 @@ export function App() {
       setAcceptingInvitation(false);
       setInvitationAcceptanceMessage(null);
       setAdminCapabilities({ users: false, groups: false, invitations: false, roles: false });
+      setInviteDialogOpen(false);
       window.localStorage.removeItem(INVITE_TOKEN_STORAGE_KEY);
       window.history.replaceState({}, "", "/");
     }
@@ -561,12 +578,15 @@ export function App() {
       normalizedPath === "/settings/security" ||
       normalizedPath === "/settings/groups" ||
       normalizedPath === "/settings/theme" ||
+      normalizedPath === "/settings/admin/users" ||
+      normalizedPath === "/settings/admin/invitations" ||
+      normalizedPath === "/settings/admin/roles" ||
       normalizedPath === "/admin" ||
       normalizedPath === "/invitations" ||
       normalizedPath === "/admin/users" ||
       normalizedPath === "/admin/roles" ||
-      normalizedPath === "/admin/groups" ||
       /^\/admin\/users\/[^/]+$/.test(normalizedPath) ||
+      /^\/settings\/admin\/users\/[^/]+$/.test(normalizedPath) ||
       /^\/settings\/group\/[^/]+$/.test(normalizedPath);
 
     if (!validPath) {
@@ -604,7 +624,7 @@ export function App() {
       return;
     }
 
-    if (parsed.view === "admin-users" || parsed.view === "admin-invitations" || parsed.view === "admin-user-detail" || parsed.view === "admin-roles" || parsed.view === "admin-groups") {
+    if (parsed.view === "admin-users" || parsed.view === "admin-invitations" || parsed.view === "admin-user-detail" || parsed.view === "admin-roles") {
       if (!adminAccessChecked) {
         console.debug("[route-debug] auth-guard:wait admin-access-check", {
           pathname: normalizedPath,
@@ -840,10 +860,19 @@ export function App() {
             onRegister={() => {}}
             onSettings={() => navigateSettings("profile", null, window.location.pathname === "/settings/profile")}
             onLogout={handleLogout}
-            extraMenuItems={canAccessAdmin ? [{ label: "Admin", onSelect: () => navigateSettings(getFirstAllowedAdminView(adminCapabilities) || "home") }] : []}
+            extraMenuItems={adminCapabilities.invitations ? [{ label: "Invite Users", onSelect: () => setInviteDialogOpen(true) }] : []}
           />
         </div>
       </header>
+
+      {adminCapabilities.invitations ? (
+        <InviteUsersDialog
+          accessToken={accessToken}
+          open={inviteDialogOpen}
+          onOpenChange={setInviteDialogOpen}
+          hideTrigger
+        />
+      ) : null}
 
       {view === "home" ? (
         <main className="w-full px-6 py-6">
@@ -865,8 +894,9 @@ export function App() {
         <main className="w-full px-6 py-6">
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-[220px_minmax(0,1fr)]">
             <aside className="rounded-md border border-slate-200 p-3 dark:border-slate-800">
-              {view === "profile" || view === "security" || view === "groups" || view === "group-detail" || view === "theme" ? (
-                <nav className="grid gap-2">
+              <nav className="grid gap-3">
+                <div className="grid gap-2">
+                  <p className="px-1 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Settings</p>
                   <Button
                     type="button"
                     className={view === "profile" ? "bg-slate-100 dark:bg-slate-800" : ""}
@@ -886,7 +916,7 @@ export function App() {
                     className={view === "groups" || view === "group-detail" ? "bg-slate-100 dark:bg-slate-800" : ""}
                     onClick={() => navigateSettings("groups")}
                   >
-                    Groups - Group Management
+                    Groups
                   </Button>
                   <Button
                     type="button"
@@ -895,45 +925,41 @@ export function App() {
                   >
                     Theme
                   </Button>
-                </nav>
-              ) : null}
+                </div>
 
-              {view === "admin-users" || view === "admin-invitations" || view === "admin-user-detail" || view === "admin-roles" || view === "admin-groups" ? (
-                <nav className="grid gap-2">
-                  <Button
-                    type="button"
-                    className={view === "admin-users" || view === "admin-user-detail" ? "bg-slate-100 dark:bg-slate-800" : ""}
-                    onClick={() => navigateSettings("admin-users")}
-                    disabled={!adminCapabilities.users}
-                  >
-                    Users
-                  </Button>
-                  <Button
-                    type="button"
-                    className={view === "admin-invitations" ? "bg-slate-100 dark:bg-slate-800" : ""}
-                    onClick={() => navigateSettings("admin-invitations")}
-                    disabled={!adminCapabilities.invitations}
-                  >
-                    Invitations
-                  </Button>
-                  <Button
-                    type="button"
-                    className={view === "admin-roles" ? "bg-slate-100 dark:bg-slate-800" : ""}
-                    onClick={() => navigateSettings("admin-roles")}
-                    disabled={!adminCapabilities.roles}
-                  >
-                    Roles
-                  </Button>
-                  <Button
-                    type="button"
-                    className={view === "admin-groups" ? "bg-slate-100 dark:bg-slate-800" : ""}
-                    onClick={() => navigateSettings("admin-groups")}
-                    disabled={!adminCapabilities.groups}
-                  >
-                    All Groups
-                  </Button>
-                </nav>
-              ) : null}
+                {canAccessAdmin ? (
+                  <div className="grid gap-2">
+                    <p className="px-1 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Administration</p>
+                    {adminCapabilities.users ? (
+                      <Button
+                        type="button"
+                        className={view === "admin-users" || view === "admin-user-detail" ? "bg-slate-100 dark:bg-slate-800" : ""}
+                        onClick={() => navigateSettings("admin-users")}
+                      >
+                        Users
+                      </Button>
+                    ) : null}
+                    {adminCapabilities.invitations ? (
+                      <Button
+                        type="button"
+                        className={view === "admin-invitations" ? "bg-slate-100 dark:bg-slate-800" : ""}
+                        onClick={() => navigateSettings("admin-invitations")}
+                      >
+                        Invitations
+                      </Button>
+                    ) : null}
+                    {adminCapabilities.roles ? (
+                      <Button
+                        type="button"
+                        className={view === "admin-roles" ? "bg-slate-100 dark:bg-slate-800" : ""}
+                        onClick={() => navigateSettings("admin-roles")}
+                      >
+                        Roles
+                      </Button>
+                    ) : null}
+                  </div>
+                ) : null}
+              </nav>
             </aside>
 
             <section>
@@ -942,6 +968,7 @@ export function App() {
               {view === "groups" ? (
                 <GroupsPage
                   accessToken={accessToken}
+                  canViewAllGroups={adminCapabilities.groups}
                   onOpenGroup={(groupId) => {
                     navigateSettings("group-detail", groupId);
                   }}
@@ -951,6 +978,7 @@ export function App() {
                 <GroupDetailPage
                   accessToken={accessToken}
                   groupId={selectedGroupId}
+                  canAssignRoles={adminCapabilities.groups}
                   onBack={() => navigateSettings("groups")}
                 />
               ) : null}
@@ -993,7 +1021,6 @@ export function App() {
                 />
               ) : null}
               {view === "admin-roles" ? <AdminRolesPage accessToken={accessToken} /> : null}
-              {view === "admin-groups" ? <AdminGroupsPage accessToken={accessToken} /> : null}
             </section>
           </div>
         </main>
