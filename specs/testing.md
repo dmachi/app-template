@@ -28,8 +28,13 @@ Must include detailed tests for:
 - Authentication endpoints (`/auth/login`, `/auth/register`, `/auth/refresh`, `/auth/logout`, `/auth/me`)
 - Role-protected endpoints (`/admin/*`) for both allowed and denied cases
 - Group ownership endpoints (`/groups/*`) for owner and non-owner behavior
+- Notification endpoints (`/notifications/*`) for create/list/read/ack/clear/check-completion
 - Validation and error-envelope behavior (malformed payloads, conflicts, missing fields)
 - Token lifecycle behavior (expired access token, refresh rotation, revoked/invalid refresh)
+- Websocket event endpoint behavior for connected recipients
+- Fallback email timing/eligibility behavior for disconnected recipients
+- Active-event dedupe/merge behavior (no duplicate active notifications)
+- Notification open endpoint redirect/read/ack-clear behavior
 
 ### 4.2 Authorization Matrix Validation (required)
 - Endpoint tests must align with `permissions-matrix.md`
@@ -41,6 +46,10 @@ Must include detailed tests for:
 - Identity linking logic and canonical email handling
 - Role assignment and group ownership policy checks
 - Repository/service behavior for token revocation and audit events
+- Notification completion-check allow-list and state transition rules
+- Redis event fanout publisher/subscriber behavior
+- Completion-check decaying scheduler behavior up to max interval (1 day)
+- Email redelivery retry behavior (max attempts, day-based exponential backoff, once-per-day cap)
 
 ## 5) Frontend Test Requirements (Playwright)
 
@@ -53,6 +62,12 @@ Must include detailed tests for:
   - Unauthenticated: Login button visible
   - Authenticated: user icon dropdown visible
   - Role-based menu visibility for admin/superuser links
+- Notification flows:
+  - receive realtime notification while connected
+  - acknowledge/clear behavior in UI for acknowledge-required notifications
+  - task-gated notification clear blocked until completion condition is met
+  - active notification remains visible even when email redelivery budget is exhausted
+  - superuser notifications admin flow (list/filter/resend/cancel/delete)
 
 ### 5.2 Cross-Browser Baseline
 - Chromium is required for MVP CI
@@ -68,6 +83,9 @@ Must include detailed tests for:
 - Any new endpoint must include tests for success path and at least one failure/authorization path
 - Critical Playwright flows must pass in CI before merge to protected branches
 - Security-sensitive auth changes require regression test updates
+- Notification delivery changes require regression tests for websocket + fallback-email behavior
+- Notification producer endpoint tests must verify only internal/superuser testing pathways are allowed
+- Superuser notification admin endpoints must verify `403` for non-superuser and success for superuser
 
 ## 7) CI/CD Expectations
 - Run backend tests on every pull request

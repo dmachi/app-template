@@ -20,6 +20,8 @@ Define a database-agnostic persistence model for authentication, users, role ass
 - `user_roles`
 - `groups`
 - `group_memberships`
+- `notifications`
+- `notification_deliveries`
 - `audit_events`
 
 ## 4) Storage Model
@@ -32,6 +34,8 @@ Define a database-agnostic persistence model for authentication, users, role ass
 - `user_roles`
 - `groups`
 - `group_memberships`
+- `notifications`
+- `notification_deliveries`
 - `audit_events`
 
 ### 4.2 Optional SQL-Compatible Mapping (Future)
@@ -188,6 +192,62 @@ Indexes:
 - index on (`target_type`, `target_id`)
 - index on `created_at`
 
+### `notifications`
+Per-user notification records.
+
+Fields (draft):
+- `id` (string/uuid, primary id)
+- `user_id` (string/uuid, ref -> `users.id`)
+- `type` (string)
+- `event_identity` (string; deterministic identity used for active dedupe/merge)
+- `message` (string)
+- `severity` (enum: `info`, `success`, `warning`, `error`)
+- `requires_acknowledgement` (boolean)
+- `clearance_mode` (enum: `manual`, `ack`, `task_gate`)
+- `navigation` (json: `kind`, `target`, optional `params`)
+- `delivery_options` (json: `in_app_enabled`, `email_fallback_enabled`, optional `email_template_id`)
+- `merge_count` (int, default 1)
+- `completion_check` (json, nullable: `function_key`, `arguments`, `retry_interval_seconds`, optional `timeout_seconds`)
+- `status` (enum: `unread`, `read`, `acknowledged`, `cleared`)
+- `read_at` (timestamp, nullable)
+- `acknowledged_at` (timestamp, nullable)
+- `cleared_at` (timestamp, nullable)
+- `created_at` (timestamp)
+- `updated_at` (timestamp)
+
+Indexes:
+- index on `user_id`
+- index on (`user_id`, `status`)
+- index on (`user_id`, `created_at`)
+- unique partial index on (`user_id`, `event_identity`) where status is active (`unread|read|acknowledged`)
+
+### `notification_deliveries`
+Tracks in-app and fallback-email delivery lifecycle per notification.
+
+Fields (draft):
+- `id` (string/uuid, primary id)
+- `notification_id` (string/uuid, ref -> `notifications.id`)
+- `in_app_attempted_at` (timestamp, nullable)
+- `in_app_delivered_at` (timestamp, nullable)
+- `in_app_delivery_ack_at` (timestamp, nullable)
+- `last_connection_seen_at` (timestamp, nullable)
+- `email_fallback_eligible_at` (timestamp, nullable)
+- `email_fallback_sent_at` (timestamp, nullable)
+- `email_attempt_count` (int, default 0)
+- `email_redelivery_max_attempts` (int, nullable override)
+- `next_email_attempt_at` (timestamp, nullable)
+- `next_completion_check_at` (timestamp, nullable)
+- `last_error` (string, nullable)
+- `created_at` (timestamp)
+- `updated_at` (timestamp)
+
+Indexes:
+- unique index on `notification_id`
+- index on `email_fallback_eligible_at`
+- index on `email_fallback_sent_at`
+- index on `next_email_attempt_at`
+- index on `next_completion_check_at`
+
 ## 6) Repository Interface Contracts (Required)
 - `UserRepository`
 	- `getById`, `getByUsernameOrEmail`, `create`, `updateProfile`, `list`
@@ -199,6 +259,10 @@ Indexes:
 	- `create`, `getByRefreshTokenHash`, `revoke`, `revokeAllForUser`
 - `AuditRepository`
 	- `append`, `query`
+- `NotificationRepository`
+	- `create`, `createBulk`, `listForUser`, `getForUser`, `markRead`, `acknowledge`, `clearIfAllowed`, `updateCompletionState`
+- `NotificationDeliveryRepository`
+	- `recordInAppAttempt`, `recordInAppDelivery`, `markFallbackEligible`, `recordFallbackEmailSent`, `listFallbackDue`
 
 ## 7) Relationship Summary
 - One `user` -> many `auth_identities`
@@ -206,12 +270,15 @@ Indexes:
 - Many `users` <-> many `roles` via `user_roles`
 - One `user` -> many owned `groups`
 - Many `users` <-> many `groups` via `group_memberships`
+- One `user` -> many `notifications`
+- One `notification` -> one `notification_delivery`
 
 ## 8) Deletion/Retention Policies (Draft)
 - Hard delete of user should be restricted by default in production; prefer soft-disable (`status=disabled`)
 - Session rows may be purged after retention window
 - Audit events should be append-only and retained per policy
 - Role deletion blocked when assigned to any user
+- Completed notifications are retained for 48 hours by default, then eligible for purge
 
 ## 9) Data Model Acceptance Criteria
 - Schema supports all endpoints in `api.md`

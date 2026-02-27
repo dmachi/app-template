@@ -16,6 +16,7 @@ This `specs/` package defines the baseline requirements for a reusable software 
 - Administrative user management (list/edit users)
 - Administrative role management and role assignment to users
 - Group management where users create/manage their own groups and superusers can view/manage all groups
+- In-app notifications with realtime websocket delivery and offline fallback email
 
 ## Document Map
 - `overview.md` — Product goals, architecture, scope, and assumptions
@@ -25,6 +26,7 @@ This `specs/` package defines the baseline requirements for a reusable software 
 - `ui.md` — UI routes, pages, behavior, and acceptance criteria
 - `admin.md` — Admin authorization, role/user/group administration, and audit requirements
 - `data-model.md` — Database-agnostic persistence model with MongoDB-first mapping and adapter contracts
+- `notifications.md` — In-app notifications, websocket/Redis delivery architecture, and fallback email policy
 - `permissions-matrix.md` — Role-to-capability matrix for endpoint and UI authorization
 - `implementation-plan.md` — Milestones and delivery plan from specs to MVP
 - `testing.md` — Detailed backend/API and Playwright frontend testing standards

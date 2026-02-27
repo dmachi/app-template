@@ -17,7 +17,8 @@
 	- Unauthenticated state: shows `Login` button
 	- Authenticated state: shows user icon/avatar trigger with dropdown menu
 	- Dropdown includes link to settings/profile
-	- Dropdown includes links to admin pages only when user has appropriate privileges
+	- Dropdown includes contextual actions (e.g., Invite Users) only when user has appropriate privileges
+- Application settings sidebar is the single navigation hub for both user settings and any admin-capability pages available to that user
 
 ## 1) Required Screens
 
@@ -40,6 +41,10 @@
 ### D) User Profile / Settings
 - Displays current user data
 - Allows editing permitted fields (e.g., display name, preferences)
+- Displays role badges with role-source distinction:
+	- direct user-assigned roles
+	- group-inherited roles
+- Hovering inherited role badge shows source group(s)
 - Save action uses API patch endpoint with success/error feedback
 
 ### E) User — My Groups
@@ -52,6 +57,19 @@
 - Supports basic search/filter by status/role (MVP-level)
 - Entry action to open user edit view
 - Visible to `superuser` and configured user-management roles
+
+### K) Notifications
+- User can view in-app notifications list/panel
+- Notification item supports click navigation target semantics
+- Acknowledge-required notifications present explicit acknowledge action
+- Task-gated notifications cannot clear until backend completion check succeeds
+- UI updates in realtime when connected websocket event stream is active
+
+### L) Admin — Notifications (Superuser)
+- Superuser-only page to view all notifications across users
+- Supports filtering by recipient, status, type, and date range
+- Supports actions: resend, cancel, delete
+- Shows delivery history metadata per notification
 
 ### G) Admin — User Edit
 - Displays user details and linked auth identities
@@ -77,20 +95,21 @@
 ## 2) Routing
 - `/login`
 - `/register`
-- `/profile`
-- `/groups`
-- `/groups/:id`
-- `/admin/users`
-- `/admin/users/:id`
-- `/admin/roles`
-- `/admin/roles/:id`
-- `/admin/groups`
-- `/admin/groups/:id`
+- `/settings/profile`
+- `/settings/security`
+- `/settings/theme`
+- `/settings/groups`
+- `/settings/group/:id`
+- `/settings/admin/users`
+- `/settings/admin/users/:id`
+- `/settings/admin/roles`
+- `/settings/admin/invitations`
+- `/settings/admin/notifications`
+- `/notifications` (optional dedicated page or panel route)
 
 ## 3) Route Protection Rules
-- `/profile` requires authenticated user
-- `/groups*` requires authenticated user
-- `/admin/*` requires authenticated privileged role per page policy
+- `/settings/*` requires authenticated user
+- `/settings/admin/*` requires authenticated privileged role per page policy
 - Unauthorized/forbidden routes redirect to login or show access denied state
 - UI auth layer must attempt token refresh on access-token expiration before redirecting to login
 - If refresh fails, clear local auth state and redirect to `/login`
@@ -112,3 +131,4 @@
 - Shared UI components are reusable across multiple pages and follow shadcn-ui-first selection guidance
 - During active use, UI refreshes tokens without interrupting user flow until refresh token becomes invalid/expired
 - Default shell/header behavior matches authenticated vs unauthenticated requirements
+- Notifications display and state updates are near real-time while websocket is connected

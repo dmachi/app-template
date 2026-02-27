@@ -94,7 +94,29 @@ Exit criteria:
 - Non-privileged access is denied for privileged operations
 - Role/permission endpoint tests verify allowed and denied paths
 
-### Milestone 6 — Audit, Hardening, and Template Packaging
+### Milestone 6 — Notifications and Realtime Event Delivery
+Deliverables:
+- Notification domain model and APIs for app notifications
+  - message content
+  - acknowledgement requirement
+  - task/state-gated clearing semantics
+  - navigation semantics for click target behavior
+  - delivery options metadata (in-app + optional fallback email)
+- Websocket event channel from frontend to backend for notifications and related realtime events
+- Redis-backed process bus for fanout across multi-process backend deployments
+- Delivery strategy:
+  - in-app websocket first when recipient is actively connected
+  - fallback email after configurable offline threshold (default target: 3 minutes) for eligible notifications
+- Tests for notification lifecycle, websocket delivery, Redis fanout, and fallback email timing/eligibility
+
+Exit criteria:
+- Notifications can be created and consumed via API and UI
+- Connected users receive realtime notifications in-app
+- Multi-process deployments correctly route websocket events via Redis
+- Eligible offline users receive fallback email after configured threshold
+- Task/state-gated notifications cannot be cleared until completion checks pass
+
+### Milestone 7 — Audit, Hardening, and Template Packaging
 Deliverables:
 - Audit events for auth/admin/group operations
 - Rate limiting, CSRF protections, and secure cookie defaults
@@ -117,7 +139,8 @@ Exit criteria:
 5. User/profile APIs and UI
 6. Group APIs and UI
 7. Admin APIs and UI
-8. Audit/observability
+8. Notifications/realtime APIs and UI
+9. Audit/observability and packaging
 
 ## 5) Testing Strategy (MVP)
 Detailed testing standards are defined in `testing.md`.

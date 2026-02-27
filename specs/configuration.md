@@ -32,6 +32,13 @@ Priority order:
 - `COOKIE_SAME_SITE` (required when `TOKEN_TRANSPORT_MODE=cookie`)
 - `REFRESH_TOKEN_REQUEST_FIELD` (default `refreshToken` for `bearer-header` mode)
 
+### Websocket / Events
+- `WS_EVENTS_ENABLED` (bool, default true)
+- `WS_EVENTS_PATH` (default `/api/v1/ws/events`)
+- `WS_AUTH_MODE` (default `jwt-query`)
+- `WS_CONNECTION_IDLE_TIMEOUT_SECONDS` (optional)
+- `WS_MAX_CONNECTIONS_PER_USER` (optional)
+
 ### Database
 - `DATABASE_PROVIDER` (`mongodb` default, configurable)
 - `DATABASE_URL` (provider-agnostic canonical connection setting)
@@ -84,6 +91,31 @@ Priority order:
 - `LOG_LEVEL`
 - `AUDIT_LOG_ENABLED`
 
+### Notifications
+- `NOTIFICATIONS_ENABLED` (bool, default true)
+- `NOTIFICATIONS_EMAIL_FALLBACK_DELAY_SECONDS` (default `180`)
+- `NOTIFICATIONS_FALLBACK_POLL_INTERVAL_SECONDS` (default `30`)
+- `NOTIFICATIONS_DEFAULT_EMAIL_FALLBACK_ENABLED` (bool, default false)
+- `NOTIFICATIONS_COMPLETION_CHECK_ENABLED` (bool, default true)
+- `NOTIFICATIONS_COMPLETION_CHECK_MAX_RUNTIME_SECONDS` (optional)
+- `NOTIFICATIONS_COMPLETION_CHECK_INITIAL_INTERVAL_SECONDS` (default `60`)
+- `NOTIFICATIONS_COMPLETION_CHECK_MAX_INTERVAL_SECONDS` (default `86400`)
+- `NOTIFICATIONS_COMPLETION_CHECK_DEPENDENCY_TRIGGER_ENABLED` (bool, default true)
+- `NOTIFICATIONS_COMPLETION_CHECK_SKIP_UNCHANGED_DEPENDENCIES` (bool, default true)
+- `NOTIFICATIONS_EMAIL_REDELIVERY_MAX_ATTEMPTS` (default `3`)
+- `NOTIFICATIONS_EMAIL_REDELIVERY_BACKOFF_BASE_SECONDS` (default `86400`)
+- `NOTIFICATIONS_EMAIL_REDELIVERY_BACKOFF_MULTIPLIER` (default `2`)
+- `NOTIFICATIONS_EMAIL_REDELIVERY_MAX_INTERVAL_SECONDS` (default `1382400`)
+- `NOTIFICATIONS_EMAIL_MIN_INTERVAL_PER_NOTIFICATION_SECONDS` (default `86400`)
+- `NOTIFICATIONS_COMPLETED_RETENTION_HOURS` (default `48`)
+
+### Redis (Realtime Event Bus)
+- `REDIS_URL`
+- `REDIS_CHANNEL_NOTIFICATIONS` (default `notifications.events`)
+- `REDIS_CHANNEL_SYSTEM_EVENTS` (optional)
+- `REDIS_PUBLISH_RETRY_COUNT` (default `3`)
+- `REDIS_PUBLISH_RETRY_DELAY_MS` (default `200`)
+
 ## 4) Validation Rules
 - Startup must fail fast on missing required secrets/URLs in non-dev environments
 - Unknown providers in `AUTH_PROVIDERS_ENABLED` must fail validation
@@ -94,6 +126,13 @@ Priority order:
 - Cookie settings must be validated when `TOKEN_TRANSPORT_MODE=cookie`
 - For `DATABASE_PROVIDER=mongodb`, resolve connection settings with precedence: `MONGODB_URI`/`MONGODB_DB_NAME` then `DATABASE_URL`/`DATABASE_NAME`
 - `USER_MANAGEMENT_ROLES` must always include configured superuser role value
+- Notification fallback delay and poll interval must be bounded positive integers
+- Notification completion-check initial/max intervals must be bounded positive integers, with max interval <= 86400 for MVP
+- Dependency-trigger completion-check optimization flags must be valid booleans
+- Notification redelivery attempt count and backoff settings must be bounded positive values
+- Notification daily send cap per notification (`NOTIFICATIONS_EMAIL_MIN_INTERVAL_PER_NOTIFICATION_SECONDS`) must be >= 86400 for MVP
+- When notifications/realtime events are enabled, `REDIS_URL` must be present
+- `WS_AUTH_MODE` must be compatible with configured auth mode (JWT in MVP)
 
 ## 5) Config Endpoint
 - Provide read-only sanitized endpoint for frontend:

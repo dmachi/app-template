@@ -22,6 +22,8 @@ Create a reusable boilerplate system for future software projects with:
 - User pages for:
   - Group listing/creation/editing for groups owned by the current user
 - API endpoints for authentication, user account, admin user/role management, and group management
+- Notification APIs for in-app delivery, acknowledgement/task-gated clearing, and user notification state
+- Realtime websocket event delivery with Redis bus support for multi-process backend deployments
 - Authentication abstraction supporting multiple providers enabled via configuration
 
 ## 3) Out of Scope (MVP)
@@ -62,6 +64,10 @@ Create a reusable boilerplate system for future software projects with:
   - user_id, role_id, assigned_by, assigned_at
 - Group
   - id, name, description, owner_user_id, visibility, created_at, updated_at
+- Notification
+  - id, user_id, type, message, clearance_mode, delivery_options, status, navigation, created_at, updated_at
+- NotificationDelivery
+  - notification_id, in_app_attempted_at, in_app_delivered_at, email_fallback_sent_at, last_error
 - AuthIdentity
   - user_id, provider, provider_subject, linked_at
 - Session
@@ -82,6 +88,7 @@ Create a reusable boilerplate system for future software projects with:
 - Reliability: clear error responses and deterministic auth behavior
 - Quality: detailed automated API endpoint tests required; frontend automated browser tests required for critical user journeys
 - Observability: auth and admin actions logged with correlation id
+- Realtime reliability: notification events deliver in-app for connected users and use delayed fallback email for eligible offline users
 - Portability: environment-driven config, minimal deployment assumptions
 - Maintainability: reusable frontend components and database adapter interfaces to support downstream project evolution
 
