@@ -586,6 +586,20 @@ class MongoAuthStore:
         docs = self._notifications.find(query).sort("created_at", -1)
         return [self._doc_to_notification(doc) for doc in docs]
 
+    def purge_completed_notifications(self, retention_hours: int) -> int:
+        cutoff = datetime.now(UTC) - timedelta(hours=retention_hours)
+        result = self._notifications.delete_many(
+            {
+                "$or": [
+                    {"cleared_at": {"$lte": cutoff}},
+                    {"acknowledged_at": {"$lte": cutoff}},
+                    {"read_at": {"$lte": cutoff}},
+                    {"canceled_at": {"$lte": cutoff}},
+                ]
+            }
+        )
+        return int(result.deleted_count)
+
     def list_notifications(self, *, status: str | None = None, type_name: str | None = None, user_id: str | None = None) -> list[NotificationRecord]:
         query: dict = {}
         if status:

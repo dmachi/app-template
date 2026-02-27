@@ -1,4 +1,5 @@
 import re
+from datetime import UTC, datetime, timedelta
 from urllib.parse import unquote
 
 from app.main import app
@@ -201,6 +202,108 @@ def test_notifications_without_identity_do_not_merge(client):
     assert len(second.json()["created"]) == 1
     assert second.json()["created"][0]["id"] != first_id
     assert second.json()["created"][0]["status"] == "unread"
+
+
+def test_notifications_list_defaults_to_unread_only(client):
+    recipient_tokens = register_and_login(client, username="filteradmin", email="filteradmin@example.org")
+
+    auth_store = app.state.auth_store
+    recipient_user = auth_store.authenticate_local_user("filteradmin", "Password123")
+    assert recipient_user is not None
+    recipient_user.roles = ["Superuser"]
+
+    admin_login = client.post(
+        "/api/v1/auth/login",
+        json={"usernameOrEmail": "filteradmin", "password": "Password123"},
+    )
+    admin_token = admin_login.json()["accessToken"]
+
+    created = client.post(
+        "/api/v1/notifications",
+        headers=auth_headers(admin_token),
+        json={
+            "userIds": [recipient_user.id],
+            "type": "test",
+            "message": "visible unread",
+        },
+    )
+    assert created.status_code == 200
+    notification_id = created.json()["created"][0]["id"]
+
+    read = client.post(
+        f"/api/v1/notifications/{notification_id}/read",
+        headers=auth_headers(recipient_tokens["accessToken"]),
+    )
+    assert read.status_code == 200
+
+    unread_created = client.post(
+        "/api/v1/notifications",
+        headers=auth_headers(admin_token),
+        json={
+            "userIds": [recipient_user.id],
+            "type": "test",
+            "message": "still unread",
+        },
+    )
+    assert unread_created.status_code == 200
+    unread_id = unread_created.json()["created"][0]["id"]
+
+    default_list = client.get(
+        "/api/v1/notifications",
+        headers=auth_headers(recipient_tokens["accessToken"]),
+    )
+    assert default_list.status_code == 200
+    returned_ids = {item["id"] for item in default_list.json()["items"]}
+    assert unread_id in returned_ids
+    assert notification_id not in returned_ids
+
+
+def test_completed_notifications_older_than_24h_are_purged(client):
+    recipient_tokens = register_and_login(client, username="purgeadmin", email="purgeadmin@example.org")
+
+    auth_store = app.state.auth_store
+    recipient_user = auth_store.authenticate_local_user("purgeadmin", "Password123")
+    assert recipient_user is not None
+    recipient_user.roles = ["Superuser"]
+
+    admin_login = client.post(
+        "/api/v1/auth/login",
+        json={"usernameOrEmail": "purgeadmin", "password": "Password123"},
+    )
+    admin_token = admin_login.json()["accessToken"]
+
+    created = client.post(
+        "/api/v1/notifications",
+        headers=auth_headers(admin_token),
+        json={
+            "userIds": [recipient_user.id],
+            "type": "test",
+            "message": "old completed",
+        },
+    )
+    assert created.status_code == 200
+    notification_id = created.json()["created"][0]["id"]
+
+    read = client.post(
+        f"/api/v1/notifications/{notification_id}/read",
+        headers=auth_headers(recipient_tokens["accessToken"]),
+    )
+    assert read.status_code == 200
+
+    record = auth_store.get_notification(notification_id)
+    assert record is not None
+    stale_time = datetime.now(UTC) - timedelta(hours=25)
+    record.read_at = stale_time
+    record.updated_at = stale_time
+
+    trigger_purge = client.get(
+        "/api/v1/notifications",
+        headers=auth_headers(recipient_tokens["accessToken"]),
+        params={"status": "read", "unreadOnly": "false"},
+    )
+    assert trigger_purge.status_code == 200
+
+    assert auth_store.get_notification(notification_id) is None
 
 
 def test_task_gate_completion_check_and_admin_controls(client):

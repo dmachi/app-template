@@ -135,6 +135,14 @@ def _serialize_notification(record: NotificationRecord) -> dict[str, Any]:
     }
 
 
+def _purge_expired_notifications(request: Request) -> None:
+    auth_store = request.app.state.auth_store
+    settings: Settings = request.app.state.settings
+    purge = getattr(auth_store, "purge_completed_notifications", None)
+    if callable(purge):
+        purge(settings.notifications_completed_retention_hours)
+
+
 async def _publish_notification_event(request: Request, event_type: str, record: NotificationRecord) -> None:
     hub = _get_hub(request)
     await hub.publish(record.user_id, event_type, _serialize_notification(record))
@@ -147,6 +155,7 @@ async def create_notifications(
     _: UserRecord = Depends(require_superuser),
 ) -> dict[str, Any]:
     auth_store = request.app.state.auth_store
+    _purge_expired_notifications(request)
     created: list[dict[str, Any]] = []
     merged: list[dict[str, Any]] = []
 
@@ -185,12 +194,14 @@ def list_my_notifications(
     request: Request,
     status: str | None = Query(default=None),
     type: str | None = Query(default=None),
-    unreadOnly: bool = Query(default=False),
+    unreadOnly: bool | None = Query(default=None),
     current_user: UserRecord = Depends(get_current_user),
 ) -> dict[str, Any]:
     auth_store = request.app.state.auth_store
+    _purge_expired_notifications(request)
     items = auth_store.list_notifications_for_user(user_id=current_user.id, status=status, type_name=type)
-    if unreadOnly:
+    default_active_only = unreadOnly is None and status is None
+    if unreadOnly is True or default_active_only:
         items = [item for item in items if item.status == "unread"]
     return {"items": [_serialize_notification(item) for item in items]}
 
@@ -198,6 +209,7 @@ def list_my_notifications(
 @router.get("/{notification_id}")
 def get_my_notification(notification_id: str, request: Request, current_user: UserRecord = Depends(get_current_user)) -> dict[str, Any]:
     auth_store = request.app.state.auth_store
+    _purge_expired_notifications(request)
     item = auth_store.get_notification(notification_id)
     if item is None or item.user_id != current_user.id:
         raise ApiError(status_code=404, code="NOTIFICATION_NOT_FOUND", message="Notification not found")
@@ -207,6 +219,7 @@ def get_my_notification(notification_id: str, request: Request, current_user: Us
 @router.post("/{notification_id}/read")
 async def read_my_notification(notification_id: str, request: Request, current_user: UserRecord = Depends(get_current_user)) -> dict[str, Any]:
     auth_store = request.app.state.auth_store
+    _purge_expired_notifications(request)
     item = auth_store.mark_notification_read(notification_id, user_id=current_user.id)
     if item is None:
         raise ApiError(status_code=404, code="NOTIFICATION_NOT_FOUND", message="Notification not found")
@@ -217,6 +230,7 @@ async def read_my_notification(notification_id: str, request: Request, current_u
 @router.post("/{notification_id}/acknowledge")
 async def acknowledge_my_notification(notification_id: str, request: Request, current_user: UserRecord = Depends(get_current_user)) -> dict[str, Any]:
     auth_store = request.app.state.auth_store
+    _purge_expired_notifications(request)
     item = auth_store.acknowledge_notification(notification_id, user_id=current_user.id)
     if item is None:
         raise ApiError(status_code=404, code="NOTIFICATION_NOT_FOUND", message="Notification not found")
@@ -227,6 +241,7 @@ async def acknowledge_my_notification(notification_id: str, request: Request, cu
 @router.post("/{notification_id}/check-completion")
 async def check_my_notification_completion(notification_id: str, request: Request, current_user: UserRecord = Depends(get_current_user)) -> dict[str, Any]:
     auth_store = request.app.state.auth_store
+    _purge_expired_notifications(request)
     item, completed = auth_store.evaluate_notification_completion(notification_id, user_id=current_user.id)
     if item is None:
         raise ApiError(status_code=404, code="NOTIFICATION_NOT_FOUND", message="Notification not found")
@@ -237,6 +252,7 @@ async def check_my_notification_completion(notification_id: str, request: Reques
 @router.post("/{notification_id}/clear")
 async def clear_my_notification(notification_id: str, request: Request, current_user: UserRecord = Depends(get_current_user)) -> dict[str, Any]:
     auth_store = request.app.state.auth_store
+    _purge_expired_notifications(request)
     try:
         item = auth_store.clear_notification(notification_id, user_id=current_user.id)
     except ValueError as exc:
@@ -255,6 +271,7 @@ async def clear_my_notification(notification_id: str, request: Request, current_
 @router.get("/{notification_id}/open")
 async def open_my_notification(notification_id: str, request: Request, current_user: UserRecord = Depends(get_current_user)):
     auth_store = request.app.state.auth_store
+    _purge_expired_notifications(request)
     item = auth_store.mark_notification_read(notification_id, user_id=current_user.id)
     if item is None:
         raise ApiError(status_code=404, code="NOTIFICATION_NOT_FOUND", message="Notification not found")
@@ -277,6 +294,7 @@ def admin_list_notifications(
     _: UserRecord = Depends(require_superuser),
 ) -> dict[str, Any]:
     auth_store = request.app.state.auth_store
+    _purge_expired_notifications(request)
     items = auth_store.list_notifications(status=status, type_name=type, user_id=userId)
     return {"items": [_serialize_notification(item) for item in items]}
 
@@ -284,6 +302,7 @@ def admin_list_notifications(
 @admin_router.get("/{notification_id}")
 def admin_get_notification(notification_id: str, request: Request, _: UserRecord = Depends(require_superuser)) -> dict[str, Any]:
     auth_store = request.app.state.auth_store
+    _purge_expired_notifications(request)
     item = auth_store.get_notification(notification_id)
     if item is None:
         raise ApiError(status_code=404, code="NOTIFICATION_NOT_FOUND", message="Notification not found")
@@ -293,6 +312,7 @@ def admin_get_notification(notification_id: str, request: Request, _: UserRecord
 @admin_router.post("/{notification_id}/resend")
 async def admin_resend_notification(notification_id: str, request: Request, _: UserRecord = Depends(require_superuser)) -> dict[str, Any]:
     auth_store = request.app.state.auth_store
+    _purge_expired_notifications(request)
     item = auth_store.get_notification(notification_id)
     if item is None:
         raise ApiError(status_code=404, code="NOTIFICATION_NOT_FOUND", message="Notification not found")
@@ -303,6 +323,7 @@ async def admin_resend_notification(notification_id: str, request: Request, _: U
 @admin_router.post("/{notification_id}/cancel")
 async def admin_cancel_notification(notification_id: str, request: Request, _: UserRecord = Depends(require_superuser)) -> dict[str, Any]:
     auth_store = request.app.state.auth_store
+    _purge_expired_notifications(request)
     item = auth_store.cancel_notification(notification_id)
     if item is None:
         raise ApiError(status_code=404, code="NOTIFICATION_NOT_FOUND", message="Notification not found")
@@ -313,6 +334,7 @@ async def admin_cancel_notification(notification_id: str, request: Request, _: U
 @admin_router.delete("/{notification_id}")
 def admin_delete_notification(notification_id: str, request: Request, _: UserRecord = Depends(require_superuser)) -> dict[str, Any]:
     auth_store = request.app.state.auth_store
+    _purge_expired_notifications(request)
     deleted = auth_store.delete_notification(notification_id)
     if not deleted:
         raise ApiError(status_code=404, code="NOTIFICATION_NOT_FOUND", message="Notification not found")

@@ -540,6 +540,23 @@ class AuthStore:
     def get_notification(self, notification_id: str) -> NotificationRecord | None:
         return self._notifications_by_id.get(notification_id)
 
+    @staticmethod
+    def _notification_completed_at(notification: NotificationRecord) -> datetime | None:
+        return notification.cleared_at or notification.acknowledged_at or notification.read_at or notification.canceled_at
+
+    def purge_completed_notifications(self, retention_hours: int) -> int:
+        cutoff = datetime.now(UTC) - timedelta(hours=retention_hours)
+        to_delete: list[str] = []
+        for notification_id, notification in self._notifications_by_id.items():
+            completed_at = self._notification_completed_at(notification)
+            if completed_at is None:
+                continue
+            if completed_at <= cutoff:
+                to_delete.append(notification_id)
+        for notification_id in to_delete:
+            self._notifications_by_id.pop(notification_id, None)
+        return len(to_delete)
+
     def list_notifications_for_user(self, user_id: str, status: str | None = None, type_name: str | None = None) -> list[NotificationRecord]:
         notifications = [item for item in self._notifications_by_id.values() if item.user_id == user_id]
         if status:

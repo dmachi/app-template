@@ -40,6 +40,7 @@ class Settings(BaseSettings):
 
     redis_url: str = "redis://localhost:6379"
     redis_notification_channel: str = "notifications"
+    notifications_completed_retention_hours: int = 24
 
     testing_id: str | None = None
     testing_key: str | None = None
@@ -79,7 +80,13 @@ class Settings(BaseSettings):
     email_dkim_private_key: str | None = None
     email_dkim_private_key_path: str | None = None
 
-    @field_validator("jwt_access_token_ttl_seconds", "jwt_refresh_token_ttl_seconds", "email_verification_token_ttl_seconds", "email_invitation_ttl_seconds")
+    @field_validator(
+        "jwt_access_token_ttl_seconds",
+        "jwt_refresh_token_ttl_seconds",
+        "email_verification_token_ttl_seconds",
+        "email_invitation_ttl_seconds",
+        "notifications_completed_retention_hours",
+    )
     @classmethod
     def validate_positive_ttl(cls, value: int) -> int:
         if value <= 0:
