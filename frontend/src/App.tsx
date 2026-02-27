@@ -11,6 +11,7 @@ import { AdminRolesPage } from "./pages/admin-roles-page";
 import { AdminUserDetailPage } from "./pages/admin-user-detail-page";
 import { AdminUsersPage } from "./pages/admin-users-page";
 import { AcceptInvitePage } from "./pages/accept-invite-page";
+import { getSettingsExtensions } from "./extensions/settings-registry";
 import { GroupDetailPage } from "./pages/group-detail-page";
 import { GroupsPage } from "./pages/groups-page";
 import { NotificationsPage } from "./pages/notifications-page";
@@ -32,8 +33,10 @@ import {
   refreshSession,
   register,
   startRedirectProvider,
-  type NotificationItem,
   type AuthProviderMeta,
+  type NotificationItem,
+  type ProfilePropertyCatalogItem,
+  type ProfilePropertyLinkItem,
 } from "./lib/api";
 
 type RealtimeNotificationToast = {
@@ -60,6 +63,7 @@ type View =
   | "security"
   | "groups"
   | "group-detail"
+  | "extension"
   | "theme"
   | "admin-notifications"
   | "admin-invitations"
@@ -77,82 +81,86 @@ function normalizePathname(pathname: string): string {
   return pathname;
 }
 
-function parseSettingsRoute(pathname: string): { view: View; groupId: string | null; adminUserId: string | null } {
+function parseSettingsRoute(pathname: string): { view: View; groupId: string | null; adminUserId: string | null; extensionId: string | null } {
   pathname = normalizePathname(pathname);
 
   if (pathname === "/") {
-    return { view: "home", groupId: null, adminUserId: null };
+    return { view: "home", groupId: null, adminUserId: null, extensionId: null };
   }
   if (pathname === "/settings") {
-    return { view: "profile", groupId: null, adminUserId: null };
+    return { view: "profile", groupId: null, adminUserId: null, extensionId: null };
   }
   if (pathname === "/login") {
-    return { view: "login", groupId: null, adminUserId: null };
+    return { view: "login", groupId: null, adminUserId: null, extensionId: null };
   }
   if (pathname === "/register") {
-    return { view: "register", groupId: null, adminUserId: null };
+    return { view: "register", groupId: null, adminUserId: null, extensionId: null };
   }
   if (pathname === "/verify-email") {
-    return { view: "verify-email", groupId: null, adminUserId: null };
+    return { view: "verify-email", groupId: null, adminUserId: null, extensionId: null };
   }
   if (pathname === "/accept-invite") {
-    return { view: "accept-invite", groupId: null, adminUserId: null };
+    return { view: "accept-invite", groupId: null, adminUserId: null, extensionId: null };
   }
   if (pathname === "/settings/profile") {
-    return { view: "profile", groupId: null, adminUserId: null };
+    return { view: "profile", groupId: null, adminUserId: null, extensionId: null };
   }
   if (pathname === "/settings/notifications") {
-    return { view: "notifications", groupId: null, adminUserId: null };
+    return { view: "notifications", groupId: null, adminUserId: null, extensionId: null };
   }
   if (pathname === "/settings/security") {
-    return { view: "security", groupId: null, adminUserId: null };
+    return { view: "security", groupId: null, adminUserId: null, extensionId: null };
   }
   if (pathname === "/settings/groups") {
-    return { view: "groups", groupId: null, adminUserId: null };
+    return { view: "groups", groupId: null, adminUserId: null, extensionId: null };
   }
   if (pathname === "/settings/theme") {
-    return { view: "theme", groupId: null, adminUserId: null };
+    return { view: "theme", groupId: null, adminUserId: null, extensionId: null };
   }
   if (pathname === "/settings/admin/users") {
-    return { view: "admin-users", groupId: null, adminUserId: null };
+    return { view: "admin-users", groupId: null, adminUserId: null, extensionId: null };
   }
   if (pathname === "/settings/admin/invitations") {
-    return { view: "admin-invitations", groupId: null, adminUserId: null };
+    return { view: "admin-invitations", groupId: null, adminUserId: null, extensionId: null };
   }
   if (pathname === "/settings/admin/notifications") {
-    return { view: "admin-notifications", groupId: null, adminUserId: null };
+    return { view: "admin-notifications", groupId: null, adminUserId: null, extensionId: null };
   }
   if (pathname === "/settings/admin/roles") {
-    return { view: "admin-roles", groupId: null, adminUserId: null };
+    return { view: "admin-roles", groupId: null, adminUserId: null, extensionId: null };
   }
   if (pathname === "/admin") {
-    return { view: "admin-users", groupId: null, adminUserId: null };
+    return { view: "admin-users", groupId: null, adminUserId: null, extensionId: null };
   }
   if (pathname === "/invitations") {
-    return { view: "admin-invitations", groupId: null, adminUserId: null };
+    return { view: "admin-invitations", groupId: null, adminUserId: null, extensionId: null };
   }
   if (pathname === "/admin/users") {
-    return { view: "admin-users", groupId: null, adminUserId: null };
+    return { view: "admin-users", groupId: null, adminUserId: null, extensionId: null };
   }
   if (pathname === "/admin/roles") {
-    return { view: "admin-roles", groupId: null, adminUserId: null };
+    return { view: "admin-roles", groupId: null, adminUserId: null, extensionId: null };
   }
   const adminUserMatch = pathname.match(/^\/admin\/users\/([^/]+)$/);
   if (adminUserMatch) {
-    return { view: "admin-user-detail", groupId: null, adminUserId: adminUserMatch[1] };
+    return { view: "admin-user-detail", groupId: null, adminUserId: adminUserMatch[1], extensionId: null };
   }
   const settingsAdminUserMatch = pathname.match(/^\/settings\/admin\/users\/([^/]+)$/);
   if (settingsAdminUserMatch) {
-    return { view: "admin-user-detail", groupId: null, adminUserId: settingsAdminUserMatch[1] };
+    return { view: "admin-user-detail", groupId: null, adminUserId: settingsAdminUserMatch[1], extensionId: null };
   }
   const groupMatch = pathname.match(/^\/settings\/group\/([^/]+)$/);
   if (groupMatch) {
-    return { view: "group-detail", groupId: groupMatch[1], adminUserId: null };
+    return { view: "group-detail", groupId: groupMatch[1], adminUserId: null, extensionId: null };
   }
-  return { view: "home", groupId: null, adminUserId: null };
+  const extensionMatch = pathname.match(/^\/settings\/extensions\/([^/]+)$/);
+  if (extensionMatch) {
+    return { view: "extension", groupId: null, adminUserId: null, extensionId: extensionMatch[1] };
+  }
+  return { view: "home", groupId: null, adminUserId: null, extensionId: null };
 }
 
-function buildSettingsPath(view: View, groupId: string | null, adminUserId: string | null): string {
+function buildSettingsPath(view: View, groupId: string | null, adminUserId: string | null, extensionId: string | null): string {
   if (view === "home") {
     return "/";
   }
@@ -201,6 +209,9 @@ function buildSettingsPath(view: View, groupId: string | null, adminUserId: stri
   if (view === "group-detail" && groupId) {
     return `/settings/group/${groupId}`;
   }
+  if (view === "extension" && extensionId) {
+    return `/settings/extensions/${extensionId}`;
+  }
   return "/";
 }
 
@@ -223,6 +234,7 @@ export function App() {
   });
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [selectedAdminUserId, setSelectedAdminUserId] = useState<string | null>(null);
+  const [selectedExtensionId, setSelectedExtensionId] = useState<string | null>(null);
   const [emailVerificationToken, setEmailVerificationToken] = useState<string | null>(null);
   const [invitationToken, setInvitationToken] = useState<string | null>(null);
   const [pendingInvitationToken, setPendingInvitationToken] = useState<string | null>(null);
@@ -237,6 +249,8 @@ export function App() {
   const [registerEmail, setRegisterEmail] = useState("");
   const [registerPassword, setRegisterPassword] = useState("");
   const [registerDisplayName, setRegisterDisplayName] = useState("");
+  const [registerProfilePropertyCatalog, setRegisterProfilePropertyCatalog] = useState<ProfilePropertyCatalogItem[]>([]);
+  const [registerProfileProperties, setRegisterProfileProperties] = useState<Record<string, unknown>>({});
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [realtimePopups, setRealtimePopups] = useState<RealtimeNotificationToast[]>([]);
@@ -440,7 +454,7 @@ export function App() {
       if (normalizedPath === "/invitations") {
         window.history.replaceState({}, "", "/settings/admin/invitations");
       }
-      const { view: nextView, groupId, adminUserId } = parseSettingsRoute(window.location.pathname);
+      const { view: nextView, groupId, adminUserId, extensionId } = parseSettingsRoute(window.location.pathname);
       const params = new URLSearchParams(window.location.search);
       const token = params.get("token");
       const inviteToken = params.get("inviteToken");
@@ -450,6 +464,7 @@ export function App() {
         nextView,
         groupId,
         adminUserId,
+        extensionId,
         tokenPresent: Boolean(token),
         inviteTokenPresent: Boolean(inviteToken),
         storedPendingInviteTokenPresent: Boolean(storedPendingInviteToken),
@@ -457,6 +472,7 @@ export function App() {
       setView(nextView);
       setSelectedGroupId(groupId);
       setSelectedAdminUserId(adminUserId);
+      setSelectedExtensionId(extensionId);
       setEmailVerificationToken(nextView === "verify-email" ? token : null);
       setInvitationToken(nextView === "accept-invite" ? token : null);
 
@@ -485,12 +501,23 @@ export function App() {
         setAppIcon(payload.appIcon || "🧩");
         setAuthProviders(payload.providers || []);
         setRegistrationEnabled(payload.localRegistrationEnabled ?? true);
+        setRegisterProfilePropertyCatalog(Array.isArray(payload.profilePropertyCatalog) ? payload.profilePropertyCatalog : []);
       })
       .catch((metaError) => {
         setError(metaError instanceof Error ? metaError.message : "Unable to load auth options");
       })
       .finally(() => setAuthMetaLoaded(true));
   }, []);
+
+  function getRegisterLinkItems(key: string): ProfilePropertyLinkItem[] {
+    const value = registerProfileProperties[key];
+    if (!Array.isArray(value)) {
+      return [];
+    }
+    return value
+      .filter((item): item is ProfilePropertyLinkItem => Boolean(item) && typeof item === "object" && "label" in item && "url" in item)
+      .map((item) => ({ label: String(item.label ?? ""), url: String(item.url ?? "") }));
+  }
 
   useEffect(() => {
     if (!accessToken) {
@@ -551,7 +578,13 @@ export function App() {
     event.preventDefault();
     setError(null);
     try {
-      const response = await register(registerUsername, registerEmail, registerPassword, registerDisplayName || undefined);
+      const response = await register(
+        registerUsername,
+        registerEmail,
+        registerPassword,
+        registerDisplayName || undefined,
+        registerProfileProperties,
+      );
       setRegisterPassword("");
 
       if (response.accessToken && response.refreshToken) {
@@ -618,7 +651,7 @@ export function App() {
   }
 
   function navigateToAuthWithInvite(nextView: "login" | "register") {
-    const path = buildSettingsPath(nextView, null, null);
+    const path = buildSettingsPath(nextView, null, null, null);
     const params = new URLSearchParams();
     if (pendingInvitationToken) {
       params.set("inviteToken", pendingInvitationToken);
@@ -633,7 +666,7 @@ export function App() {
   }
 
   function navigateSettings(nextView: View, groupId: string | null = null, replace = false, adminUserId: string | null = null) {
-    const path = buildSettingsPath(nextView, groupId, adminUserId);
+    const path = buildSettingsPath(nextView, groupId, adminUserId, null);
     if (replace) {
       window.history.replaceState({}, "", path);
     } else {
@@ -642,6 +675,21 @@ export function App() {
     setView(nextView);
     setSelectedGroupId(groupId);
     setSelectedAdminUserId(adminUserId);
+    setSelectedExtensionId(null);
+    setEmailVerificationToken(null);
+  }
+
+  function navigateExtensionSettings(extensionId: string, replace = false) {
+    const path = buildSettingsPath("extension", null, null, extensionId);
+    if (replace) {
+      window.history.replaceState({}, "", path);
+    } else {
+      window.history.pushState({}, "", path);
+    }
+    setView("extension");
+    setSelectedGroupId(null);
+    setSelectedAdminUserId(null);
+    setSelectedExtensionId(extensionId);
     setEmailVerificationToken(null);
   }
 
@@ -775,6 +823,8 @@ export function App() {
 
     const normalizedPath = normalizePathname(window.location.pathname);
     const parsed = parseSettingsRoute(normalizedPath);
+    const settingsExtensions = getSettingsExtensions({ canAccessAdmin: Boolean(canAccessAdmin), adminCapabilities });
+    const selectedExtension = parsed.extensionId ? settingsExtensions.find((item) => item.id === parsed.extensionId) : null;
     const validPath =
       normalizedPath === "/" ||
       normalizedPath === "/settings" ||
@@ -796,8 +846,9 @@ export function App() {
       normalizedPath === "/admin/users" ||
       normalizedPath === "/admin/roles" ||
       /^\/admin\/users\/[^/]+$/.test(normalizedPath) ||
-      /^\/settings\/admin\/users\/[^/]+$/.test(normalizedPath) ||
-      /^\/settings\/group\/[^/]+$/.test(normalizedPath);
+        /^\/settings\/admin\/users\/[^/]+$/.test(normalizedPath) ||
+        /^\/settings\/group\/[^/]+$/.test(normalizedPath) ||
+        /^\/settings\/extensions\/[^/]+$/.test(normalizedPath);
 
     if (!validPath) {
       console.debug("[route-debug] auth-guard:redirect invalid-path", {
@@ -814,6 +865,11 @@ export function App() {
         target: "/settings/groups",
       });
       navigateSettings("groups", null, true);
+      return;
+    }
+
+    if (parsed.view === "extension" && !selectedExtension) {
+      navigateSettings("profile", null, true);
       return;
     }
 
@@ -1003,6 +1059,109 @@ export function App() {
                     <span className="text-sm">Display Name (optional)</span>
                     <Input value={registerDisplayName} onChange={(event) => setRegisterDisplayName(event.target.value)} />
                   </label>
+                  {registerProfilePropertyCatalog.filter((property) => property.required).map((property) => {
+                    const raw = registerProfileProperties[property.key];
+                    const value = typeof raw === "string" ? raw : "";
+
+                    if (property.valueType === "links") {
+                      const links = getRegisterLinkItems(property.key);
+                      const maxItems = property.maxItems ?? 10;
+                      return (
+                        <label key={property.key} className="grid gap-1">
+                          <span className="text-sm">{property.label}</span>
+                          <p className="text-xs text-slate-500 dark:text-slate-400">{property.description}</p>
+                          {links.map((link, index) => (
+                            <div key={`${property.key}-register-link-${index}`} className="grid gap-2 sm:grid-cols-[1fr_2fr_auto]">
+                              <Input
+                                value={link.label}
+                                placeholder="Label"
+                                onChange={(event) => {
+                                  const next = [...links];
+                                  next[index] = { ...next[index], label: event.target.value };
+                                  setRegisterProfileProperties((current) => ({ ...current, [property.key]: next }));
+                                }}
+                              />
+                              <Input
+                                type="url"
+                                value={link.url}
+                                placeholder="https://..."
+                                onChange={(event) => {
+                                  const next = [...links];
+                                  next[index] = { ...next[index], url: event.target.value };
+                                  setRegisterProfileProperties((current) => ({ ...current, [property.key]: next }));
+                                }}
+                              />
+                              <Button
+                                type="button"
+                                className="bg-transparent"
+                                onClick={() => {
+                                  const next = links.filter((_, itemIndex) => itemIndex !== index);
+                                  setRegisterProfileProperties((current) => ({ ...current, [property.key]: next }));
+                                }}
+                              >
+                                Remove
+                              </Button>
+                            </div>
+                          ))}
+                          {links.length < maxItems ? (
+                            <Button
+                              type="button"
+                              className="bg-transparent"
+                              onClick={() => {
+                                const next = [...links, { label: "", url: "" }];
+                                setRegisterProfileProperties((current) => ({ ...current, [property.key]: next }));
+                              }}
+                            >
+                              Add Link
+                            </Button>
+                          ) : null}
+                        </label>
+                      );
+                    }
+
+                    if (property.valueType === "boolean") {
+                      const checked = raw === true;
+                      return (
+                        <label key={property.key} className="grid gap-1">
+                          <span className="text-sm">{property.label}</span>
+                          <label className="flex items-center gap-2 text-sm">
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={(event) =>
+                                setRegisterProfileProperties((current) => ({
+                                  ...current,
+                                  [property.key]: event.target.checked,
+                                }))
+                              }
+                            />
+                            <span>{property.description}</span>
+                          </label>
+                        </label>
+                      );
+                    }
+
+                    return (
+                      <label key={property.key} className="grid gap-1">
+                        <span className="text-sm">{property.label}</span>
+                        <Input
+                          type={property.valueType === "url" ? "url" : "text"}
+                          value={value}
+                          placeholder={property.placeholder}
+                          onChange={(event) =>
+                            setRegisterProfileProperties((current) => ({
+                              ...current,
+                              [property.key]: event.target.value,
+                            }))
+                          }
+                        />
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                          {property.description}
+                          {property.allowedHosts?.length ? ` Allowed hosts: ${property.allowedHosts.join(", ")}` : ""}
+                        </p>
+                      </label>
+                    );
+                  })}
                   <Button type="submit">Create Account</Button>
                 </form>
               ) : null}
@@ -1169,6 +1328,13 @@ export function App() {
         </main>
       ) : (
         <main className="w-full px-6 py-6">
+          {(() => {
+            const settingsExtensions = getSettingsExtensions({ canAccessAdmin: Boolean(canAccessAdmin), adminCapabilities });
+            const settingsExtensionItems = settingsExtensions.filter((item) => (item.section ?? "settings") === "settings");
+            const adminExtensionItems = settingsExtensions.filter((item) => item.section === "administration");
+            const activeExtension = selectedExtensionId ? settingsExtensions.find((item) => item.id === selectedExtensionId) : null;
+
+            return (
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-[220px_minmax(0,1fr)]">
             <aside className="rounded-md border border-slate-200 p-3 dark:border-slate-800">
               <nav className="grid gap-3">
@@ -1209,6 +1375,16 @@ export function App() {
                   >
                     Theme
                   </Button>
+                  {settingsExtensionItems.map((item) => (
+                    <Button
+                      key={item.id}
+                      type="button"
+                      className={view === "extension" && selectedExtensionId === item.id ? "bg-slate-100 dark:bg-slate-800" : ""}
+                      onClick={() => navigateExtensionSettings(item.id)}
+                    >
+                      {item.label}
+                    </Button>
+                  ))}
                 </div>
 
                 {canAccessAdmin ? (
@@ -1250,6 +1426,16 @@ export function App() {
                         Roles
                       </Button>
                     ) : null}
+                    {adminExtensionItems.map((item) => (
+                      <Button
+                        key={item.id}
+                        type="button"
+                        className={view === "extension" && selectedExtensionId === item.id ? "bg-slate-100 dark:bg-slate-800" : ""}
+                        onClick={() => navigateExtensionSettings(item.id)}
+                      >
+                        {item.label}
+                      </Button>
+                    ))}
                   </div>
                 ) : null}
               </nav>
@@ -1316,8 +1502,11 @@ export function App() {
                 />
               ) : null}
               {view === "admin-roles" ? <AdminRolesPage accessToken={accessToken} /> : null}
+              {view === "extension" && activeExtension ? activeExtension.render({ accessToken }) : null}
             </section>
           </div>
+            );
+          })()}
         </main>
       )}
     </div>

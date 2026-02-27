@@ -68,3 +68,26 @@ The implementation repository should include concise developer commands for:
 - Default local workflow works with `docker-compose.backend.yml` + terminal-run backend/frontend
 - Conda environment setup is documented and reproducible
 - Developers can bootstrap local dev environment with minimal manual configuration
+
+## 9) Template Extension and Downstream Update Workflow
+
+### 9.1 Ownership boundaries
+- Template core code should remain in standard app paths (`frontend/src/pages`, shared UI/components, backend API primitives)
+- Downstream application-specific additions should be registered through extension points, not by editing core shell code
+- Frontend extension points should live under `frontend/src/extensions/`
+
+### 9.2 Supported extension points (baseline)
+- Settings page/menu extensions via settings registry
+- Profile page consumes backend-provided built-in property catalog; downstream apps enable/disable properties via configuration
+
+### 9.3 Downstream repository update model
+Recommended downstream setup:
+1. Create app repository from template
+2. Add template repository as an upstream remote
+3. Place app-specific changes primarily in extension files
+4. Pull and merge/rebase upstream template updates regularly
+
+Expected outcome:
+- Shared component/api/security fixes from template can be consumed downstream
+- App-specific settings pages remain isolated in extension files with reduced merge conflicts
+- Profile field behavior is configured through environment settings rather than profile-page code forks

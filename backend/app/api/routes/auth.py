@@ -11,6 +11,7 @@ from app.core.config import Settings, get_settings
 from app.core.errors import ApiError
 from app.notifications.email import MailDeliveryError
 from app.notifications.verification import send_email_verification
+from app.profile.catalog import serialize_profile_property_catalog, validate_profile_properties, validate_required_profile_properties
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 meta_router = APIRouter(prefix="/meta", tags=["meta"])
@@ -26,6 +27,7 @@ class RegisterRequest(BaseModel):
     email: EmailStr
     password: str = Field(min_length=8)
     displayName: str | None = None
+    profileProperties: dict[str, object] | None = None
 
 
 class RefreshRequest(BaseModel):
@@ -54,10 +56,12 @@ def _issue_auth_tokens(user, settings: Settings, auth_store):
 @meta_router.get("/auth-providers")
 def auth_providers(settings: Settings = Depends(get_settings)) -> dict:
     providers = get_enabled_providers(settings)
+    profile_property_catalog = serialize_profile_property_catalog(settings.profile_properties_config)
     return {
         "appName": settings.app_name,
         "appIcon": settings.app_icon,
         "localRegistrationEnabled": settings.local_registration_enabled,
+        "profilePropertyCatalog": profile_property_catalog,
         "providers": [
             {"id": provider.provider_id, "displayName": provider.display_name, "type": provider.provider_type}
             for provider in providers
@@ -71,6 +75,21 @@ def register(payload: RegisterRequest, request: Request, settings: Settings = De
         raise ApiError(status_code=403, code="REGISTRATION_DISABLED", message="Local registration is disabled")
 
     auth_store = request.app.state.auth_store
+    profile_properties_config = settings.profile_properties_config
+
+    try:
+        profile_properties = validate_profile_properties(payload.profileProperties or {}, profile_properties_config)
+        validate_required_profile_properties(profile_properties, profile_properties_config)
+    except ValueError as exc:
+        parts = str(exc).split(":", 2)
+        code = parts[0] if parts and parts[0] else "PROFILE_PROPERTY_INVALID"
+        message = parts[2] if len(parts) > 2 else "Invalid profile property payload"
+        details = {"property": parts[1]} if len(parts) > 1 and parts[1] else None
+        raise ApiError(status_code=400, code=code, message=message, details=details) from exc
+
+    preferences: dict[str, object] | None = None
+    if profile_properties:
+        preferences = {"profileProperties": profile_properties}
 
     try:
         user = auth_store.register_local_user(
@@ -78,6 +97,7 @@ def register(payload: RegisterRequest, request: Request, settings: Settings = De
             email=payload.email,
             password=payload.password,
             display_name=payload.displayName,
+            preferences=preferences,
         )
     except ValueError as exc:
         code = str(exc)

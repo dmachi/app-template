@@ -117,13 +117,13 @@ Exit criteria:
 Deliverables:
 - Introduce template extension boundaries so downstream apps extend without modifying template-owned files
 - Settings navigation/page registry for adding new settings menu items and pages via app extension modules
-- Profile property extension mechanism for adding app-specific user profile fields
+- Configurable built-in profile property catalog with per-application enable/disable controls
 - Directory ownership conventions distinguishing template core from downstream extension code
 - Upstream sync guidance for pulling template updates while preserving downstream custom pages
 
 Exit criteria:
 - New settings pages can be added through extension registration without editing core shell routing/layout
-- Additional profile properties can be added through extension contracts without rewriting base profile implementation
+- Built-in profile properties can be enabled/disabled per downstream application without modifying core profile page logic
 - Documented downstream update workflow allows pulling template changes with minimal conflicts in customized pages
 
 ### Milestone 8 — Audit, Hardening, and Template Packaging

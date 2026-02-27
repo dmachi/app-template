@@ -3,7 +3,7 @@ from uuid import uuid4
 
 from app.auth.roles import CORE_ROLE_DESCRIPTIONS, NON_DELETABLE_CORE_ROLES
 from app.auth.security import generate_refresh_token, hash_password, hash_refresh_token, verify_password
-from app.auth.store import GroupRecord, InvitationRecord, NotificationRecord, UserRecord
+from app.auth.store import ExternalAccountLinkageRecord, GroupRecord, InvitationRecord, NotificationRecord, UserRecord
 from app.core.config import Settings
 
 
@@ -16,6 +16,7 @@ class MongoAuthStore:
         self._roles = database_adapter.get_collection("roles")
         self._invitations = database_adapter.get_collection("invitations")
         self._notifications = database_adapter.get_collection("notifications")
+        self._external_account_linkages = database_adapter.get_collection("external_account_linkages")
 
         now = datetime.now(UTC)
         for role_name, description in CORE_ROLE_DESCRIPTIONS.items():
@@ -93,6 +94,17 @@ class MongoAuthStore:
             updated_at=doc.get("updated_at") or datetime.now(UTC),
         )
 
+    def _doc_to_external_account_linkage(self, doc) -> ExternalAccountLinkageRecord:
+        return ExternalAccountLinkageRecord(
+            id=doc["id"],
+            user_id=doc["user_id"],
+            provider=doc["provider"],
+            external_subject=doc["external_subject"],
+            metadata=doc.get("metadata") or {},
+            created_at=doc.get("created_at") or datetime.now(UTC),
+            updated_at=doc.get("updated_at") or datetime.now(UTC),
+        )
+
     @staticmethod
     def _notification_event_identity(type_name: str, source: dict | None) -> str | None:
         source = source or {}
@@ -144,7 +156,14 @@ class MongoAuthStore:
         )
         return self.get_user(user_id)
 
-    def register_local_user(self, username: str, email: str, password: str, display_name: str | None = None) -> UserRecord:
+    def register_local_user(
+        self,
+        username: str,
+        email: str,
+        password: str,
+        display_name: str | None = None,
+        preferences: dict | None = None,
+    ) -> UserRecord:
         normalized_email = self.normalize_email(email)
         normalized_username = self.normalize_username(username)
 
@@ -170,12 +189,50 @@ class MongoAuthStore:
                 "email_verified": False,
                 "email_verified_at": None,
                 "roles": [],
-                "preferences": {},
+                "preferences": dict(preferences or {}),
                 "created_at": now,
                 "updated_at": now,
             }
         )
         return self.get_user(user_id)
+
+    def upsert_external_account_linkage(
+        self,
+        user_id: str,
+        provider: str,
+        external_subject: str,
+        metadata: dict | None = None,
+    ) -> ExternalAccountLinkageRecord:
+        normalized_provider = provider.strip().lower()
+        now = datetime.now(UTC)
+        linkage_id = str(uuid4())
+        self._external_account_linkages.update_one(
+            {"user_id": user_id, "provider": normalized_provider},
+            {
+                "$set": {
+                    "user_id": user_id,
+                    "provider": normalized_provider,
+                    "external_subject": external_subject,
+                    "metadata": dict(metadata or {}),
+                    "updated_at": now,
+                },
+                "$setOnInsert": {
+                    "id": linkage_id,
+                    "created_at": now,
+                },
+            },
+            upsert=True,
+        )
+        doc = self._external_account_linkages.find_one({"user_id": user_id, "provider": normalized_provider})
+        return self._doc_to_external_account_linkage(doc)
+
+    def list_external_account_linkages(self, user_id: str) -> list[ExternalAccountLinkageRecord]:
+        cursor = self._external_account_linkages.find({"user_id": user_id}).sort("provider", 1)
+        return [self._doc_to_external_account_linkage(doc) for doc in cursor]
+
+    def remove_external_account_linkage(self, user_id: str, provider: str) -> bool:
+        result = self._external_account_linkages.delete_one({"user_id": user_id, "provider": provider.strip().lower()})
+        return result.deleted_count > 0
 
     def authenticate_local_user(self, username_or_email: str, password: str) -> UserRecord | None:
         lookup = username_or_email.strip().lower()

@@ -13,7 +13,43 @@ export type AuthProvidersResponse = {
   appName: string;
   appIcon: string;
   localRegistrationEnabled: boolean;
+  profilePropertyCatalog: ProfilePropertyCatalogItem[];
   providers: AuthProviderMeta[];
+};
+
+export type ProfilePropertyValueType = "text" | "url" | "boolean" | "links";
+
+export type ProfilePropertyLinkItem = {
+  label: string;
+  url: string;
+};
+
+export type ProfilePropertyCatalogItem = {
+  key: string;
+  label: string;
+  description: string;
+  valueType: ProfilePropertyValueType;
+  required?: boolean;
+  placeholder?: string;
+  allowedHosts?: string[];
+  maxItems?: number;
+};
+
+export type MyProfileResponse = {
+  id: string;
+  username: string;
+  email: string;
+  displayName: string;
+  status: string;
+  emailVerified: boolean;
+  roles: string[];
+  roleSources?: {
+    direct: string[];
+    inherited: Array<{ name: string; groups: string[] }>;
+  };
+  preferences: Record<string, unknown>;
+  profileProperties: Record<string, unknown>;
+  profilePropertyCatalog: ProfilePropertyCatalogItem[];
 };
 
 export const API_BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8000/api/v1";
@@ -46,12 +82,18 @@ export type RegisterResponse = {
   refreshToken?: string;
 };
 
-export async function register(username: string, email: string, password: string, displayName?: string): Promise<RegisterResponse> {
+export async function register(
+  username: string,
+  email: string,
+  password: string,
+  displayName?: string,
+  profileProperties?: Record<string, unknown>,
+): Promise<RegisterResponse> {
   return parseJson(
     await fetch(`${API_BASE}/auth/register`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, email, password, displayName }),
+      body: JSON.stringify({ username, email, password, displayName, profileProperties }),
     }),
   );
 }
@@ -103,7 +145,7 @@ export async function logout(refreshToken: string): Promise<{ success: boolean }
   );
 }
 
-export async function getMyProfile(accessToken: string): Promise<any> {
+export async function getMyProfile(accessToken: string): Promise<MyProfileResponse> {
   return parseJson(
     await fetch(`${API_BASE}/users/me`, {
       headers: { Authorization: `Bearer ${accessToken}` },
@@ -120,7 +162,10 @@ export async function searchUsers(accessToken: string, query: string, limit = 10
   );
 }
 
-export async function patchMyProfile(accessToken: string, body: { displayName?: string; email?: string; preferences?: Record<string, unknown> }): Promise<any> {
+export async function patchMyProfile(
+  accessToken: string,
+  body: { displayName?: string; email?: string; preferences?: Record<string, unknown>; profileProperties?: Record<string, unknown> },
+): Promise<MyProfileResponse> {
   return parseJson(
     await fetch(`${API_BASE}/users/me`, {
       method: "PATCH",

@@ -9,6 +9,7 @@ from app.core.config import Settings, get_settings
 from app.core.errors import ApiError
 from app.notifications.email import MailDeliveryError
 from app.notifications.verification import send_email_verification
+from app.profile.catalog import sanitize_profile_properties, serialize_profile_property_catalog, validate_profile_properties
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -17,6 +18,14 @@ class UserProfilePatchRequest(BaseModel):
     displayName: str | None = Field(default=None, min_length=1)
     email: EmailStr | None = None
     preferences: dict[str, Any] | None = None
+    profileProperties: dict[str, Any] | None = None
+
+
+def _profile_properties_from_preferences(preferences: Any) -> dict[str, Any]:
+    if not isinstance(preferences, dict):
+        return {}
+    raw = preferences.get("profileProperties")
+    return raw if isinstance(raw, dict) else {}
 
 
 def _serialize_basic_user(user: UserRecord) -> dict:
@@ -84,8 +93,18 @@ def search_users(
 
 
 @router.get("/me")
-def get_me(request: Request, current_user: UserRecord = Depends(get_current_user)) -> dict:
+def get_me(
+    request: Request,
+    current_user: UserRecord = Depends(get_current_user),
+    settings: Settings = Depends(get_settings),
+) -> dict:
+    profile_properties_config = settings.profile_properties_config
     role_sources = _serialize_role_sources(request, current_user)
+    profile_properties = sanitize_profile_properties(
+        _profile_properties_from_preferences(current_user.preferences),
+        profile_properties_config,
+    )
+    profile_property_catalog = serialize_profile_property_catalog(profile_properties_config)
     return {
         "id": current_user.id,
         "username": current_user.username,
@@ -99,6 +118,8 @@ def get_me(request: Request, current_user: UserRecord = Depends(get_current_user
             "inherited": role_sources["inherited"],
         },
         "preferences": current_user.preferences,
+        "profileProperties": profile_properties,
+        "profilePropertyCatalog": profile_property_catalog,
     }
 
 
@@ -111,12 +132,41 @@ def patch_me(
 ) -> dict:
     auth_store = request.app.state.auth_store
     email_before = current_user.email
+    profile_properties_config = settings.profile_properties_config
+
+    resolved_preferences: dict[str, Any] | None = None
+    if payload.preferences is not None or payload.profileProperties is not None:
+        existing_preferences = current_user.preferences if isinstance(current_user.preferences, dict) else {}
+        resolved_preferences = dict(existing_preferences)
+        if payload.preferences is not None:
+            resolved_preferences = dict(payload.preferences)
+
+        if payload.profileProperties is not None:
+            try:
+                existing_profile_properties = _profile_properties_from_preferences(resolved_preferences)
+                candidate_profile_properties = {
+                    **existing_profile_properties,
+                    **payload.profileProperties,
+                }
+                resolved_profile_properties = validate_profile_properties(
+                    candidate_profile_properties,
+                    profile_properties_config,
+                )
+            except ValueError as exc:
+                parts = str(exc).split(":", 2)
+                code = parts[0] if parts and parts[0] else "PROFILE_PROPERTY_INVALID"
+                message = parts[2] if len(parts) > 2 else "Invalid profile property payload"
+                details = {"property": parts[1]} if len(parts) > 1 and parts[1] else None
+                raise ApiError(status_code=400, code=code, message=message, details=details) from exc
+
+            resolved_preferences["profileProperties"] = resolved_profile_properties
+
     try:
         updated = auth_store.update_user_profile(
             user_id=current_user.id,
             display_name=payload.displayName,
             email=payload.email,
-            preferences=payload.preferences,
+            preferences=resolved_preferences,
         )
     except ValueError as exc:
         if str(exc) == "EMAIL_ALREADY_EXISTS":
@@ -136,6 +186,12 @@ def patch_me(
         except MailDeliveryError as exc:
             raise ApiError(status_code=500, code="EMAIL_DELIVERY_FAILED", message="Unable to send verification email") from exc
 
+    profile_properties = sanitize_profile_properties(
+        _profile_properties_from_preferences(updated.preferences),
+        profile_properties_config,
+    )
+    profile_property_catalog = serialize_profile_property_catalog(profile_properties_config)
+
     return {
         "id": updated.id,
         "username": updated.username,
@@ -145,6 +201,8 @@ def patch_me(
         "emailVerified": updated.email_verified,
         "roles": updated.roles,
         "preferences": updated.preferences,
+        "profileProperties": profile_properties,
+        "profilePropertyCatalog": profile_property_catalog,
     }
 
 

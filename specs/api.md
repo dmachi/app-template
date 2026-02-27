@@ -112,9 +112,16 @@ Request:
   "username": "newuser",
   "email": "newuser@example.org",
   "password": "<password>",
-  "displayName": "New User"
+  "displayName": "New User",
+  "profileProperties": {
+    "orcid": "0000-0002-1825-0097"
+  }
 }
 ```
+
+Behavior notes:
+- `profileProperties` only accepts enabled profile property keys.
+- Properties configured as required (via `!property` in `PROFILE_PROPERTIES`) must be present and valid at registration.
 
 Response:
 ```json
@@ -143,7 +150,40 @@ Response:
       { "name": "InviteUsers", "groups": ["Operations Team"] }
     ]
   },
-  "preferences": {}
+  "preferences": {},
+  "profileProperties": {
+    "orcid": "0000-0002-1825-0097",
+    "googleScholarUrl": "https://scholar.google.com/citations?user=abc123",
+    "externalLinks": [
+      { "label": "Lab Website", "url": "https://example.org/lab" }
+    ]
+  },
+  "profilePropertyCatalog": [
+    {
+      "key": "orcid",
+      "label": "ORCID",
+      "description": "ORCID researcher identifier in 0000-0000-0000-0000 format.",
+      "valueType": "text",
+      "required": false,
+      "placeholder": "0000-0000-0000-0000"
+    },
+    {
+      "key": "googleScholarUrl",
+      "label": "Google Scholar URL",
+      "description": "Link to your Google Scholar profile.",
+      "valueType": "url",
+      "required": false,
+      "allowedHosts": ["scholar.google.com"]
+    },
+    {
+      "key": "externalLinks",
+      "label": "Additional Links",
+      "description": "Arbitrary external links.",
+      "valueType": "links",
+      "required": false,
+      "maxItems": 10
+    }
+  ]
 }
 ```
 
@@ -154,9 +194,23 @@ Request:
 ```json
 {
   "displayName": "Updated Name",
-  "preferences": {}
+  "preferences": {},
+  "profileProperties": {
+    "orcid": "0000-0002-1825-0097",
+    "googleScholarUrl": "https://scholar.google.com/citations?user=abc123",
+    "externalLinks": [
+      { "label": "Lab Website", "url": "https://example.org/lab" }
+    ]
+  }
 }
 ```
+
+Behavior notes:
+- `profilePropertyCatalog` is filtered by server-side app configuration.
+- `profileProperties` only accepts enabled built-in keys.
+- `profilePropertyCatalog[].required=true` indicates fields that must be collected on registration.
+- URL-type properties validate protocol (`http`/`https`) and, when configured, host constraints.
+- `externalLinks` validates an array of `{ label, url }` objects.
 
 ## 4) Group Endpoints (authenticated users)
 

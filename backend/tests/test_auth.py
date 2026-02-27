@@ -9,7 +9,7 @@ from app.core.config import get_settings
 from app.main import app
 
 
-def register_user(client, username="user1", email="user1@example.org", password="Password123"):
+def register_user(client, username="user1", email="user1@example.org", password="Password123", profile_properties=None):
     response = client.post(
         "/api/v1/auth/register",
         json={
@@ -17,6 +17,7 @@ def register_user(client, username="user1", email="user1@example.org", password=
             "email": email,
             "password": password,
             "displayName": "User One",
+            "profileProperties": profile_properties,
         },
     )
     assert response.status_code == 200
@@ -54,6 +55,38 @@ def test_auth_providers_metadata(client):
     payload = response.json()
     assert payload["localRegistrationEnabled"] is True
     assert {provider["id"] for provider in payload["providers"]} == {"local", "uva-netbadge"}
+    assert isinstance(payload.get("profilePropertyCatalog"), list)
+
+
+def test_register_requires_profile_properties_marked_required(client):
+    previous = app.state.settings.profile_properties
+    app.state.settings.profile_properties = "!orcid"
+    try:
+        missing_required = client.post(
+            "/api/v1/auth/register",
+            json={
+                "username": "requiredprops1",
+                "email": "requiredprops1@example.org",
+                "password": "Password123",
+                "displayName": "Required Props",
+            },
+        )
+        assert missing_required.status_code == 400
+        assert missing_required.json()["error"]["code"] == "PROFILE_PROPERTY_REQUIRED"
+
+        success = client.post(
+            "/api/v1/auth/register",
+            json={
+                "username": "requiredprops2",
+                "email": "requiredprops2@example.org",
+                "password": "Password123",
+                "displayName": "Required Props",
+                "profileProperties": {"orcid": "0000-0002-1825-0097"},
+            },
+        )
+        assert success.status_code == 200
+    finally:
+        app.state.settings.profile_properties = previous
 
 
 def test_register_login_me_refresh_logout_flow(client):

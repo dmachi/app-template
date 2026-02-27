@@ -41,6 +41,8 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379"
     redis_notification_channel: str = "notifications"
     notifications_completed_retention_hours: int = 24
+    profile_properties: str = "*"
+    profile_properties_enabled: str = ""
 
     testing_id: str | None = None
     testing_key: str | None = None
@@ -119,6 +121,12 @@ class Settings(BaseSettings):
         if self.database_provider == "mongodb":
             return self.mongodb_db_name or self.database_name or ""
         return self.database_name or ""
+
+    @property
+    def profile_properties_config(self) -> str:
+        if self.profile_properties_enabled.strip():
+            return self.profile_properties_enabled
+        return self.profile_properties.strip()
 
     @model_validator(mode="after")
     def validate_runtime_configuration(self) -> "Settings":

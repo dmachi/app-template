@@ -41,6 +41,11 @@
 ### D) User Profile / Settings
 - Displays current user data
 - Allows editing permitted fields (e.g., display name, preferences)
+- Renders configurable built-in profile properties provided by backend catalog metadata
+- Supports typed profile-property inputs:
+	- fixed fields (e.g., ORCID)
+	- specific URL types with host guidance (e.g., Google Scholar)
+	- arbitrary external link list entries (`label + url`)
 - Displays role badges with role-source distinction:
 	- direct user-assigned roles
 	- group-inherited roles

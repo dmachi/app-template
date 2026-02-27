@@ -109,6 +109,13 @@ Priority order:
 - `NOTIFICATIONS_EMAIL_MIN_INTERVAL_PER_NOTIFICATION_SECONDS` (default `86400`)
 - `NOTIFICATIONS_COMPLETED_RETENTION_HOURS` (default `48`)
 
+### Profile Properties
+- `PROFILE_PROPERTIES` (required semantics):
+  - `*` enables all built-in non-core profile properties
+  - comma-separated list enables only listed non-core keys
+  - prefix a key with `!` (e.g., `!orcid`) to mark it required at registration
+  - core properties are always enabled and may also be marked required with `!`
+
 ### Redis (Realtime Event Bus)
 - `REDIS_URL`
 - `REDIS_CHANNEL_NOTIFICATIONS` (default `notifications.events`)
@@ -133,6 +140,7 @@ Priority order:
 - Notification daily send cap per notification (`NOTIFICATIONS_EMAIL_MIN_INTERVAL_PER_NOTIFICATION_SECONDS`) must be >= 86400 for MVP
 - When notifications/realtime events are enabled, `REDIS_URL` must be present
 - `WS_AUTH_MODE` must be compatible with configured auth mode (JWT in MVP)
+- `PROFILE_PROPERTIES` entries must map to known built-in property keys; unknown keys are ignored
 
 ## 5) Config Endpoint
 - Provide read-only sanitized endpoint for frontend:

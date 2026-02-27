@@ -57,6 +57,7 @@ Fields (draft):
 - `created_at` (timestamp)
 - `updated_at` (timestamp)
 - `last_login_at` (timestamp, nullable)
+- `preferences` (json/object, optional; includes `profileProperties` map for configurable built-in profile attributes only)
 
 Indexes/Constraints:
 - unique on `username`
@@ -71,6 +72,9 @@ Email canonicalization rules:
 
 ### `auth_identities`
 Links external/local auth provider identities to users.
+
+Notes:
+- External account linkage state is stored in this table/collection (or equivalent linkage table), not in `users.preferences.profileProperties`.
 
 Data minimization guidance:
 - Persist only provider attributes required for identity linking, account display, and authorization decisions

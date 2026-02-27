@@ -44,6 +44,8 @@ def test_users_me_get_and_patch(client):
     assert me.status_code == 200
     assert me.json()["username"] == "profile1"
     assert me.json()["preferences"] == {}
+    assert me.json()["profileProperties"] == {}
+    assert isinstance(me.json()["profilePropertyCatalog"], list)
 
     patch = client.patch(
         "/api/v1/users/me",
@@ -54,6 +56,99 @@ def test_users_me_get_and_patch(client):
     payload = patch.json()
     assert payload["displayName"] == "Updated Profile"
     assert payload["preferences"] == {"theme": "dark"}
+
+
+def test_users_me_patch_profile_properties(client):
+    _, tokens = register_and_login(client, username="profileprops1", email="profileprops1@example.org")
+
+    previous = app.state.settings.profile_properties
+    app.state.settings.profile_properties = "*"
+    try:
+        patch = client.patch(
+            "/api/v1/users/me",
+            headers=auth_headers(tokens["accessToken"]),
+            json={
+                "profileProperties": {
+                    "orcid": "0000-0002-1825-0097",
+                    "googleScholarUrl": "https://scholar.google.com/citations?user=tester",
+                    "externalLinks": [
+                        {"label": "Lab", "url": "https://example.org/lab"},
+                        {"label": "CV", "url": "https://example.org/cv"},
+                    ],
+                }
+            },
+        )
+        get_me = client.get("/api/v1/users/me", headers=auth_headers(tokens["accessToken"]))
+    finally:
+        app.state.settings.profile_properties = previous
+    assert patch.status_code == 200
+    payload = patch.json()
+    assert payload["profileProperties"]["orcid"] == "0000-0002-1825-0097"
+    assert len(payload["profileProperties"]["externalLinks"]) == 2
+    assert get_me.status_code == 200
+    assert get_me.json()["profileProperties"]["googleScholarUrl"].startswith("https://scholar.google.com/")
+
+
+def test_users_me_patch_profile_properties_rejects_invalid_values(client):
+    _, tokens = register_and_login(client, username="profileprops2", email="profileprops2@example.org")
+
+    previous = app.state.settings.profile_properties
+    app.state.settings.profile_properties = "*"
+    try:
+        invalid_orcid = client.patch(
+            "/api/v1/users/me",
+            headers=auth_headers(tokens["accessToken"]),
+            json={"profileProperties": {"orcid": "bad-orcid"}},
+        )
+    finally:
+        app.state.settings.profile_properties = previous
+    assert invalid_orcid.status_code == 400
+    assert invalid_orcid.json()["error"]["code"] == "PROFILE_PROPERTY_INVALID"
+
+    previous = app.state.settings.profile_properties
+    app.state.settings.profile_properties = "*"
+    try:
+        invalid_scholar_host = client.patch(
+            "/api/v1/users/me",
+            headers=auth_headers(tokens["accessToken"]),
+            json={"profileProperties": {"googleScholarUrl": "https://example.org/not-scholar"}},
+        )
+    finally:
+        app.state.settings.profile_properties = previous
+    assert invalid_scholar_host.status_code == 400
+    assert invalid_scholar_host.json()["error"]["code"] == "PROFILE_PROPERTY_INVALID"
+
+
+def test_users_me_patch_profile_properties_rejects_disabled_property(client):
+    _, tokens = register_and_login(client, username="profileprops3", email="profileprops3@example.org")
+
+    previous = app.state.settings.profile_properties
+    app.state.settings.profile_properties = "orcid"
+    try:
+        disabled = client.patch(
+            "/api/v1/users/me",
+            headers=auth_headers(tokens["accessToken"]),
+            json={"profileProperties": {"googleScholarUrl": "https://scholar.google.com/citations?user=test"}},
+        )
+    finally:
+        app.state.settings.profile_properties = previous
+
+    assert disabled.status_code == 400
+    assert disabled.json()["error"]["code"] == "PROFILE_PROPERTY_DISABLED"
+
+
+def test_users_me_empty_profile_properties_config_hides_extended_catalog(client):
+    _, tokens = register_and_login(client, username="profileprops4", email="profileprops4@example.org")
+
+    previous = app.state.settings.profile_properties
+    app.state.settings.profile_properties = ""
+    try:
+        me = client.get("/api/v1/users/me", headers=auth_headers(tokens["accessToken"]))
+    finally:
+        app.state.settings.profile_properties = previous
+
+    assert me.status_code == 200
+    assert me.json()["profilePropertyCatalog"] == []
 
 
 def test_users_me_includes_direct_and_inherited_role_sources(client):

@@ -76,6 +76,17 @@ class InvitationRecord:
 
 
 @dataclass
+class ExternalAccountLinkageRecord:
+    id: str
+    user_id: str
+    provider: str
+    external_subject: str
+    metadata: dict[str, Any] = field(default_factory=dict)
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+
+
+@dataclass
 class NotificationRecord:
     id: str
     user_id: str
@@ -110,6 +121,7 @@ class AuthStore:
         self._memberships_by_group: dict[str, dict[str, GroupMembershipRecord]] = {}
         self._roles: dict[str, str | None] = dict(CORE_ROLE_DESCRIPTIONS)
         self._notifications_by_id: dict[str, NotificationRecord] = {}
+        self._external_account_linkages: dict[tuple[str, str], ExternalAccountLinkageRecord] = {}
 
     @staticmethod
     def normalize_email(email: str) -> str:
@@ -157,7 +169,14 @@ class AuthStore:
         self._users_by_username[normalized_username] = user
         return user
 
-    def register_local_user(self, username: str, email: str, password: str, display_name: str | None = None) -> UserRecord:
+    def register_local_user(
+        self,
+        username: str,
+        email: str,
+        password: str,
+        display_name: str | None = None,
+        preferences: dict[str, Any] | None = None,
+    ) -> UserRecord:
         normalized_email = self.normalize_email(email)
         normalized_username = username.strip().lower()
 
@@ -177,11 +196,51 @@ class AuthStore:
             status="pending",
             email_verified=False,
             roles=[],
+            preferences=dict(preferences or {}),
         )
         self._users_by_id[user.id] = user
         self._users_by_email[normalized_email] = user
         self._users_by_username[normalized_username] = user
         return user
+
+    def upsert_external_account_linkage(
+        self,
+        user_id: str,
+        provider: str,
+        external_subject: str,
+        metadata: dict[str, Any] | None = None,
+    ) -> ExternalAccountLinkageRecord:
+        normalized_provider = provider.strip().lower()
+        key = (user_id, normalized_provider)
+        now = datetime.now(UTC)
+        existing = self._external_account_linkages.get(key)
+        if existing is None:
+            record = ExternalAccountLinkageRecord(
+                id=str(uuid4()),
+                user_id=user_id,
+                provider=normalized_provider,
+                external_subject=external_subject,
+                metadata=dict(metadata or {}),
+                created_at=now,
+                updated_at=now,
+            )
+            self._external_account_linkages[key] = record
+            return record
+
+        existing.external_subject = external_subject
+        existing.metadata = dict(metadata or {})
+        existing.updated_at = now
+        return existing
+
+    def list_external_account_linkages(self, user_id: str) -> list[ExternalAccountLinkageRecord]:
+        return sorted(
+            [record for (linked_user_id, _), record in self._external_account_linkages.items() if linked_user_id == user_id],
+            key=lambda item: item.provider,
+        )
+
+    def remove_external_account_linkage(self, user_id: str, provider: str) -> bool:
+        key = (user_id, provider.strip().lower())
+        return self._external_account_linkages.pop(key, None) is not None
 
     def authenticate_local_user(self, username_or_email: str, password: str) -> UserRecord | None:
         lookup = username_or_email.strip().lower()
