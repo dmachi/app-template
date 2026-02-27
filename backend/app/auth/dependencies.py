@@ -18,9 +18,26 @@ def get_auth_store(request: Request):
 def get_current_user(
     request: Request,
     authorization: Annotated[str | None, Header(alias="Authorization")] = None,
+    x_testing_id: Annotated[str | None, Header(alias="X-Testing-Id")] = None,
+    x_testing_key: Annotated[str | None, Header(alias="X-Testing-Key")] = None,
     settings: Settings = Depends(get_settings),
     auth_store=Depends(get_auth_store),
 ) -> UserRecord:
+    # Testing credentials bypass (dev/test environments only)
+    # Allows CLI tools and integration tests to authenticate as a specific user
+    # without generating JWT tokens. Only works when APP_ENV != production.
+    if settings.app_env != "production" and x_testing_id and x_testing_key:
+        if settings.testing_id and settings.testing_key:
+            if x_testing_id == settings.testing_id and x_testing_key == settings.testing_key:
+                user = auth_store.get_user(settings.testing_id)
+                if user is None and hasattr(auth_store, "find_user_by_username_or_email"):
+                    user = auth_store.find_user_by_username_or_email(settings.testing_id)
+                if user is None:
+                    raise ApiError(status_code=401, code="TESTING_USER_NOT_FOUND", message="Testing user not found")
+                if user.status != "active":
+                    raise ApiError(status_code=403, code="USER_DISABLED", message="User account is disabled")
+                return user
+
     auth_context: AuthContext | None = getattr(request.state, "auth_context", None)
     if auth_context is not None:
         if not auth_context.is_authenticated:

@@ -3,7 +3,7 @@ from uuid import uuid4
 
 from app.auth.roles import CORE_ROLE_DESCRIPTIONS, NON_DELETABLE_CORE_ROLES
 from app.auth.security import generate_refresh_token, hash_password, hash_refresh_token, verify_password
-from app.auth.store import GroupRecord, InvitationRecord, UserRecord
+from app.auth.store import GroupRecord, InvitationRecord, NotificationRecord, UserRecord
 from app.core.config import Settings
 
 
@@ -15,6 +15,7 @@ class MongoAuthStore:
         self._sessions = database_adapter.get_collection("sessions")
         self._roles = database_adapter.get_collection("roles")
         self._invitations = database_adapter.get_collection("invitations")
+        self._notifications = database_adapter.get_collection("notifications")
 
         now = datetime.now(UTC)
         for role_name, description in CORE_ROLE_DESCRIPTIONS.items():
@@ -67,6 +68,43 @@ class MongoAuthStore:
             updated_at=doc.get("updated_at") or datetime.now(UTC),
             roles=doc.get("roles") or [],
         )
+
+    def _doc_to_notification(self, doc) -> NotificationRecord:
+        return NotificationRecord(
+            id=doc["id"],
+            user_id=doc["user_id"],
+            type=doc.get("type") or "generic",
+            message=doc.get("message") or "",
+            severity=doc.get("severity") or "info",
+            requires_acknowledgement=bool(doc.get("requires_acknowledgement") or False),
+            clearance_mode=doc.get("clearance_mode") or "manual",
+            source=doc.get("source") or {},
+            open_endpoint=doc.get("open_endpoint"),
+            delivery_options=doc.get("delivery_options") or {},
+            completion_check=doc.get("completion_check"),
+            status=doc.get("status") or "unread",
+            merge_count=doc.get("merge_count") or 1,
+            read_at=doc.get("read_at"),
+            acknowledged_at=doc.get("acknowledged_at"),
+            cleared_at=doc.get("cleared_at"),
+            canceled_at=doc.get("canceled_at"),
+            completion_satisfied_at=doc.get("completion_satisfied_at"),
+            created_at=doc.get("created_at") or datetime.now(UTC),
+            updated_at=doc.get("updated_at") or datetime.now(UTC),
+        )
+
+    @staticmethod
+    def _notification_event_identity(type_name: str, source: dict | None) -> str | None:
+        source = source or {}
+        dedupe_key = source.get("dedupe_key")
+        if isinstance(dedupe_key, str) and dedupe_key.strip():
+            return f"{type_name}|dedupe:{dedupe_key.strip()}"
+        entity_type = source.get("entity_type")
+        entity_id = source.get("entity_id")
+        event_id = source.get("event_id")
+        if not entity_type and not entity_id and not event_id:
+            return None
+        return f"{type_name}|{entity_type or ''}|{entity_id or ''}|{event_id or ''}"
 
     def upsert_user_record(
         self,
@@ -454,6 +492,222 @@ class MongoAuthStore:
             for group_doc in self._groups.find({"id": {"$in": group_ids}}, {"roles": 1}):
                 effective_roles.update(group_doc.get("roles") or [])
         return sorted(effective_roles)
+
+    def create_or_merge_notification(
+        self,
+        *,
+        user_id: str,
+        type_name: str,
+        message: str,
+        severity: str = "info",
+        requires_acknowledgement: bool = False,
+        clearance_mode: str = "manual",
+        source: dict | None = None,
+        open_endpoint: str | None = None,
+        delivery_options: dict | None = None,
+        completion_check: dict | None = None,
+    ) -> tuple[NotificationRecord, bool]:
+        if self.get_user(user_id) is None:
+            raise ValueError("USER_NOT_FOUND")
+
+        event_identity = self._notification_event_identity(type_name, source)
+        active_notifications = self._notifications.find(
+            {
+                "user_id": user_id,
+                "cleared_at": None,
+                "canceled_at": None,
+            }
+        )
+        if event_identity is not None:
+            for existing in active_notifications:
+                existing_identity = self._notification_event_identity(existing.get("type") or "", existing.get("source") or {})
+                if existing_identity != event_identity:
+                    continue
+                now = datetime.now(UTC)
+                self._notifications.update_one(
+                    {"id": existing["id"]},
+                    {
+                        "$set": {
+                            "message": message.strip(),
+                            "severity": severity,
+                            "requires_acknowledgement": requires_acknowledgement,
+                            "clearance_mode": clearance_mode,
+                            "source": dict(source or {}),
+                            "open_endpoint": open_endpoint,
+                            "delivery_options": dict(delivery_options or {}),
+                            "completion_check": dict(completion_check) if completion_check else None,
+                            "updated_at": now,
+                        },
+                        "$inc": {"merge_count": 1},
+                    },
+                )
+                updated = self._notifications.find_one({"id": existing["id"]})
+                return self._doc_to_notification(updated), False
+
+        now = datetime.now(UTC)
+        notification_id = str(uuid4())
+        self._notifications.insert_one(
+            {
+                "id": notification_id,
+                "user_id": user_id,
+                "type": type_name.strip(),
+                "message": message.strip(),
+                "severity": severity,
+                "requires_acknowledgement": requires_acknowledgement,
+                "clearance_mode": clearance_mode,
+                "source": dict(source or {}),
+                "open_endpoint": open_endpoint,
+                "delivery_options": dict(delivery_options or {}),
+                "completion_check": dict(completion_check) if completion_check else None,
+                "status": "unread",
+                "merge_count": 1,
+                "read_at": None,
+                "acknowledged_at": None,
+                "cleared_at": None,
+                "canceled_at": None,
+                "completion_satisfied_at": None,
+                "created_at": now,
+                "updated_at": now,
+            }
+        )
+        created = self._notifications.find_one({"id": notification_id})
+        return self._doc_to_notification(created), True
+
+    def get_notification(self, notification_id: str) -> NotificationRecord | None:
+        doc = self._notifications.find_one({"id": notification_id})
+        return self._doc_to_notification(doc) if doc else None
+
+    def list_notifications_for_user(self, user_id: str, status: str | None = None, type_name: str | None = None) -> list[NotificationRecord]:
+        query = {"user_id": user_id}
+        if status:
+            query["status"] = status
+        if type_name:
+            query["type"] = type_name
+        docs = self._notifications.find(query).sort("created_at", -1)
+        return [self._doc_to_notification(doc) for doc in docs]
+
+    def list_notifications(self, *, status: str | None = None, type_name: str | None = None, user_id: str | None = None) -> list[NotificationRecord]:
+        query: dict = {}
+        if status:
+            query["status"] = status
+        if type_name:
+            query["type"] = type_name
+        if user_id:
+            query["user_id"] = user_id
+        docs = self._notifications.find(query).sort("created_at", -1)
+        return [self._doc_to_notification(doc) for doc in docs]
+
+    def mark_notification_read(self, notification_id: str, user_id: str | None = None) -> NotificationRecord | None:
+        query: dict = {"id": notification_id}
+        if user_id:
+            query["user_id"] = user_id
+        now = datetime.now(UTC)
+        self._notifications.update_one(
+            query,
+            {
+                "$set": {
+                    "read_at": now,
+                    "updated_at": now,
+                }
+            },
+        )
+        notification = self.get_notification(notification_id)
+        if notification is None:
+            return None
+        if user_id and notification.user_id != user_id:
+            return None
+        if notification.status == "unread":
+            self._notifications.update_one({"id": notification_id}, {"$set": {"status": "read"}})
+            notification.status = "read"
+        if notification.read_at is None:
+            notification.read_at = now
+        notification.updated_at = now
+        return notification
+
+    def acknowledge_notification(self, notification_id: str, user_id: str | None = None) -> NotificationRecord | None:
+        query: dict = {"id": notification_id}
+        if user_id:
+            query["user_id"] = user_id
+        now = datetime.now(UTC)
+        result = self._notifications.update_one(
+            query,
+            {
+                "$set": {
+                    "read_at": now,
+                    "acknowledged_at": now,
+                    "status": "acknowledged",
+                    "updated_at": now,
+                }
+            },
+        )
+        if result.matched_count == 0:
+            return None
+        return self.get_notification(notification_id)
+
+    def evaluate_notification_completion(self, notification_id: str, user_id: str | None = None) -> tuple[NotificationRecord | None, bool]:
+        notification = self.get_notification(notification_id)
+        if notification is None:
+            return None, False
+        if user_id and notification.user_id != user_id:
+            return None, False
+
+        check = notification.completion_check or {}
+        arguments = check.get("arguments") if isinstance(check.get("arguments"), dict) else {}
+        completed = bool(arguments.get("completed") is True)
+        if completed:
+            now = datetime.now(UTC)
+            self._notifications.update_one(
+                {"id": notification_id},
+                {"$set": {"completion_satisfied_at": now, "updated_at": now}},
+            )
+            notification.completion_satisfied_at = now
+            notification.updated_at = now
+        return notification, completed
+
+    def clear_notification(self, notification_id: str, user_id: str | None = None) -> NotificationRecord | None:
+        notification = self.get_notification(notification_id)
+        if notification is None:
+            return None
+        if user_id and notification.user_id != user_id:
+            return None
+        if notification.clearance_mode == "ack" and notification.acknowledged_at is None:
+            raise ValueError("ACK_REQUIRED")
+        if notification.clearance_mode == "task_gate" and notification.completion_satisfied_at is None:
+            raise ValueError("TASK_NOT_COMPLETED")
+
+        now = datetime.now(UTC)
+        self._notifications.update_one(
+            {"id": notification_id},
+            {
+                "$set": {
+                    "read_at": notification.read_at or now,
+                    "cleared_at": now,
+                    "status": "cleared",
+                    "updated_at": now,
+                }
+            },
+        )
+        return self.get_notification(notification_id)
+
+    def cancel_notification(self, notification_id: str) -> NotificationRecord | None:
+        now = datetime.now(UTC)
+        result = self._notifications.update_one(
+            {"id": notification_id},
+            {
+                "$set": {
+                    "canceled_at": now,
+                    "status": "cleared",
+                    "updated_at": now,
+                }
+            },
+        )
+        if result.matched_count == 0:
+            return None
+        return self.get_notification(notification_id)
+
+    def delete_notification(self, notification_id: str) -> bool:
+        result = self._notifications.delete_one({"id": notification_id})
+        return result.deleted_count > 0
 
     def create_refresh_session(self, user_id: str, settings: Settings, family_id: str | None = None) -> tuple[str, int]:
         refresh_token = generate_refresh_token()

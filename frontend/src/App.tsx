@@ -4,30 +4,51 @@ import { AuthMenu } from "./components/shared/auth-menu";
 import { InviteUsersDialog } from "./components/shared/invite-users-dialog";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
+import { Toast, ToastClose, ToastDescription, ToastProvider, ToastTitle, ToastViewport } from "./components/ui/toast";
 import { AdminInvitationsPage } from "./pages/admin-invitations-page";
+import { AdminNotificationsPage } from "./pages/admin-notifications-page";
 import { AdminRolesPage } from "./pages/admin-roles-page";
 import { AdminUserDetailPage } from "./pages/admin-user-detail-page";
 import { AdminUsersPage } from "./pages/admin-users-page";
 import { AcceptInvitePage } from "./pages/accept-invite-page";
 import { GroupDetailPage } from "./pages/group-detail-page";
 import { GroupsPage } from "./pages/groups-page";
+import { NotificationsPage } from "./pages/notifications-page";
 import { ProfilePage } from "./pages/profile-page";
 import { SecurityPage } from "./pages/security-page";
 import { ThemePage } from "./pages/theme-page";
 import { VerifyEmailPage } from "./pages/verify-email-page";
 import {
+  API_BASE,
   acceptInvitation,
+  acknowledgeNotification,
   getAdminCapabilities,
   getAuthProviders,
   getMyProfile,
+  listMyNotifications,
   login,
+  markNotificationRead,
   logout,
   refreshSession,
   register,
   startRedirectProvider,
+  type NotificationItem,
   type AuthProviderMeta,
 } from "./lib/api";
 
+type RealtimeNotificationToast = {
+  id: string;
+  message: string;
+  severity: "info" | "success" | "warning" | "error";
+  clearanceMode: string;
+  requiresAcknowledgement: boolean;
+  openEndpoint: string | null;
+  open: boolean;
+};
+
+function isActionRequiredToast(toast: RealtimeNotificationToast): boolean {
+  return (toast.clearanceMode === "ack" && toast.requiresAcknowledgement) || toast.clearanceMode === "task_gate";
+}
 type View =
   | "home"
   | "login"
@@ -35,10 +56,12 @@ type View =
   | "accept-invite"
   | "verify-email"
   | "profile"
+  | "notifications"
   | "security"
   | "groups"
   | "group-detail"
   | "theme"
+  | "admin-notifications"
   | "admin-invitations"
   | "admin-users"
   | "admin-user-detail"
@@ -78,6 +101,9 @@ function parseSettingsRoute(pathname: string): { view: View; groupId: string | n
   if (pathname === "/settings/profile") {
     return { view: "profile", groupId: null, adminUserId: null };
   }
+  if (pathname === "/settings/notifications") {
+    return { view: "notifications", groupId: null, adminUserId: null };
+  }
   if (pathname === "/settings/security") {
     return { view: "security", groupId: null, adminUserId: null };
   }
@@ -92,6 +118,9 @@ function parseSettingsRoute(pathname: string): { view: View; groupId: string | n
   }
   if (pathname === "/settings/admin/invitations") {
     return { view: "admin-invitations", groupId: null, adminUserId: null };
+  }
+  if (pathname === "/settings/admin/notifications") {
+    return { view: "admin-notifications", groupId: null, adminUserId: null };
   }
   if (pathname === "/settings/admin/roles") {
     return { view: "admin-roles", groupId: null, adminUserId: null };
@@ -130,6 +159,9 @@ function buildSettingsPath(view: View, groupId: string | null, adminUserId: stri
   if (view === "profile") {
     return "/settings/profile";
   }
+  if (view === "notifications") {
+    return "/settings/notifications";
+  }
   if (view === "login") {
     return "/login";
   }
@@ -156,6 +188,9 @@ function buildSettingsPath(view: View, groupId: string | null, adminUserId: stri
   }
   if (view === "admin-invitations") {
     return "/settings/admin/invitations";
+  }
+  if (view === "admin-notifications") {
+    return "/settings/admin/notifications";
   }
   if (view === "admin-user-detail" && adminUserId) {
     return `/settings/admin/users/${adminUserId}`;
@@ -204,6 +239,91 @@ export function App() {
   const [registerDisplayName, setRegisterDisplayName] = useState("");
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [realtimePopups, setRealtimePopups] = useState<RealtimeNotificationToast[]>([]);
+  const [homeNotifications, setHomeNotifications] = useState<NotificationItem[]>([]);
+  const [notificationRefreshSignal, setNotificationRefreshSignal] = useState(0);
+
+  async function refreshHomeNotifications(token: string) {
+    const payload = await listMyNotifications(token);
+    const actionable = payload.items.filter((notification) => {
+      if (notification.status === "cleared" || notification.canceledAt) {
+        return false;
+      }
+      if (notification.clearanceMode === "ack") {
+        return !notification.acknowledgedAt;
+      }
+      return notification.clearanceMode === "task_gate";
+    });
+    setHomeNotifications(actionable);
+  }
+
+  async function onHomeAcknowledge(notificationId: string) {
+    if (!accessToken) {
+      return;
+    }
+    try {
+      await acknowledgeNotification(accessToken, notificationId);
+      await refreshHomeNotifications(accessToken);
+      setNotificationRefreshSignal((current) => current + 1);
+    } catch {
+      return;
+    }
+  }
+
+  function onOpenTask(notification: NotificationItem) {
+    if (notification.openEndpoint) {
+      window.location.assign(notification.openEndpoint);
+      return;
+    }
+    navigateSettings("notifications");
+  }
+
+  function removeToast(toastId: string) {
+    setRealtimePopups((current) => current.filter((item) => item.id !== toastId));
+  }
+
+  async function onToastManualClose(toastId: string) {
+    if (accessToken) {
+      try {
+        await markNotificationRead(accessToken, toastId);
+      } catch {
+        // ignore read-mark failures for temporary notification UI behavior
+      }
+      setNotificationRefreshSignal((current) => current + 1);
+    }
+    removeToast(toastId);
+  }
+
+  async function onToastAcknowledge(toastId: string) {
+    if (!accessToken) {
+      removeToast(toastId);
+      return;
+    }
+    try {
+      await acknowledgeNotification(accessToken, toastId);
+    } catch {
+      // ignore ack failures for temporary notification UI behavior
+    }
+    setNotificationRefreshSignal((current) => current + 1);
+    removeToast(toastId);
+  }
+
+  async function onToastOpenTask(toast: RealtimeNotificationToast) {
+    if (accessToken) {
+      try {
+        await markNotificationRead(accessToken, toast.id);
+      } catch {
+        // ignore read-mark failures before navigation
+      }
+      setNotificationRefreshSignal((current) => current + 1);
+    }
+    removeToast(toast.id);
+    if (toast.openEndpoint) {
+      window.location.assign(toast.openEndpoint);
+      return;
+    }
+    navigateSettings("notifications");
+  }
 
   function resolveThemePreference(preference: unknown): ThemeOption {
     if (preference === "light" || preference === "dark" || preference === "system") {
@@ -241,6 +361,9 @@ export function App() {
     }
     if (nextView === "admin-invitations") {
       return capabilities.invitations;
+    }
+    if (nextView === "admin-notifications") {
+      return capabilities.roles;
     }
     if (nextView === "admin-roles") {
       return capabilities.roles;
@@ -547,6 +670,91 @@ export function App() {
   }, [accessToken, pendingInvitationToken, acceptingInvitation, view]);
 
   useEffect(() => {
+    if (!accessToken) {
+      setRealtimePopups([]);
+      setHomeNotifications([]);
+      return;
+    }
+
+    refreshHomeNotifications(accessToken).catch(() => {});
+
+    const wsBase = API_BASE.replace(/^http/i, "ws");
+    const socket = new WebSocket(`${wsBase}/ws/events?token=${encodeURIComponent(accessToken)}`);
+    const timers = new Map<string, number>();
+
+    socket.onmessage = (event) => {
+      try {
+        const envelope = JSON.parse(event.data) as {
+          eventType?: string;
+          payload?: {
+            id?: string;
+            message?: string;
+            severity?: string;
+            clearanceMode?: string;
+            requiresAcknowledgement?: boolean;
+            openEndpoint?: string | null;
+          };
+        };
+        if (envelope.eventType !== "notification.created" && envelope.eventType !== "notification.updated") {
+          return;
+        }
+
+        const payload = envelope.payload;
+        if (!payload?.id || !payload.message) {
+          return;
+        }
+
+        const severity: RealtimeNotificationToast["severity"] =
+          payload.severity === "success" || payload.severity === "warning" || payload.severity === "error" ? payload.severity : "info";
+        const popupId = payload.id;
+        setNotificationRefreshSignal((current) => current + 1);
+
+        if (view === "home") {
+          refreshHomeNotifications(accessToken).catch(() => {});
+        } else {
+          setRealtimePopups((current) => {
+            const withoutSame = current.filter((item) => item.id !== popupId);
+            return [
+              {
+                id: popupId,
+                message: payload.message as string,
+                severity,
+                clearanceMode: payload.clearanceMode ?? "manual",
+                requiresAcknowledgement: Boolean(payload.requiresAcknowledgement),
+                openEndpoint: payload.openEndpoint ?? null,
+                open: true,
+              },
+              ...withoutSame,
+            ].slice(0, 3);
+          });
+        }
+
+        const actionable = (payload.clearanceMode === "ack" && Boolean(payload.requiresAcknowledgement)) || payload.clearanceMode === "task_gate";
+        if (!actionable) {
+          const existingTimer = timers.get(popupId);
+          if (typeof existingTimer === "number") {
+            window.clearTimeout(existingTimer);
+          }
+          const timerId = window.setTimeout(() => {
+            setRealtimePopups((current) => current.map((item) => (item.id === popupId ? { ...item, open: false } : item)));
+            timers.delete(popupId);
+          }, 5000);
+          timers.set(popupId, timerId);
+        }
+      } catch {
+        return;
+      }
+    };
+
+    return () => {
+      for (const timerId of timers.values()) {
+        window.clearTimeout(timerId);
+      }
+      socket.close();
+    };
+  }, [accessToken, view]);
+
+  useEffect(() => {
     console.debug("[route-debug] auth-guard:enter", {
       restoringSession,
       accessTokenPresent: Boolean(accessToken),
@@ -575,11 +783,13 @@ export function App() {
       normalizedPath === "/verify-email" ||
       normalizedPath === "/accept-invite" ||
       normalizedPath === "/settings/profile" ||
+      normalizedPath === "/settings/notifications" ||
       normalizedPath === "/settings/security" ||
       normalizedPath === "/settings/groups" ||
       normalizedPath === "/settings/theme" ||
       normalizedPath === "/settings/admin/users" ||
       normalizedPath === "/settings/admin/invitations" ||
+      normalizedPath === "/settings/admin/notifications" ||
       normalizedPath === "/settings/admin/roles" ||
       normalizedPath === "/admin" ||
       normalizedPath === "/invitations" ||
@@ -624,7 +834,7 @@ export function App() {
       return;
     }
 
-    if (parsed.view === "admin-users" || parsed.view === "admin-invitations" || parsed.view === "admin-user-detail" || parsed.view === "admin-roles") {
+    if (parsed.view === "admin-users" || parsed.view === "admin-invitations" || parsed.view === "admin-user-detail" || parsed.view === "admin-roles" || parsed.view === "admin-notifications") {
       if (!adminAccessChecked) {
         console.debug("[route-debug] auth-guard:wait admin-access-check", {
           pathname: normalizedPath,
@@ -865,6 +1075,49 @@ export function App() {
         </div>
       </header>
 
+      <ToastProvider>
+        {realtimePopups.map((popup) => (
+          <Toast
+            key={popup.id}
+            open={popup.open}
+            duration={isActionRequiredToast(popup) ? 86_400_000 : 5000}
+            onOpenChange={(open) => {
+              if (!open) {
+                removeToast(popup.id);
+              }
+            }}
+            className={
+              popup.severity === "error"
+                ? "border-red-300 bg-red-50 text-red-900 dark:border-red-700 dark:bg-red-950 dark:text-red-200"
+                : popup.severity === "warning"
+                  ? "border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200"
+                  : popup.severity === "success"
+                    ? "border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-700 dark:bg-emerald-950 dark:text-emerald-200"
+                    : "border-sky-300 bg-sky-50 text-sky-900 dark:border-sky-700 dark:bg-sky-950 dark:text-sky-200"
+            }
+          >
+            <div className="grid gap-1">
+              <ToastTitle>Notification</ToastTitle>
+              <ToastDescription>{popup.message}</ToastDescription>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {popup.requiresAcknowledgement && popup.clearanceMode === "ack" ? (
+                  <Button type="button" onClick={() => onToastAcknowledge(popup.id)}>
+                    Acknowledge
+                  </Button>
+                ) : null}
+                {popup.clearanceMode === "task_gate" ? (
+                  <Button type="button" onClick={() => onToastOpenTask(popup)}>
+                    Open Task
+                  </Button>
+                ) : null}
+              </div>
+            </div>
+            <ToastClose aria-label="Close" onClick={() => onToastManualClose(popup.id)} />
+          </Toast>
+        ))}
+        <ToastViewport />
+      </ToastProvider>
+
       {adminCapabilities.invitations ? (
         <InviteUsersDialog
           accessToken={accessToken}
@@ -876,6 +1129,30 @@ export function App() {
 
       {view === "home" ? (
         <main className="w-full px-6 py-6">
+          {homeNotifications.length > 0 ? (
+            <section className="mb-4 grid gap-2">
+              {homeNotifications.map((notification) => (
+                <div key={notification.id} className="rounded-md border border-slate-200 px-4 py-3 text-sm dark:border-slate-700">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="font-medium">{notification.message}</p>
+                    <span className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">{notification.clearanceMode}</span>
+                  </div>
+                  <div className="mt-2 flex gap-2">
+                    {notification.clearanceMode === "ack" && !notification.acknowledgedAt ? (
+                      <Button type="button" onClick={() => onHomeAcknowledge(notification.id)}>
+                        Acknowledge
+                      </Button>
+                    ) : null}
+                    {notification.clearanceMode === "task_gate" ? (
+                      <Button type="button" onClick={() => onOpenTask(notification)}>
+                        Open Task
+                      </Button>
+                    ) : null}
+                  </div>
+                </div>
+              ))}
+            </section>
+          ) : null}
           <section className="rounded-md border border-slate-200 p-6 dark:border-slate-800">
             <h2 className="mb-2 text-xl font-semibold">Welcome, {currentUsername}</h2>
             <h2 className="mb-3 text-2xl font-semibold">Home</h2>
@@ -903,6 +1180,13 @@ export function App() {
                     onClick={() => navigateSettings("profile")}
                   >
                     Profile
+                  </Button>
+                  <Button
+                    type="button"
+                    className={view === "notifications" ? "bg-slate-100 dark:bg-slate-800" : ""}
+                    onClick={() => navigateSettings("notifications")}
+                  >
+                    Notifications
                   </Button>
                   <Button
                     type="button"
@@ -951,6 +1235,15 @@ export function App() {
                     {adminCapabilities.roles ? (
                       <Button
                         type="button"
+                        className={view === "admin-notifications" ? "bg-slate-100 dark:bg-slate-800" : ""}
+                        onClick={() => navigateSettings("admin-notifications")}
+                      >
+                        Notifications
+                      </Button>
+                    ) : null}
+                    {adminCapabilities.roles ? (
+                      <Button
+                        type="button"
                         className={view === "admin-roles" ? "bg-slate-100 dark:bg-slate-800" : ""}
                         onClick={() => navigateSettings("admin-roles")}
                       >
@@ -964,6 +1257,7 @@ export function App() {
 
             <section>
               {view === "profile" ? <ProfilePage accessToken={accessToken} /> : null}
+              {view === "notifications" ? <NotificationsPage accessToken={accessToken} refreshSignal={notificationRefreshSignal} /> : null}
               {view === "security" ? <SecurityPage /> : null}
               {view === "groups" ? (
                 <GroupsPage
@@ -1013,6 +1307,7 @@ export function App() {
                 />
               ) : null}
               {view === "admin-invitations" ? <AdminInvitationsPage accessToken={accessToken} /> : null}
+              {view === "admin-notifications" ? <AdminNotificationsPage accessToken={accessToken} /> : null}
               {view === "admin-user-detail" && selectedAdminUserId ? (
                 <AdminUserDetailPage
                   accessToken={accessToken}

@@ -11,6 +11,7 @@ services:
       DATABASE_PROVIDER: mongodb
       MONGODB_URI: mongodb://mongo:27017
       MONGODB_DB_NAME: basic_system_template
+      REDIS_URL: redis://redis:6379
       TOKEN_TRANSPORT_MODE: bearer-header
       SUPERUSER_ROLE_NAME: superuser
       USER_MANAGEMENT_ROLES: superuser

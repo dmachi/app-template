@@ -38,6 +38,12 @@ class Settings(BaseSettings):
     mongodb_uri: str | None = "mongodb://localhost:27017"
     mongodb_db_name: str | None = "basic_system_template"
 
+    redis_url: str = "redis://localhost:6379"
+    redis_notification_channel: str = "notifications"
+
+    testing_id: str | None = None
+    testing_key: str | None = None
+
     auth_providers_enabled: str = "local,uva-netbadge"
     local_registration_enabled: bool = True
     email_verification_required_for_login: bool = False

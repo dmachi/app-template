@@ -75,6 +75,30 @@ class InvitationRecord:
     revoked_at: datetime | None = None
 
 
+@dataclass
+class NotificationRecord:
+    id: str
+    user_id: str
+    type: str
+    message: str
+    severity: str
+    requires_acknowledgement: bool
+    clearance_mode: str
+    source: dict[str, Any] = field(default_factory=dict)
+    open_endpoint: str | None = None
+    delivery_options: dict[str, Any] = field(default_factory=dict)
+    completion_check: dict[str, Any] | None = None
+    status: str = "unread"
+    merge_count: int = 1
+    read_at: datetime | None = None
+    acknowledged_at: datetime | None = None
+    cleared_at: datetime | None = None
+    canceled_at: datetime | None = None
+    completion_satisfied_at: datetime | None = None
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+
+
 class AuthStore:
     def __init__(self) -> None:
         self._users_by_id: dict[str, UserRecord] = {}
@@ -85,6 +109,7 @@ class AuthStore:
         self._groups_by_id: dict[str, GroupRecord] = {}
         self._memberships_by_group: dict[str, dict[str, GroupMembershipRecord]] = {}
         self._roles: dict[str, str | None] = dict(CORE_ROLE_DESCRIPTIONS)
+        self._notifications_by_id: dict[str, NotificationRecord] = {}
 
     @staticmethod
     def normalize_email(email: str) -> str:
@@ -438,6 +463,182 @@ class AuthStore:
                 continue
             effective_roles.update(group.roles)
         return sorted(effective_roles)
+
+    @staticmethod
+    def _notification_event_identity(type_name: str, source: dict[str, Any] | None) -> str | None:
+        source = source or {}
+        dedupe_key = source.get("dedupe_key")
+        if isinstance(dedupe_key, str) and dedupe_key.strip():
+            return f"{type_name}|dedupe:{dedupe_key.strip()}"
+        entity_type = source.get("entity_type")
+        entity_id = source.get("entity_id")
+        event_id = source.get("event_id")
+        if not entity_type and not entity_id and not event_id:
+            return None
+        return f"{type_name}|{entity_type or ''}|{entity_id or ''}|{event_id or ''}"
+
+    def create_or_merge_notification(
+        self,
+        *,
+        user_id: str,
+        type_name: str,
+        message: str,
+        severity: str = "info",
+        requires_acknowledgement: bool = False,
+        clearance_mode: str = "manual",
+        source: dict[str, Any] | None = None,
+        open_endpoint: str | None = None,
+        delivery_options: dict[str, Any] | None = None,
+        completion_check: dict[str, Any] | None = None,
+    ) -> tuple[NotificationRecord, bool]:
+        if self.get_user(user_id) is None:
+            raise ValueError("USER_NOT_FOUND")
+
+        event_identity = self._notification_event_identity(type_name, source)
+        now = datetime.now(UTC)
+
+        if event_identity is not None:
+            for notification in self._notifications_by_id.values():
+                if notification.user_id != user_id:
+                    continue
+                if notification.cleared_at is not None or notification.canceled_at is not None:
+                    continue
+                if self._notification_event_identity(notification.type, notification.source) != event_identity:
+                    continue
+                notification.message = message
+                notification.severity = severity
+                notification.requires_acknowledgement = requires_acknowledgement
+                notification.clearance_mode = clearance_mode
+                notification.source = dict(source or {})
+                notification.open_endpoint = open_endpoint
+                notification.delivery_options = dict(delivery_options or {})
+                notification.completion_check = dict(completion_check) if completion_check else None
+                notification.merge_count += 1
+                notification.updated_at = now
+                return notification, False
+
+        notification = NotificationRecord(
+            id=str(uuid4()),
+            user_id=user_id,
+            type=type_name.strip(),
+            message=message.strip(),
+            severity=severity,
+            requires_acknowledgement=requires_acknowledgement,
+            clearance_mode=clearance_mode,
+            source=dict(source or {}),
+            open_endpoint=open_endpoint,
+            delivery_options=dict(delivery_options or {}),
+            completion_check=dict(completion_check) if completion_check else None,
+            status="unread",
+            merge_count=1,
+            created_at=now,
+            updated_at=now,
+        )
+        self._notifications_by_id[notification.id] = notification
+        return notification, True
+
+    def get_notification(self, notification_id: str) -> NotificationRecord | None:
+        return self._notifications_by_id.get(notification_id)
+
+    def list_notifications_for_user(self, user_id: str, status: str | None = None, type_name: str | None = None) -> list[NotificationRecord]:
+        notifications = [item for item in self._notifications_by_id.values() if item.user_id == user_id]
+        if status:
+            notifications = [item for item in notifications if item.status == status]
+        if type_name:
+            notifications = [item for item in notifications if item.type == type_name]
+        return sorted(notifications, key=lambda item: item.created_at, reverse=True)
+
+    def list_notifications(
+        self,
+        *,
+        status: str | None = None,
+        type_name: str | None = None,
+        user_id: str | None = None,
+    ) -> list[NotificationRecord]:
+        notifications = list(self._notifications_by_id.values())
+        if status:
+            notifications = [item for item in notifications if item.status == status]
+        if type_name:
+            notifications = [item for item in notifications if item.type == type_name]
+        if user_id:
+            notifications = [item for item in notifications if item.user_id == user_id]
+        return sorted(notifications, key=lambda item: item.created_at, reverse=True)
+
+    def mark_notification_read(self, notification_id: str, user_id: str | None = None) -> NotificationRecord | None:
+        notification = self.get_notification(notification_id)
+        if notification is None:
+            return None
+        if user_id and notification.user_id != user_id:
+            return None
+        if notification.read_at is None:
+            notification.read_at = datetime.now(UTC)
+        if notification.status == "unread":
+            notification.status = "read"
+        notification.updated_at = datetime.now(UTC)
+        return notification
+
+    def acknowledge_notification(self, notification_id: str, user_id: str | None = None) -> NotificationRecord | None:
+        notification = self.get_notification(notification_id)
+        if notification is None:
+            return None
+        if user_id and notification.user_id != user_id:
+            return None
+        now = datetime.now(UTC)
+        if notification.read_at is None:
+            notification.read_at = now
+        notification.acknowledged_at = now
+        notification.status = "acknowledged"
+        notification.updated_at = now
+        return notification
+
+    def evaluate_notification_completion(self, notification_id: str, user_id: str | None = None) -> tuple[NotificationRecord | None, bool]:
+        notification = self.get_notification(notification_id)
+        if notification is None:
+            return None, False
+        if user_id and notification.user_id != user_id:
+            return None, False
+
+        check = notification.completion_check or {}
+        arguments = check.get("arguments") if isinstance(check.get("arguments"), dict) else {}
+        completed = bool(arguments.get("completed") is True)
+        if completed:
+            notification.completion_satisfied_at = datetime.now(UTC)
+            notification.updated_at = datetime.now(UTC)
+        return notification, completed
+
+    def clear_notification(self, notification_id: str, user_id: str | None = None) -> NotificationRecord | None:
+        notification = self.get_notification(notification_id)
+        if notification is None:
+            return None
+        if user_id and notification.user_id != user_id:
+            return None
+        if notification.clearance_mode == "ack" and notification.acknowledged_at is None:
+            raise ValueError("ACK_REQUIRED")
+        if notification.clearance_mode == "task_gate" and notification.completion_satisfied_at is None:
+            raise ValueError("TASK_NOT_COMPLETED")
+        now = datetime.now(UTC)
+        if notification.read_at is None:
+            notification.read_at = now
+        notification.cleared_at = now
+        notification.status = "cleared"
+        notification.updated_at = now
+        return notification
+
+    def cancel_notification(self, notification_id: str) -> NotificationRecord | None:
+        notification = self.get_notification(notification_id)
+        if notification is None:
+            return None
+        if notification.canceled_at is None:
+            notification.canceled_at = datetime.now(UTC)
+        notification.status = "cleared"
+        notification.updated_at = datetime.now(UTC)
+        return notification
+
+    def delete_notification(self, notification_id: str) -> bool:
+        if notification_id not in self._notifications_by_id:
+            return False
+        del self._notifications_by_id[notification_id]
+        return True
 
     def create_refresh_session(self, user_id: str, settings: Settings, family_id: str | None = None) -> tuple[str, int]:
         refresh_token = generate_refresh_token()
