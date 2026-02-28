@@ -1,19 +1,61 @@
+import { Suspense, lazy } from "react";
+
 import { getSettingsExtensions } from "../../extensions/settings-registry";
-import { AcceptInvitePage } from "../../pages/accept-invite-page";
-import { VerifyEmailPage } from "../../pages/verify-email-page";
-import { AdminInvitationsPage } from "../../settings/admin/pages/admin-invitations-page";
-import { AdminNotificationsPage } from "../../settings/admin/pages/admin-notifications-page";
-import { AdminRolesPage } from "../../settings/admin/pages/admin-roles-page";
-import { AdminUserDetailPage } from "../../settings/admin/pages/admin-user-detail-page";
-import { AdminUsersPage } from "../../settings/admin/pages/admin-users-page";
 import { SettingsSidebar } from "../../settings/components/settings-sidebar";
-import { GroupDetailPage } from "../../settings/pages/group-detail-page";
-import { GroupsPage } from "../../settings/pages/groups-page";
-import { NotificationsPage } from "../../settings/pages/notifications-page";
-import { ProfilePage } from "../../settings/pages/profile-page";
-import { SecurityPage } from "../../settings/pages/security-page";
-import { ThemePage } from "../../settings/pages/theme-page";
 import { AuthProviderMeta } from "../../lib/api";
+
+const AcceptInvitePage = lazy(async () => {
+  const module = await import("../../pages/accept-invite-page");
+  return { default: module.AcceptInvitePage };
+});
+const VerifyEmailPage = lazy(async () => {
+  const module = await import("../../pages/verify-email-page");
+  return { default: module.VerifyEmailPage };
+});
+const AdminInvitationsPage = lazy(async () => {
+  const module = await import("../../settings/admin/pages/admin-invitations-page");
+  return { default: module.AdminInvitationsPage };
+});
+const AdminNotificationsPage = lazy(async () => {
+  const module = await import("../../settings/admin/pages/admin-notifications-page");
+  return { default: module.AdminNotificationsPage };
+});
+const AdminRolesPage = lazy(async () => {
+  const module = await import("../../settings/admin/pages/admin-roles-page");
+  return { default: module.AdminRolesPage };
+});
+const AdminUserDetailPage = lazy(async () => {
+  const module = await import("../../settings/admin/pages/admin-user-detail-page");
+  return { default: module.AdminUserDetailPage };
+});
+const AdminUsersPage = lazy(async () => {
+  const module = await import("../../settings/admin/pages/admin-users-page");
+  return { default: module.AdminUsersPage };
+});
+const GroupDetailPage = lazy(async () => {
+  const module = await import("../../settings/pages/group-detail-page");
+  return { default: module.GroupDetailPage };
+});
+const GroupsPage = lazy(async () => {
+  const module = await import("../../settings/pages/groups-page");
+  return { default: module.GroupsPage };
+});
+const NotificationsPage = lazy(async () => {
+  const module = await import("../../settings/pages/notifications-page");
+  return { default: module.NotificationsPage };
+});
+const ProfilePage = lazy(async () => {
+  const module = await import("../../settings/pages/profile-page");
+  return { default: module.ProfilePage };
+});
+const SecurityPage = lazy(async () => {
+  const module = await import("../../settings/pages/security-page");
+  return { default: module.SecurityPage };
+});
+const ThemePage = lazy(async () => {
+  const module = await import("../../settings/pages/theme-page");
+  return { default: module.ThemePage };
+});
 
 export type AuthenticatedSettingsContentProps = {
   locationPathname: string;
@@ -37,6 +79,7 @@ export type AuthenticatedSettingsContentProps = {
 };
 
 export function AuthenticatedSettingsContent(props: AuthenticatedSettingsContentProps) {
+  const lazyFallback = <p className="text-sm text-slate-500">Loading...</p>;
   const settingsExtensions = getSettingsExtensions({ canAccessAdmin: props.canAccessAdmin, adminCapabilities: props.adminCapabilities });
   const settingsExtensionItems = settingsExtensions.filter((item) => (item.section ?? "settings") === "settings");
   const adminExtensionItems = settingsExtensions.filter((item) => item.section === "administration");
@@ -71,62 +114,102 @@ export function AuthenticatedSettingsContent(props: AuthenticatedSettingsContent
         />
 
         <section>
-          {isProfile ? <ProfilePage accessToken={props.accessToken} /> : null}
-          {isNotifications ? <NotificationsPage accessToken={props.accessToken} refreshSignal={props.notificationRefreshSignal} /> : null}
-          {isSecurity ? <SecurityPage /> : null}
+          {isProfile ? (
+            <Suspense fallback={lazyFallback}>
+              <ProfilePage accessToken={props.accessToken} />
+            </Suspense>
+          ) : null}
+          {isNotifications ? (
+            <Suspense fallback={lazyFallback}>
+              <NotificationsPage accessToken={props.accessToken} refreshSignal={props.notificationRefreshSignal} />
+            </Suspense>
+          ) : null}
+          {isSecurity ? (
+            <Suspense fallback={lazyFallback}>
+              <SecurityPage />
+            </Suspense>
+          ) : null}
           {isGroups ? (
-            <GroupsPage
-              accessToken={props.accessToken}
-              canViewAllGroups={props.adminCapabilities.groups}
-              onOpenGroup={(groupId) => {
-                props.navigateTo(`/settings/group/${groupId}`);
-              }}
-            />
+            <Suspense fallback={lazyFallback}>
+              <GroupsPage
+                accessToken={props.accessToken}
+                canViewAllGroups={props.adminCapabilities.groups}
+                onOpenGroup={(groupId) => {
+                  props.navigateTo(`/settings/group/${groupId}`);
+                }}
+              />
+            </Suspense>
           ) : null}
           {isGroupDetail && props.selectedGroupId ? (
-            <GroupDetailPage
-              accessToken={props.accessToken}
-              groupId={props.selectedGroupId}
-              canAssignRoles={props.adminCapabilities.groups}
-              onBack={() => props.navigateTo("/settings/groups")}
-            />
+            <Suspense fallback={lazyFallback}>
+              <GroupDetailPage
+                accessToken={props.accessToken}
+                groupId={props.selectedGroupId}
+                canAssignRoles={props.adminCapabilities.groups}
+                onBack={() => props.navigateTo("/settings/groups")}
+              />
+            </Suspense>
           ) : null}
-          {isTheme ? <ThemePage accessToken={props.accessToken} theme={props.theme} onThemeChange={props.setTheme} /> : null}
+          {isTheme ? (
+            <Suspense fallback={lazyFallback}>
+              <ThemePage accessToken={props.accessToken} theme={props.theme} onThemeChange={props.setTheme} />
+            </Suspense>
+          ) : null}
           {isVerifyEmail ? (
-            <VerifyEmailPage
-              token={props.emailVerificationToken}
-              isAuthenticated={true}
-              onGoHome={() => props.navigateTo("/")}
-              onGoLogin={() => props.navigateTo("/login")}
-            />
+            <Suspense fallback={lazyFallback}>
+              <VerifyEmailPage
+                token={props.emailVerificationToken}
+                isAuthenticated={true}
+                onGoHome={() => props.navigateTo("/")}
+                onGoLogin={() => props.navigateTo("/login")}
+              />
+            </Suspense>
           ) : null}
           {isAcceptInvite ? (
-            <AcceptInvitePage
-              token={props.invitationToken}
-              registrationEnabled={props.registrationEnabled}
-              authProviders={props.authProviders}
-              isAuthenticated={true}
-              acceptanceMessage={props.invitationAcceptanceMessage}
-              accepting={props.acceptingInvitation}
-              onLogin={() => props.navigateTo("/login")}
-              onRegister={() => props.navigateTo("/register")}
-              onProviderStart={props.onProviderStart}
-              onGoHome={() => props.navigateTo("/")}
-            />
+            <Suspense fallback={lazyFallback}>
+              <AcceptInvitePage
+                token={props.invitationToken}
+                registrationEnabled={props.registrationEnabled}
+                authProviders={props.authProviders}
+                isAuthenticated={true}
+                acceptanceMessage={props.invitationAcceptanceMessage}
+                accepting={props.acceptingInvitation}
+                onLogin={() => props.navigateTo("/login")}
+                onRegister={() => props.navigateTo("/register")}
+                onProviderStart={props.onProviderStart}
+                onGoHome={() => props.navigateTo("/")}
+              />
+            </Suspense>
           ) : null}
           {isAdminUsers ? (
-            <AdminUsersPage
-              accessToken={props.accessToken}
-              onOpenUser={(userId) => props.navigateTo(`/settings/admin/users/${userId}`)}
-              onOpenInvitations={() => props.navigateTo("/settings/admin/invitations")}
-            />
+            <Suspense fallback={lazyFallback}>
+              <AdminUsersPage
+                accessToken={props.accessToken}
+                onOpenUser={(userId) => props.navigateTo(`/settings/admin/users/${userId}`)}
+                onOpenInvitations={() => props.navigateTo("/settings/admin/invitations")}
+              />
+            </Suspense>
           ) : null}
-          {isAdminInvitations ? <AdminInvitationsPage accessToken={props.accessToken} /> : null}
-          {isAdminNotifications ? <AdminNotificationsPage accessToken={props.accessToken} /> : null}
+          {isAdminInvitations ? (
+            <Suspense fallback={lazyFallback}>
+              <AdminInvitationsPage accessToken={props.accessToken} />
+            </Suspense>
+          ) : null}
+          {isAdminNotifications ? (
+            <Suspense fallback={lazyFallback}>
+              <AdminNotificationsPage accessToken={props.accessToken} />
+            </Suspense>
+          ) : null}
           {isAdminUserDetail && props.selectedAdminUserId ? (
-            <AdminUserDetailPage accessToken={props.accessToken} userId={props.selectedAdminUserId} onBack={() => props.navigateTo("/settings/admin/users")} />
+            <Suspense fallback={lazyFallback}>
+              <AdminUserDetailPage accessToken={props.accessToken} userId={props.selectedAdminUserId} onBack={() => props.navigateTo("/settings/admin/users")} />
+            </Suspense>
           ) : null}
-          {isAdminRoles ? <AdminRolesPage accessToken={props.accessToken} /> : null}
+          {isAdminRoles ? (
+            <Suspense fallback={lazyFallback}>
+              <AdminRolesPage accessToken={props.accessToken} />
+            </Suspense>
+          ) : null}
           {isExtension && activeExtension ? activeExtension.render({ accessToken: props.accessToken }) : null}
         </section>
       </div>

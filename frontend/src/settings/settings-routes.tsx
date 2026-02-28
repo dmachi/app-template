@@ -1,7 +1,7 @@
-import { Outlet, createRoute } from "@tanstack/react-router";
-
-import { SettingsRoutePage } from "../app/route-pages";
+import { Outlet, createRoute, lazyRouteComponent } from "@tanstack/react-router";
 import { createSettingsAdminRoutes } from "./admin/admin-routes";
+
+const SettingsRoutePage = lazyRouteComponent(() => import("../app/route-pages/settings-route-page"), "SettingsRoutePage");
 
 export function createSettingsRoutes(rootRoute: any) {
   const settingsRoute = createRoute({

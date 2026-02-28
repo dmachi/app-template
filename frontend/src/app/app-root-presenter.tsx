@@ -4,11 +4,12 @@ import { Link, Outlet } from "@tanstack/react-router";
 import { AuthenticatedAppShell } from "../components/layout/authenticated-app-shell";
 import type { ClientPopupToast, RealtimeNotificationToast } from "./hooks/use-app-toast-actions";
 
-type AppRootPresenterProps = {
-  restoringSession: boolean;
+export type AppRootPresenterBranding = {
   appName: string;
   appIconNode: ReactNode;
-  accessToken: string | null;
+};
+
+export type AppRootPresenterShell = {
   currentUsername: string;
   registrationEnabled: boolean;
   onOpenSettings: () => void;
@@ -26,6 +27,13 @@ type AppRootPresenterProps = {
   onRemoveClientToast: (toastId: string) => void;
 };
 
+type AppRootPresenterProps = {
+  restoringSession: boolean;
+  accessToken: string | null;
+  branding: AppRootPresenterBranding;
+  shell: AppRootPresenterShell;
+};
+
 export function AppRootPresenter(props: AppRootPresenterProps) {
   if (props.restoringSession) {
     return (
@@ -33,8 +41,8 @@ export function AppRootPresenter(props: AppRootPresenterProps) {
         <header className="w-full border-b border-slate-200 dark:border-slate-800">
           <div className="flex w-full items-center justify-between px-6 py-3">
             <Link to="/" className="flex items-center gap-2 text-xl font-semibold">
-              {props.appIconNode}
-              <span>{props.appName}</span>
+              {props.branding.appIconNode}
+              <span>{props.branding.appName}</span>
             </Link>
           </div>
         </header>
@@ -51,24 +59,24 @@ export function AppRootPresenter(props: AppRootPresenterProps) {
 
   return (
     <AuthenticatedAppShell
-      appName={props.appName}
-      appIconNode={props.appIconNode}
-      currentUsername={props.currentUsername}
-      registrationEnabled={props.registrationEnabled}
-      onOpenSettings={props.onOpenSettings}
-      onLogout={props.onLogout}
-      showInviteUsers={props.showInviteUsers}
-      inviteDialogOpen={props.inviteDialogOpen}
-      onInviteDialogOpenChange={props.onInviteDialogOpenChange}
+      appName={props.branding.appName}
+      appIconNode={props.branding.appIconNode}
+      currentUsername={props.shell.currentUsername}
+      registrationEnabled={props.shell.registrationEnabled}
+      onOpenSettings={props.shell.onOpenSettings}
+      onLogout={props.shell.onLogout}
+      showInviteUsers={props.shell.showInviteUsers}
+      inviteDialogOpen={props.shell.inviteDialogOpen}
+      onInviteDialogOpenChange={props.shell.onInviteDialogOpenChange}
       accessToken={props.accessToken}
-      realtimePopups={props.realtimePopups}
-      clientPopups={props.clientPopups}
-      isActionRequiredToast={props.isActionRequiredToast}
-      onRemoveToast={props.onRemoveToast}
-      onToastManualClose={props.onToastManualClose}
-      onToastAcknowledge={props.onToastAcknowledge}
-      onToastOpenTask={props.onToastOpenTask}
-      onRemoveClientToast={props.onRemoveClientToast}
+      realtimePopups={props.shell.realtimePopups}
+      clientPopups={props.shell.clientPopups}
+      isActionRequiredToast={props.shell.isActionRequiredToast}
+      onRemoveToast={props.shell.onRemoveToast}
+      onToastManualClose={props.shell.onToastManualClose}
+      onToastAcknowledge={props.shell.onToastAcknowledge}
+      onToastOpenTask={props.shell.onToastOpenTask}
+      onRemoveClientToast={props.shell.onRemoveClientToast}
     >
       <Outlet />
     </AuthenticatedAppShell>

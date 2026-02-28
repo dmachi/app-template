@@ -4,7 +4,7 @@ import type { AppRouteRenderContextValue } from "../app-route-render-context";
 import type { ThemeOption } from "../theme-provider";
 import type { AuthProviderMeta, NotificationItem, ProfilePropertyCatalogItem, ProfilePropertyLinkItem } from "../../lib/api";
 
-type UseAppRouteRenderSnapshotParams = {
+export type AppRouteRenderSnapshotParams = {
   appName: string;
   appIconNode: React.ReactNode;
   registrationEnabled: boolean;
@@ -56,7 +56,7 @@ type UseAppRouteRenderSnapshotParams = {
   navigateTo: (to: string, replace?: boolean) => void;
 };
 
-export function useAppRouteRenderSnapshot(params: UseAppRouteRenderSnapshotParams): AppRouteRenderContextValue {
+export function useAppRouteRenderSnapshot(params: AppRouteRenderSnapshotParams): AppRouteRenderContextValue {
   return {
     isAuthenticated: true,
     publicAuthProps: {

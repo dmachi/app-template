@@ -10,6 +10,8 @@ import { useAppNavigation } from "./app/hooks/use-app-navigation";
 import { useAppNotificationState } from "./app/hooks/use-app-notification-state";
 import { useAppOrchestration } from "./app/hooks/use-app-orchestration";
 import { useAppRouteContextPublication } from "./app/hooks/use-app-route-context-publication";
+import { useAppRouteRenderSnapshotParams } from "./app/hooks/use-app-route-render-snapshot-params";
+import { useAppRootPresenterProps } from "./app/hooks/use-app-root-presenter-props";
 import { useAppRouteRenderSnapshot } from "./app/hooks/use-app-route-render-snapshot";
 import { useAppRouteTokens } from "./app/hooks/use-app-route-tokens";
 import { useAppSessionState } from "./app/hooks/use-app-session-state";
@@ -206,9 +208,10 @@ export function App() {
     navigateTo,
   });
 
-  const authenticatedOutletContext = useAppRouteRenderSnapshot({
+  const appIconNode = renderAppIcon(appIcon);
+  const routeRenderSnapshotParams = useAppRouteRenderSnapshotParams({
     appName,
-    appIconNode: renderAppIcon(appIcon),
+    appIconNode,
     registrationEnabled,
     locationPathname,
     authMetaLoaded,
@@ -257,8 +260,26 @@ export function App() {
     accessToken: accessToken ?? "",
     navigateTo,
   });
-
-  const appIconNode = renderAppIcon(appIcon);
+  const authenticatedOutletContext = useAppRouteRenderSnapshot(routeRenderSnapshotParams);
+  const { branding: presenterBranding, shell: presenterShell } = useAppRootPresenterProps({
+    appName,
+    appIconNode,
+    currentUsername,
+    registrationEnabled,
+    onOpenSettings: () => navigateSettingsProfile(locationPathname === "/settings/profile"),
+    onLogout: handleLogout,
+    showInviteUsers: adminCapabilities.invitations,
+    inviteDialogOpen,
+    onInviteDialogOpenChange: setInviteDialogOpen,
+    realtimePopups,
+    clientPopups,
+    isActionRequiredToast,
+    onRemoveToast: removeToast,
+    onToastManualClose,
+    onToastAcknowledge,
+    onToastOpenTask,
+    onRemoveClientToast: removeClientToast,
+  });
 
   useAppRouteContextPublication({
     restoringSession,
@@ -269,24 +290,9 @@ export function App() {
   return (
     <AppRootPresenter
       restoringSession={restoringSession}
-      appName={appName}
-      appIconNode={appIconNode}
       accessToken={accessToken}
-      currentUsername={currentUsername}
-      registrationEnabled={registrationEnabled}
-      onOpenSettings={() => navigateSettingsProfile(locationPathname === "/settings/profile")}
-      onLogout={handleLogout}
-      showInviteUsers={adminCapabilities.invitations}
-      inviteDialogOpen={inviteDialogOpen}
-      onInviteDialogOpenChange={setInviteDialogOpen}
-      realtimePopups={realtimePopups}
-      clientPopups={clientPopups}
-      isActionRequiredToast={isActionRequiredToast}
-      onRemoveToast={removeToast}
-      onToastManualClose={onToastManualClose}
-      onToastAcknowledge={onToastAcknowledge}
-      onToastOpenTask={onToastOpenTask}
-      onRemoveClientToast={removeClientToast}
+      branding={presenterBranding}
+      shell={presenterShell}
     />
   );
 }
