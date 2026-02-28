@@ -1,12 +1,12 @@
 import { KeyboardEvent, useEffect, useState } from "react";
 import { Pencil, RotateCcw } from "lucide-react";
 
-import { FormField } from "../components/form-field";
-import { Badge } from "../components/ui/badge";
-import { Button } from "../components/ui/button";
-import { Input } from "../components/ui/input";
-import { showClientToast } from "../lib/client-toast";
-import { getMyProfile, patchMyProfile, ProfilePropertyCatalogItem, ProfilePropertyLinkItem, resendMyVerificationEmail } from "../lib/api";
+import { FormField } from "../../components/form-field";
+import { Badge } from "../../components/ui/badge";
+import { Button } from "../../components/ui/button";
+import { Input } from "../../components/ui/input";
+import { showClientToast } from "../../lib/client-toast";
+import { getMyProfile, patchMyProfile, ProfilePropertyCatalogItem, ProfilePropertyLinkItem, resendMyVerificationEmail } from "../../lib/api";
 
 type ProfilePageProps = {
   accessToken: string;

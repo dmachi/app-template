@@ -1,10 +1,9 @@
 import { FormEvent, useState } from "react";
 
-import { Button } from "../components/ui/button";
-import { showClientToast } from "../lib/client-toast";
-import { patchMyProfile } from "../lib/api";
-
-type ThemeOption = "light" | "dark" | "system";
+import { Button } from "../../components/ui/button";
+import { showClientToast } from "../../lib/client-toast";
+import { patchMyProfile } from "../../lib/api";
+import type { ThemeOption } from "../../app/theme-provider";
 
 type ThemePageProps = {
   accessToken: string;

@@ -1,17 +1,17 @@
 import { useEffect, useState } from "react";
 
-import { UserSearchCombobox } from "../components/shared/user-search-combobox";
-import { Button } from "../components/ui/button";
-import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "../components/ui/dialog";
-import { Input } from "../components/ui/input";
-import { showClientToast } from "../lib/client-toast";
+import { UserSearchCombobox } from "../../../components/shared/user-search-combobox";
+import { Button } from "../../../components/ui/button";
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "../../../components/ui/dialog";
+import { Input } from "../../../components/ui/input";
+import { showClientToast } from "../../../lib/client-toast";
 import {
   adminCancelNotification,
   adminListNotifications,
   adminResendNotification,
   createNotifications,
   type NotificationItem,
-} from "../lib/api";
+} from "../../../lib/api";
 
 type AdminNotificationsPageProps = {
   accessToken: string;

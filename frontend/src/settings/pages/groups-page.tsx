@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { ChevronRight } from "lucide-react";
 
-import { CreateGroupDialog } from "../components/shared/create-group-dialog";
-import { Button } from "../components/ui/button";
-import { Input } from "../components/ui/input";
-import { showClientToast } from "../lib/client-toast";
-import { adminListGroups, createGroup, listMyGroupCollections } from "../lib/api";
+import { CreateGroupDialog } from "../../components/shared/create-group-dialog";
+import { Button } from "../../components/ui/button";
+import { Input } from "../../components/ui/input";
+import { showClientToast } from "../../lib/client-toast";
+import { adminListGroups, createGroup, listMyGroupCollections } from "../../lib/api";
 
 type GroupsPageProps = {
   accessToken: string;

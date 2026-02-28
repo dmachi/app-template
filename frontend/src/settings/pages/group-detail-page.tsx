@@ -1,12 +1,12 @@
 import { FormEvent, useEffect, useState } from "react";
 
-import { ConfirmationDialog } from "../components/shared/confirmation-dialog";
-import { RoleAssignmentField } from "../components/shared/role-assignment-field";
-import { UserSearchCombobox } from "../components/shared/user-search-combobox";
-import { Button } from "../components/ui/button";
-import { Input } from "../components/ui/input";
-import { showClientToast } from "../lib/client-toast";
-import { addGroupMember, adminAssignGroupRoles, adminListAssignableGroupRoles, deleteGroup, getGroup, listGroupMembers, patchGroup, removeGroupMember } from "../lib/api";
+import { ConfirmationDialog } from "../../components/shared/confirmation-dialog";
+import { RoleAssignmentField } from "../../components/shared/role-assignment-field";
+import { UserSearchCombobox } from "../../components/shared/user-search-combobox";
+import { Button } from "../../components/ui/button";
+import { Input } from "../../components/ui/input";
+import { showClientToast } from "../../lib/client-toast";
+import { addGroupMember, adminAssignGroupRoles, adminListAssignableGroupRoles, deleteGroup, getGroup, listGroupMembers, patchGroup, removeGroupMember } from "../../lib/api";
 
 type GroupDetailPageProps = {
   accessToken: string;

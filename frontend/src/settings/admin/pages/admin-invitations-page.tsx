@@ -1,15 +1,15 @@
 import { useEffect, useState } from "react";
 
-import { InviteUsersDialog } from "../components/shared/invite-users-dialog";
-import { Button } from "../components/ui/button";
-import { showClientToast } from "../lib/client-toast";
+import { InviteUsersDialog } from "../../../components/shared/invite-users-dialog";
+import { Button } from "../../../components/ui/button";
+import { showClientToast } from "../../../lib/client-toast";
 import {
   adminCopyInvitationLink,
   adminListOutstandingInvitations,
   adminResendInvitation,
   adminRevokeInvitation,
   type AdminOutstandingInvitation,
-} from "../lib/api";
+} from "../../../lib/api";
 
 type AdminInvitationsPageProps = {
   accessToken: string;

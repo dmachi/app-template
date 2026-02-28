@@ -1,9 +1,9 @@
 import { FormEvent, useState } from "react";
 
-import { FormField } from "../components/form-field";
-import { Button } from "../components/ui/button";
-import { Input } from "../components/ui/input";
-import { showClientToast } from "../lib/client-toast";
+import { FormField } from "../../components/form-field";
+import { Button } from "../../components/ui/button";
+import { Input } from "../../components/ui/input";
+import { showClientToast } from "../../lib/client-toast";
 
 export function SecurityPage() {
   const [currentPassword, setCurrentPassword] = useState("");

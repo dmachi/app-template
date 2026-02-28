@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 
-import { Button } from "../components/ui/button";
-import { showClientToast } from "../lib/client-toast";
+import { Button } from "../../components/ui/button";
+import { showClientToast } from "../../lib/client-toast";
 import {
   acknowledgeNotification,
   checkNotificationCompletion,
@@ -9,7 +9,7 @@ import {
   listMyNotifications,
   markNotificationRead,
   type NotificationItem,
-} from "../lib/api";
+} from "../../lib/api";
 
 type NotificationsPageProps = {
   accessToken: string;

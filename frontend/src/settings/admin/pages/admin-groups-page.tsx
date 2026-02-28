@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
 
-import { ConfirmationDialog } from "../components/shared/confirmation-dialog";
-import { RoleBadges } from "../components/shared/role-badges";
-import { RoleAssignmentField } from "../components/shared/role-assignment-field";
-import { Button } from "../components/ui/button";
-import { Input } from "../components/ui/input";
-import { showClientToast } from "../lib/client-toast";
-import { adminAssignGroupRoles, adminDeleteGroup, adminListAssignableGroupRoles, adminListGroups, adminPatchGroup, type AdminRoleItem } from "../lib/api";
+import { ConfirmationDialog } from "../../../components/shared/confirmation-dialog";
+import { RoleBadges } from "../../../components/shared/role-badges";
+import { RoleAssignmentField } from "../../../components/shared/role-assignment-field";
+import { Button } from "../../../components/ui/button";
+import { Input } from "../../../components/ui/input";
+import { showClientToast } from "../../../lib/client-toast";
+import { adminAssignGroupRoles, adminDeleteGroup, adminListAssignableGroupRoles, adminListGroups, adminPatchGroup, type AdminRoleItem } from "../../../lib/api";
 
 type AdminGroupsPageProps = {
   accessToken: string;

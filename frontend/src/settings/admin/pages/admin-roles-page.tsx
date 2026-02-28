@@ -1,9 +1,9 @@
-import { Button } from "../components/ui/button";
-import { ConfirmationDialog } from "../components/shared/confirmation-dialog";
-import { RoleDialog } from "../components/shared/role-dialog";
-import { Badge } from "../components/ui/badge";
-import { showClientToast } from "../lib/client-toast";
-import { adminCreateRole, adminDeleteRole, adminListRoles, adminPatchRole, type AdminRoleItem } from "../lib/api";
+import { Button } from "../../../components/ui/button";
+import { ConfirmationDialog } from "../../../components/shared/confirmation-dialog";
+import { RoleDialog } from "../../../components/shared/role-dialog";
+import { Badge } from "../../../components/ui/badge";
+import { showClientToast } from "../../../lib/client-toast";
+import { adminCreateRole, adminDeleteRole, adminListRoles, adminPatchRole, type AdminRoleItem } from "../../../lib/api";
 import { useEffect, useState } from "react";
 
 type AdminRolesPageProps = {

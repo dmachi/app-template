@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { Pencil, RotateCcw } from "lucide-react";
 
-import { ConfirmationDialog } from "../components/shared/confirmation-dialog";
-import { RoleAssignmentField } from "../components/shared/role-assignment-field";
-import { Badge } from "../components/ui/badge";
-import { Button } from "../components/ui/button";
-import { Input } from "../components/ui/input";
-import { showClientToast } from "../lib/client-toast";
+import { ConfirmationDialog } from "../../../components/shared/confirmation-dialog";
+import { RoleAssignmentField } from "../../../components/shared/role-assignment-field";
+import { Badge } from "../../../components/ui/badge";
+import { Button } from "../../../components/ui/button";
+import { Input } from "../../../components/ui/input";
+import { showClientToast } from "../../../lib/client-toast";
 import {
   adminGetUser,
   adminListUserGroups,
@@ -16,7 +16,7 @@ import {
   adminResetUserPassword,
   type AdminUserGroupMembership,
   type AdminUserDetail,
-} from "../lib/api";
+} from "../../../lib/api";
 
 type AdminUserDetailPageProps = {
   accessToken: string;

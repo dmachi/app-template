@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { ChevronRight } from "lucide-react";
 
-import { AdminUserActions } from "../components/shared/admin-user-actions";
-import { RoleBadges } from "../components/shared/role-badges";
-import { Input } from "../components/ui/input";
-import { showClientToast } from "../lib/client-toast";
-import { adminListOutstandingInvitations, adminListUsers, type AdminUserListItem } from "../lib/api";
+import { AdminUserActions } from "../../../components/shared/admin-user-actions";
+import { RoleBadges } from "../../../components/shared/role-badges";
+import { Input } from "../../../components/ui/input";
+import { showClientToast } from "../../../lib/client-toast";
+import { adminListOutstandingInvitations, adminListUsers, type AdminUserListItem } from "../../../lib/api";
 
 type AdminUsersPageProps = {
   accessToken: string;
