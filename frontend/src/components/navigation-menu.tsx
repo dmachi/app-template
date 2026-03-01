@@ -12,36 +12,20 @@ import {
   SidebarMenuSubButton,
   SidebarMenuSubItem,
 } from "./ui/sidebar";
+import {
+  isNavigationItemActive,
+  resolveNavigationMenuConfig,
+  type NavigationMenuConfig,
+  type NavigationVisibilityContext,
+  type RenderableNavigationItem,
+} from "./navigation-config";
 
-export type NavigationVisibilityContext = {
-  isAuthenticated: boolean;
-  pathname: string;
-  roles?: string[];
-  [key: string]: unknown;
-};
-
-export type NavigationItemConfig = {
-  id: string;
-  label: string;
-  icon?: ComponentType<{ className?: string }>;
-  path?: string;
-  pathPatterns?: string[];
-  requiresAuth?: boolean;
-  roles?: string[];
-  children?: NavigationItemConfig[];
-};
-
-export type NavigationSectionConfig = {
-  id: string;
-  title: string;
-  requiresAuth?: boolean;
-  roles?: string[];
-  items: NavigationItemConfig[];
-};
-
-export type NavigationMenuConfig = {
-  sections: NavigationSectionConfig[];
-};
+export type {
+  NavigationVisibilityContext,
+  NavigationItemConfig,
+  NavigationSectionConfig,
+  NavigationMenuConfig,
+} from "./navigation-config";
 
 type NavigationMenuProps = {
   config: NavigationMenuConfig;
@@ -51,43 +35,6 @@ type NavigationMenuProps = {
   onNavigate: (path: string) => void;
   visibilityContext?: Record<string, unknown>;
 };
-
-type RenderableNavigationItem = Omit<NavigationItemConfig, "children"> & {
-  children: RenderableNavigationItem[];
-};
-
-type RenderableNavigationSection = Omit<NavigationSectionConfig, "items"> & {
-  items: RenderableNavigationItem[];
-};
-
-function escapeRegex(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-function wildcardToRegex(pattern: string): RegExp {
-  const escaped = escapeRegex(pattern).replace(/\\\*/g, ".*");
-  return new RegExp(`^${escaped}$`);
-}
-
-function pathMatches(pathname: string, pattern: string): boolean {
-  if (pattern === pathname) {
-    return true;
-  }
-  if (!pattern.includes("*")) {
-    return false;
-  }
-  return wildcardToRegex(pattern).test(pathname);
-}
-
-function getItemPatterns(item: NavigationItemConfig): string[] {
-  if (item.pathPatterns && item.pathPatterns.length > 0) {
-    return item.pathPatterns;
-  }
-  if (item.path) {
-    return [item.path];
-  }
-  return [];
-}
 
 export function NavigationMenu(props: NavigationMenuProps) {
   const {
@@ -105,62 +52,13 @@ export function NavigationMenu(props: NavigationMenuProps) {
     ...visibilityContext,
   }), [isAuthenticated, pathname, visibilityContext]);
 
-  const resolvedConfig = useMemo(() => {
-    function isVisible(itemOrSection: NavigationItemConfig | NavigationSectionConfig): boolean {
-      if (itemOrSection.requiresAuth && !isAuthenticated) {
-        return false;
-      }
-
-      if (!itemOrSection.roles || itemOrSection.roles.length === 0) {
-        return true;
-      }
-
-      const currentRoles = effectiveVisibilityContext.roles || [];
-      if (currentRoles.includes("Superuser")) {
-        return true;
-      }
-      return itemOrSection.roles.some((role) => currentRoles.includes(role));
-    }
-
-    function buildItem(item: NavigationItemConfig): RenderableNavigationItem | null {
-      if (!isVisible(item)) {
-        return null;
-      }
-
-      const children = (item.children || [])
-        .map(buildItem)
-        .filter((child): child is RenderableNavigationItem => Boolean(child));
-
-      if (!item.path && children.length === 0) {
-        return null;
-      }
-
-      return {
-        ...item,
-        children,
-      };
-    }
-
-    const sections = config.sections
-      .filter((section) => isVisible(section))
-      .map((section): RenderableNavigationSection => ({
-        ...section,
-        items: section.items
-          .map(buildItem)
-          .filter((item): item is RenderableNavigationItem => Boolean(item)),
-      }))
-      .filter((section) => section.items.length > 0);
-
-    return { sections };
-  }, [config.sections, effectiveVisibilityContext, isAuthenticated]);
+  const resolvedConfig = useMemo(
+    () => resolveNavigationMenuConfig(config, effectiveVisibilityContext),
+    [config, effectiveVisibilityContext],
+  );
 
   function hasActivePath(item: RenderableNavigationItem): boolean {
-    const ownMatch = getItemPatterns(item).some((pattern) => pathMatches(pathname, pattern));
-    if (ownMatch) {
-      return true;
-    }
-
-    return item.children.some(hasActivePath);
+    return isNavigationItemActive(item, pathname);
   }
 
   function renderIcon(icon: ComponentType<{ className?: string }> | undefined, isIconMode: boolean) {

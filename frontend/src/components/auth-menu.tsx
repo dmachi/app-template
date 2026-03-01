@@ -9,12 +9,12 @@ import {
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
 
-type AuthDropdownItem = {
+export type AuthDropdownItem = {
   label: string;
   onSelect: () => void;
 };
 
-type AuthMenuProps = {
+export type AuthMenuProps = {
   isAuthenticated: boolean;
   currentUserName?: string;
   registrationEnabled: boolean;

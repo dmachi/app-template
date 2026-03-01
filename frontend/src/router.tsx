@@ -23,36 +23,42 @@ const rootRoute = createRootRouteWithContext<AppRouterContext>()({
 const indexRoute = createLayoutRoute({
   getParentRoute: () => rootRoute,
   path: "/",
+  layout: "simple-layout",
   component: HomePage,
 });
 
 const loginRoute = createLayoutRoute({
   getParentRoute: () => rootRoute,
   path: "/login",
+  layout: "simple-layout",
   component: LoginPage,
 });
 
 const registerRoute = createLayoutRoute({
   getParentRoute: () => rootRoute,
   path: "/register",
+  layout: "simple-layout",
   component: RegisterPage,
 });
 
 const verifyEmailRoute = createLayoutRoute({
   getParentRoute: () => rootRoute,
   path: "/verify-email",
+  layout: "simple-layout",
   component: PublicVerifyEmailPage,
 });
 
 const acceptInviteRoute = createLayoutRoute({
   getParentRoute: () => rootRoute,
   path: "/accept-invite",
+  layout: "simple-layout",
   component: PublicAcceptInvitePage,
 });
 
 const fallbackRoute = createLayoutRoute({
   getParentRoute: () => rootRoute,
   path: "/$",
+  layout: "simple-layout",
   component: HomePage,
 });
 

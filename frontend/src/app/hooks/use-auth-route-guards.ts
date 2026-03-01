@@ -105,10 +105,14 @@ export function useRouteGuards(params: UseRouteGuardsParams) {
 
     const settingsExtensions = getSettingsExtensions({ canAccessAdmin: Boolean(canAccessAdmin), adminCapabilities });
     const selectedExtension = selectedExtensionId ? settingsExtensions.find((item) => item.id === selectedExtensionId) : null;
+    const groupDetailPathMatch = /^\/settings\/group\/([^/]+)$/.exec(locationPathname);
+    const selectedGroupIdFromPath = groupDetailPathMatch?.[1] ?? null;
 
-    if (locationPathname.startsWith("/settings/group/") && !selectedGroupId) {
+    if (locationPathname.startsWith("/settings/group/") && !selectedGroupIdFromPath) {
       debugRouteGuard("[route-debug] auth-guard:redirect invalid-group-detail", {
         pathname: locationPathname,
+        selectedGroupId,
+        selectedGroupIdFromPath,
         target: "/settings/groups",
       });
       navigateTo("/settings/groups", true);

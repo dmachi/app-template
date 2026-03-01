@@ -1,6 +1,6 @@
-import { Link } from "@tanstack/react-router";
 import { Suspense, lazy, type ComponentType } from "react";
 
+import { AppHeader } from "../components/app-header";
 import { APP_SHELL_LAYOUT } from "../config/layout-config";
 import type { LayoutBranding, LayoutShell } from "../lib/layouts/types";
 
@@ -42,14 +42,7 @@ export function AppRootPresenter(props: AppRootPresenterProps) {
   if (props.restoringSession) {
     return (
       <div className="min-h-screen bg-white text-slate-900 dark:bg-slate-950 dark:text-slate-50">
-        <header className="w-full border-b border-slate-200 dark:border-slate-800">
-          <div className="flex w-full items-center justify-between px-6 py-3">
-            <Link to="/" className="flex items-center gap-2 text-xl font-semibold">
-              {props.branding.appIconNode}
-              <span>{props.branding.appName}</span>
-            </Link>
-          </div>
-        </header>
+        <AppHeader branding={props.branding} />
         <main className="mx-auto grid w-full max-w-xl gap-3 px-4 py-6">
           <p className="text-sm">Restoring session...</p>
         </main>

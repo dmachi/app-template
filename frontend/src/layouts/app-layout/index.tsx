@@ -1,9 +1,11 @@
-import { Outlet, Link } from "@tanstack/react-router";
+import { Outlet } from "@tanstack/react-router";
 
-import { AppNotificationToasts } from "../../components/app-notification-toasts";
-import { AuthMenu } from "../../components/auth-menu";
-import { InviteUsersDialog } from "../../components/invite-users-dialog";
 import { useAppRouteRenderContext } from "../../app/app-route-render-context";
+import { AppHeader } from "../../components/app-header";
+import { AppNotificationToasts } from "../../components/app-notification-toasts";
+import { InviteUsersDialog } from "../../components/invite-users-dialog";
+import { createAppHeaderNavigationMenuConfig } from "../../config/app-header-menu";
+import { resolveAppHeaderPathVariant } from "../../config/app-header-variants";
 import type { LayoutBranding, LayoutShell } from "../../lib/layouts/types";
 
 type AppLayoutProps = {
@@ -12,30 +14,63 @@ type AppLayoutProps = {
   shell: LayoutShell;
 };
 
+const APP_HEADER_NAVIGATION_MENU_CONFIG = createAppHeaderNavigationMenuConfig();
+
 export function AppLayout(props: AppLayoutProps) {
   const routeContext = useAppRouteRenderContext();
-  const isAuthenticated = routeContext.isAuthenticated;
+  const isAuthenticated = Boolean(props.accessToken);
+  const settingsProps = routeContext.settingsProps;
+  const roles: string[] = [];
+
+  if (settingsProps.adminCapabilities.users) {
+    roles.push("AdminUsers");
+  }
+  if (settingsProps.adminCapabilities.invitations) {
+    roles.push("InviteUsers");
+  }
+  if (settingsProps.adminCapabilities.groups) {
+    roles.push("AdminGroups");
+  }
+  if (settingsProps.adminCapabilities.roles) {
+    roles.push("AdminRoles");
+  }
+
+  if (
+    settingsProps.adminCapabilities.users
+    && settingsProps.adminCapabilities.invitations
+    && settingsProps.adminCapabilities.groups
+    && settingsProps.adminCapabilities.roles
+  ) {
+    roles.push("Superuser");
+  }
+
+  const headerVariant = resolveAppHeaderPathVariant(settingsProps.locationPathname);
 
   return (
     <div className="min-h-screen bg-white text-slate-900 dark:bg-slate-950 dark:text-slate-50">
-      <header className="w-full border-b border-slate-200 dark:border-slate-800">
-        <div className="flex w-full items-center justify-between px-6 py-3">
-          <Link to="/" className="flex items-center gap-2 text-xl font-semibold">
-            {props.branding.appIconNode}
-            <span>{props.branding.appName}</span>
-          </Link>
-          <AuthMenu
-            isAuthenticated={isAuthenticated}
-            currentUserName={props.shell.currentUsername}
-            registrationEnabled={props.shell.registrationEnabled}
-            onLogin={routeContext.publicAuthProps.onNavigateLogin}
-            onRegister={routeContext.publicAuthProps.onNavigateRegister}
-            onSettings={props.shell.onOpenSettings}
-            onLogout={props.shell.onLogout}
-            extraMenuItems={props.shell.showInviteUsers ? [{ label: "Invite Users", onSelect: () => props.shell.onInviteDialogOpenChange(true) }] : []}
-          />
-        </div>
-      </header>
+      <AppHeader
+        branding={props.branding}
+        variant={headerVariant}
+        menu={{
+          config: APP_HEADER_NAVIGATION_MENU_CONFIG,
+          visibilityContext: {
+            isAuthenticated,
+            pathname: settingsProps.locationPathname,
+            roles,
+          },
+          onNavigate: (path) => settingsProps.navigateTo(path),
+        }}
+        authMenu={{
+          isAuthenticated,
+          currentUserName: props.shell.currentUsername,
+          registrationEnabled: props.shell.registrationEnabled,
+          onLogin: routeContext.publicAuthProps.onNavigateLogin,
+          onRegister: routeContext.publicAuthProps.onNavigateRegister,
+          onSettings: props.shell.onOpenSettings,
+          onLogout: props.shell.onLogout,
+          extraMenuItems: props.shell.showInviteUsers ? [{ label: "Invite Users", onSelect: () => props.shell.onInviteDialogOpenChange(true) }] : [],
+        }}
+      />
 
       <AppNotificationToasts
         realtimePopups={props.shell.realtimePopups}

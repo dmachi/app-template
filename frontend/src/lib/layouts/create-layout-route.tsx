@@ -17,6 +17,12 @@ const layoutModuleLoaders = import.meta.glob<Record<string, unknown>>([
   "!../../layouts/app-layout/index.tsx",
 ]);
 
+function getLayoutNameFromModulePath(modulePath: string): string | null {
+  const normalizedPath = modulePath.replace(/\\/g, "/");
+  const match = normalizedPath.match(/(?:^|\/)layouts\/([^/]+)\/index\.tsx$/);
+  return match?.[1] ?? null;
+}
+
 function resolveLayoutModuleComponent(
   layoutName: string,
   module: Record<string, unknown>,
@@ -34,11 +40,11 @@ function resolveLayoutModuleComponent(
 
 const layoutComponents = Object.fromEntries(
   Object.entries(layoutModuleLoaders).flatMap(([modulePath, loader]) => {
-    const match = /^\.\.\/\.\.\/layouts\/([^/]+)\/index\.tsx$/.exec(modulePath);
-    if (!match) {
+    const layoutName = getLayoutNameFromModulePath(modulePath);
+    if (!layoutName) {
       return [];
     }
-    const layoutName = match[1];
+
     return [[layoutName, lazy(async () => ({ default: resolveLayoutModuleComponent(layoutName, await loader()) }))]];
   }),
 ) as Record<string, ComponentType<RoutePageLayoutProps>>;
@@ -72,7 +78,8 @@ export function createLayoutRoute(options: CreateLayoutRouteOptions) {
     const LayoutComponent = layoutComponents[layoutName];
 
     if (!LayoutComponent) {
-      throw new Error(`Route layout '${layoutName}' not found under src/layouts/<name>/index.tsx`);
+      const availableLayouts = Object.keys(layoutComponents).sort();
+      throw new Error(`Route layout '${layoutName}' not found under src/layouts/<name>/index.tsx (available: ${availableLayouts.join(", ") || "none"})`);
     }
 
     const routeContext = useAppRouteRenderContext();

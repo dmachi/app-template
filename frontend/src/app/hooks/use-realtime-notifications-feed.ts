@@ -22,6 +22,13 @@ export function useRealtimeNotifications(params: UseRealtimeNotificationsParams)
     const wsBase = apiBase.replace(/^http/i, "ws");
     const socket = new WebSocket(`${wsBase}/ws/events?token=${encodeURIComponent(accessToken)}`);
     const timers = new Map<string, number>();
+    let shouldCloseWhenOpened = false;
+
+    socket.onopen = () => {
+      if (shouldCloseWhenOpened) {
+        socket.close(1000, "Unmounted before connection opened");
+      }
+    };
 
     socket.onmessage = (event) => {
       try {
@@ -89,7 +96,15 @@ export function useRealtimeNotifications(params: UseRealtimeNotificationsParams)
       for (const timerId of timers.values()) {
         window.clearTimeout(timerId);
       }
-      socket.close();
+
+      if (socket.readyState === WebSocket.CONNECTING) {
+        shouldCloseWhenOpened = true;
+        return;
+      }
+
+      if (socket.readyState === WebSocket.OPEN) {
+        socket.close(1000, "Unmounted");
+      }
     };
   }, [accessToken, apiBase, locationPathname, setNotificationRefreshSignal, setRealtimePopups]);
 }

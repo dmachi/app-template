@@ -3,11 +3,14 @@ import { useSyncExternalStore } from "react";
 
 import type { SettingsLayoutProps } from "../settings/settings-layout-props";
 import type { PublicRouteProps } from "../pages/public-route-props";
+import type { LayoutBranding, LayoutShell } from "../lib/layouts/types";
 
 export type AppRouteRenderContextValue = {
   isAuthenticated: boolean;
   publicAuthProps: PublicRouteProps;
   settingsProps: SettingsLayoutProps;
+  branding?: LayoutBranding;
+  shell?: LayoutShell;
 };
 
 export type AppRouteRenderStore = {

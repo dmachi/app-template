@@ -212,7 +212,6 @@ export function App() {
     accessToken: accessToken ?? "",
     navigateTo,
   });
-  const authenticatedOutletContext = buildAppRouteRenderSnapshot(routeRenderSnapshotParams);
   const { branding: presenterBranding, shell: presenterShell } = buildAppRootPresenterProps({
     appName,
     appIconNode,
@@ -232,6 +231,11 @@ export function App() {
     onToastOpenTask,
     onRemoveClientToast: removeClientToast,
   });
+  const authenticatedOutletContext = {
+    ...buildAppRouteRenderSnapshot(routeRenderSnapshotParams),
+    branding: presenterBranding,
+    shell: presenterShell,
+  };
 
   useAppRouteContextPublication({
     restoringSession,
