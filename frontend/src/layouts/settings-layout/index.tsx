@@ -102,8 +102,8 @@ export function SettingsLayout(props: SettingsLayoutProps) {
   const isExtension = props.locationPathname.startsWith("/settings/extensions/");
 
   return (
-    <main className="w-full px-6 py-6">
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[220px_minmax(0,1fr)]">
+    <main className="w-full">
+      <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-0">
         <SettingsSidebar
           locationPathname={props.locationPathname}
           canAccessAdmin={props.canAccessAdmin}
@@ -115,7 +115,7 @@ export function SettingsLayout(props: SettingsLayoutProps) {
           onNavigateExtension={(extensionId) => props.navigateTo(`/settings/extensions/${extensionId}`)}
         />
 
-        <section>
+        <section className="pt-4 px-6">
           {isProfile ? (
             <Suspense fallback={lazyFallback}>
               <ProfilePage accessToken={props.accessToken} />

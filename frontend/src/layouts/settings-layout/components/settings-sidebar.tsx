@@ -1,5 +1,12 @@
-import { Button } from "../../../components/ui/button";
+import { Bell, Palette, Puzzle, Shield, User, UserCog, Users } from "lucide-react";
+
 import type { AdminCapabilities } from "../../../app/hooks/types";
+import {
+  NavigationMenu,
+  type NavigationMenuConfig,
+  type NavigationVisibilityContext,
+  type NavigationVisibilityEvaluator,
+} from "../../../components/navigation-menu";
 
 type SidebarExtensionItem = {
   id: string;
@@ -18,70 +25,153 @@ type SettingsSidebarProps = {
 };
 
 export function SettingsSidebar(props: SettingsSidebarProps) {
-  const isProfile = props.locationPathname === "/settings" || props.locationPathname === "/settings/profile";
-  const isNotifications = props.locationPathname === "/settings/notifications";
-  const isSecurity = props.locationPathname === "/settings/security";
-  const isGroups = props.locationPathname === "/settings/groups" || props.locationPathname.startsWith("/settings/group/");
-  const isTheme = props.locationPathname === "/settings/theme";
-  const isAdminUsers =
-    props.locationPathname === "/settings/admin" ||
-    props.locationPathname === "/settings/admin/users" ||
-    props.locationPathname.startsWith("/settings/admin/users/");
-  const isAdminInvitations = props.locationPathname === "/settings/admin/invitations";
-  const isAdminNotifications = props.locationPathname === "/settings/admin/notifications";
-  const isAdminRoles = props.locationPathname === "/settings/admin/roles";
-  const isExtension = props.locationPathname.startsWith("/settings/extensions/");
+  const navigationConfig: NavigationMenuConfig = {
+    sections: [
+      {
+        id: "settings",
+        title: "Settings",
+        requiresAuth: true,
+        items: [
+          {
+            id: "settings-profile",
+            label: "Profile",
+            icon: "user",
+            path: "/settings/profile",
+            pathPatterns: ["/settings", "/settings/profile"],
+            requiresAuth: true,
+          },
+          {
+            id: "settings-notifications",
+            label: "Notifications",
+            icon: "bell",
+            path: "/settings/notifications",
+            requiresAuth: true,
+          },
+          {
+            id: "settings-security",
+            label: "Security",
+            icon: "shield",
+            path: "/settings/security",
+            requiresAuth: true,
+          },
+          {
+            id: "settings-groups",
+            label: "Groups",
+            icon: "users",
+            path: "/settings/groups",
+            pathPatterns: ["/settings/groups", "/settings/group/*"],
+            requiresAuth: true,
+          },
+          {
+            id: "settings-theme",
+            label: "Theme",
+            icon: "palette",
+            path: "/settings/theme",
+            requiresAuth: true,
+          },
+          ...props.settingsExtensionItems.map((item) => ({
+            id: `settings-extension-${item.id}`,
+            label: item.label,
+            icon: "puzzle",
+            path: `/settings/extensions/${item.id}`,
+            pathPatterns: [`/settings/extensions/${item.id}`, `/settings/extensions/${item.id}/*`],
+            requiresAuth: true,
+          })),
+        ],
+      },
+      {
+        id: "administration",
+        title: "Administration",
+        requiresAuth: true,
+        visibleWhen: "canAccessAdmin",
+        items: [
+          {
+            id: "admin-users",
+            label: "Users",
+            icon: "userCog",
+            path: "/settings/admin/users",
+            pathPatterns: ["/settings/admin", "/settings/admin/users", "/settings/admin/users/*"],
+            requiresAuth: true,
+            visibleWhen: "canManageUsers",
+          },
+          {
+            id: "admin-invitations",
+            label: "Invitations",
+            icon: "users",
+            path: "/settings/admin/invitations",
+            requiresAuth: true,
+            visibleWhen: "canManageInvitations",
+          },
+          {
+            id: "admin-notifications",
+            label: "Notifications",
+            icon: "bell",
+            path: "/settings/admin/notifications",
+            requiresAuth: true,
+            visibleWhen: "canManageRoles",
+          },
+          {
+            id: "admin-roles",
+            label: "Roles",
+            icon: "shield",
+            path: "/settings/admin/roles",
+            requiresAuth: true,
+            visibleWhen: "canManageRoles",
+          },
+          ...props.adminExtensionItems.map((item) => ({
+            id: `admin-extension-${item.id}`,
+            label: item.label,
+            icon: "puzzle",
+            path: `/settings/extensions/${item.id}`,
+            pathPatterns: [`/settings/extensions/${item.id}`, `/settings/extensions/${item.id}/*`],
+            requiresAuth: true,
+          })),
+        ],
+      },
+    ],
+  };
+
+  const visibilityEvaluators: Record<string, NavigationVisibilityEvaluator> = {
+    canAccessAdmin: (context) => Boolean(context.canAccessAdmin),
+    canManageUsers: (context) => Boolean((context.adminCapabilities as AdminCapabilities).users),
+    canManageInvitations: (context) => Boolean((context.adminCapabilities as AdminCapabilities).invitations),
+    canManageRoles: (context) => Boolean((context.adminCapabilities as AdminCapabilities).roles),
+  };
+
+  const visibilityContext: NavigationVisibilityContext = {
+    isAuthenticated: true,
+    pathname: props.locationPathname,
+    canAccessAdmin: props.canAccessAdmin,
+    adminCapabilities: props.adminCapabilities,
+    selectedExtensionId: props.selectedExtensionId,
+  };
+
+  const iconRegistry = {
+    user: User,
+    bell: Bell,
+    shield: Shield,
+    users: Users,
+    palette: Palette,
+    puzzle: Puzzle,
+    userCog: UserCog,
+  };
 
   return (
-    <aside className="rounded-md border border-slate-200 p-3 dark:border-slate-800">
-      <nav className="grid gap-3">
-        <div className="grid gap-2">
-          <p className="px-1 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Settings</p>
-          <Button type="button" className={isProfile ? "bg-slate-100 dark:bg-slate-800" : ""} onClick={() => props.onNavigateTo("/settings/profile")}>Profile</Button>
-          <Button type="button" className={isNotifications ? "bg-slate-100 dark:bg-slate-800" : ""} onClick={() => props.onNavigateTo("/settings/notifications")}>Notifications</Button>
-          <Button type="button" className={isSecurity ? "bg-slate-100 dark:bg-slate-800" : ""} onClick={() => props.onNavigateTo("/settings/security")}>Security</Button>
-          <Button type="button" className={isGroups ? "bg-slate-100 dark:bg-slate-800" : ""} onClick={() => props.onNavigateTo("/settings/groups")}>Groups</Button>
-          <Button type="button" className={isTheme ? "bg-slate-100 dark:bg-slate-800" : ""} onClick={() => props.onNavigateTo("/settings/theme")}>Theme</Button>
-          {props.settingsExtensionItems.map((item) => (
-            <Button
-              key={item.id}
-              type="button"
-              className={isExtension && props.selectedExtensionId === item.id ? "bg-slate-100 dark:bg-slate-800" : ""}
-              onClick={() => props.onNavigateExtension(item.id)}
-            >
-              {item.label}
-            </Button>
-          ))}
-        </div>
-
-        {props.canAccessAdmin ? (
-          <div className="grid gap-2">
-            <p className="px-1 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Administration</p>
-            {props.adminCapabilities.users ? (
-              <Button type="button" className={isAdminUsers ? "bg-slate-100 dark:bg-slate-800" : ""} onClick={() => props.onNavigateTo("/settings/admin/users")}>Users</Button>
-            ) : null}
-            {props.adminCapabilities.invitations ? (
-              <Button type="button" className={isAdminInvitations ? "bg-slate-100 dark:bg-slate-800" : ""} onClick={() => props.onNavigateTo("/settings/admin/invitations")}>Invitations</Button>
-            ) : null}
-            {props.adminCapabilities.roles ? (
-              <Button type="button" className={isAdminNotifications ? "bg-slate-100 dark:bg-slate-800" : ""} onClick={() => props.onNavigateTo("/settings/admin/notifications")}>Notifications</Button>
-            ) : null}
-            {props.adminCapabilities.roles ? (
-              <Button type="button" className={isAdminRoles ? "bg-slate-100 dark:bg-slate-800" : ""} onClick={() => props.onNavigateTo("/settings/admin/roles")}>Roles</Button>
-            ) : null}
-            {props.adminExtensionItems.map((item) => (
-              <Button
-                key={item.id}
-                type="button"
-                className={isExtension && props.selectedExtensionId === item.id ? "bg-slate-100 dark:bg-slate-800" : ""}
-                onClick={() => props.onNavigateExtension(item.id)}
-              >
-                {item.label}
-              </Button>
-            ))}
-          </div>
-        ) : null}
-      </nav>
-    </aside>
+    <NavigationMenu
+      config={navigationConfig}
+      pathname={props.locationPathname}
+      isAuthenticated
+      iconRegistry={iconRegistry}
+      visibilityContext={visibilityContext}
+      visibilityEvaluators={visibilityEvaluators}
+      onNavigate={(path) => {
+        const extensionPrefix = "/settings/extensions/";
+        if (path.startsWith(extensionPrefix)) {
+          props.onNavigateExtension(path.slice(extensionPrefix.length));
+          return;
+        }
+        props.onNavigateTo(path);
+      }}
+    />
   );
 }
