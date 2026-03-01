@@ -2,9 +2,10 @@ import { Suspense, lazy, type ComponentType } from "react";
 
 import type { AppRouteRenderContextValue } from "../../app/app-route-render-context";
 import type { AdminCapabilities } from "../../app/hooks/types";
+import { Sidebar } from "../../components/sidebar";
 import { getSettingsExtensions } from "../../extensions/settings-registry";
 import type { AuthProviderMeta } from "../../lib/api";
-import { SettingsSidebar } from "./components/settings-sidebar";
+import { SettingsSidebar, settingsSidebarLevels } from "./components/settings-sidebar";
 
 const AcceptInvitePage = lazy(async () => {
   const module = await import("../../pages/accept-invite-page");
@@ -104,16 +105,21 @@ export function SettingsLayout(props: SettingsLayoutProps) {
   return (
     <main className="w-full">
       <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-0">
-        <SettingsSidebar
-          locationPathname={props.locationPathname}
-          canAccessAdmin={props.canAccessAdmin}
-          adminCapabilities={props.adminCapabilities}
-          selectedExtensionId={props.selectedExtensionId}
-          settingsExtensionItems={settingsExtensionItems}
-          adminExtensionItems={adminExtensionItems}
-          onNavigateTo={props.navigateTo}
-          onNavigateExtension={(extensionId) => props.navigateTo(`/settings/extensions/${extensionId}`)}
-        />
+        <Sidebar type="resizable" resizableLevels={settingsSidebarLevels}>
+          {({ iconMode }) => (
+            <SettingsSidebar
+              locationPathname={props.locationPathname}
+              iconMode={iconMode}
+              canAccessAdmin={props.canAccessAdmin}
+              adminCapabilities={props.adminCapabilities}
+              selectedExtensionId={props.selectedExtensionId}
+              settingsExtensionItems={settingsExtensionItems}
+              adminExtensionItems={adminExtensionItems}
+              onNavigateTo={props.navigateTo}
+              onNavigateExtension={(extensionId) => props.navigateTo(`/settings/extensions/${extensionId}`)}
+            />
+          )}
+        </Sidebar>
 
         <section className="pt-4 px-6">
           {isProfile ? (

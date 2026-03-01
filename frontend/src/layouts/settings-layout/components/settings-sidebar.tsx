@@ -1,12 +1,28 @@
 import { Bell, Palette, Puzzle, Shield, User, UserCog, Users } from "lucide-react";
 
 import type { AdminCapabilities } from "../../../app/hooks/types";
+import type { SidebarResizableLevel } from "../../../components/sidebar";
 import {
   NavigationMenu,
   type NavigationMenuConfig,
   type NavigationVisibilityContext,
   type NavigationVisibilityEvaluator,
 } from "../../../components/navigation-menu";
+
+export const settingsSidebarLevels: SidebarResizableLevel[] = [
+  {
+    id: "full",
+    minViewportWidth: 1200,
+    widthClassName: "w-56",
+    iconMode: false,
+  },
+  {
+    id: "mini",
+    minViewportWidth: 1024,
+    widthClassName: "w-14",
+    iconMode: true,
+  },
+];
 
 type SidebarExtensionItem = {
   id: string;
@@ -15,6 +31,7 @@ type SidebarExtensionItem = {
 
 type SettingsSidebarProps = {
   locationPathname: string;
+  iconMode: boolean;
   canAccessAdmin: boolean;
   adminCapabilities: AdminCapabilities;
   selectedExtensionId: string | null;
@@ -161,6 +178,7 @@ export function SettingsSidebar(props: SettingsSidebarProps) {
       config={navigationConfig}
       pathname={props.locationPathname}
       isAuthenticated
+      iconMode={props.iconMode}
       iconRegistry={iconRegistry}
       visibilityContext={visibilityContext}
       visibilityEvaluators={visibilityEvaluators}

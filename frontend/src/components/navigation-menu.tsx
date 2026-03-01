@@ -1,8 +1,6 @@
-import { useEffect, useMemo, useState, type ComponentType } from "react";
-import { Sheet, SheetContent } from "./ui/sheet";
+import { useMemo, type ComponentType } from "react";
 
 import {
-  Sidebar,
   SidebarContent,
   SidebarGroup,
   SidebarGroupContent,
@@ -10,11 +8,9 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarRail,
   SidebarMenuSub,
   SidebarMenuSubButton,
   SidebarMenuSubItem,
-  SidebarProvider,
 } from "./ui/sidebar";
 
 export type NavigationVisibilityContext = {
@@ -55,6 +51,7 @@ type NavigationMenuProps = {
   config: NavigationMenuConfig;
   pathname: string;
   isAuthenticated: boolean;
+  iconMode?: boolean;
   onNavigate: (path: string) => void;
   iconRegistry?: Record<string, ComponentType<{ className?: string }>>;
   visibilityContext?: Record<string, unknown>;
@@ -68,8 +65,6 @@ type RenderableNavigationItem = Omit<NavigationItemConfig, "children"> & {
 type RenderableNavigationSection = Omit<NavigationSectionConfig, "items"> & {
   items: RenderableNavigationItem[];
 };
-
-type SidebarMode = "full" | "mini" | "collapsed";
 
 function escapeRegex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -90,23 +85,6 @@ function pathMatches(pathname: string, pattern: string): boolean {
   return wildcardToRegex(pattern).test(pathname);
 }
 
-function getSidebarMode(width: number): SidebarMode {
-  if (width >= 1200) {
-    return "full";
-  }
-  if (width >= 1024) {
-    return "mini";
-  }
-  return "collapsed";
-}
-
-function getInitialSidebarMode(): SidebarMode {
-  if (typeof window === "undefined") {
-    return "full";
-  }
-  return getSidebarMode(window.innerWidth);
-}
-
 function getItemPatterns(item: NavigationItemConfig): string[] {
   if (item.pathPatterns && item.pathPatterns.length > 0) {
     return item.pathPatterns;
@@ -122,35 +100,12 @@ export function NavigationMenu(props: NavigationMenuProps) {
     config,
     pathname,
     isAuthenticated,
+    iconMode = false,
     onNavigate,
     iconRegistry = {},
     visibilityContext = {},
     visibilityEvaluators = {},
   } = props;
-
-  const [sidebarMode, setSidebarMode] = useState<SidebarMode>(getInitialSidebarMode);
-  const [inlineSidebarOpen, setInlineSidebarOpen] = useState(true);
-  const [overlayOpen, setOverlayOpen] = useState(false);
-
-  useEffect(() => {
-    function onResize() {
-      setSidebarMode(getSidebarMode(window.innerWidth));
-    }
-
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-  }, []);
-
-  useEffect(() => {
-    if (sidebarMode === "full") {
-      setInlineSidebarOpen(true);
-      setOverlayOpen(false);
-      return;
-    }
-    if (sidebarMode === "mini") {
-      setOverlayOpen(false);
-    }
-  }, [sidebarMode]);
 
   const effectiveVisibilityContext = useMemo<NavigationVisibilityContext>(() => ({
     isAuthenticated,
@@ -326,80 +281,16 @@ export function NavigationMenu(props: NavigationMenuProps) {
     });
   }
 
-  const isMiniMode = sidebarMode === "mini";
-
-  const sidebarContent = (
+  return (
     <SidebarContent>
       {resolvedConfig.sections.map((section) => (
         <SidebarGroup key={section.id}>
-          {isMiniMode ? null : <SidebarGroupLabel>{section.title}</SidebarGroupLabel>}
+          {iconMode ? null : <SidebarGroupLabel>{section.title}</SidebarGroupLabel>}
           <SidebarGroupContent>
-            <SidebarMenu>{renderItems(section.items, isMiniMode)}</SidebarMenu>
+            <SidebarMenu>{renderItems(section.items, iconMode)}</SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
       ))}
     </SidebarContent>
   );
-
-  const inlineSidebar = (
-    <SidebarProvider open={inlineSidebarOpen} onOpenChange={setInlineSidebarOpen}>
-      <Sidebar
-        collapsible="icon"
-        className={
-          inlineSidebarOpen
-            ? isMiniMode
-              ? "h-[100dvh] w-14 border-r border-slate-200 px-1 py-2 transition-[width,padding] duration-200 dark:border-slate-800"
-              : "h-[100dvh] w-56 border-r border-slate-200 px-2 py-3 transition-[width,padding] duration-200 dark:border-slate-800"
-            : "h-[100dvh] w-0 border-r border-slate-200 px-0 py-0 transition-[width,padding] duration-200 dark:border-slate-800"
-        }
-      >
-        {inlineSidebarOpen ? sidebarContent : null}
-        <SidebarRail
-          onClick={(event) => {
-            event.preventDefault();
-            setInlineSidebarOpen((current) => !current);
-          }}
-        />
-      </Sidebar>
-    </SidebarProvider>
-  );
-
-  if (sidebarMode === "collapsed") {
-    return (
-      <>
-        <SidebarProvider open={false} onOpenChange={() => {}}>
-          <Sidebar collapsible="icon" className="h-[100dvh] w-0 border-r border-slate-200 px-0 py-0 dark:border-slate-800">
-            {!overlayOpen ? (
-              <SidebarRail
-                className="fixed left-0 right-auto z-[70] -translate-x-1/2"
-                onClick={(event) => {
-                  event.preventDefault();
-                  setOverlayOpen(true);
-                }}
-              />
-            ) : null}
-          </Sidebar>
-        </SidebarProvider>
-
-        <Sheet open={overlayOpen} onOpenChange={setOverlayOpen}>
-          <SheetContent side="left" className="w-56 max-w-none overflow-y-auto border-r border-slate-200 p-0 dark:border-slate-800" showCloseButton>
-            <SidebarProvider open>
-              <Sidebar collapsible="none" className="h-full w-full box-border px-2 py-3">
-                {sidebarContent}
-                <SidebarRail
-                  className="left-full right-auto z-[70] -translate-x-1/2"
-                  onClick={(event) => {
-                    event.preventDefault();
-                    setOverlayOpen(false);
-                  }}
-                />
-              </Sidebar>
-            </SidebarProvider>
-          </SheetContent>
-        </Sheet>
-      </>
-    );
-  }
-
-  return inlineSidebar;
 }
