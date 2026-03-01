@@ -6,7 +6,6 @@ import { useAppRouteRenderContext } from "../../app/app-route-render-context";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
-import { SettingsLayout } from "../../layouts/settings-layout/";
 import { showClientToast } from "../../lib/client-toast";
 import { getMyProfile, patchMyProfile, ProfilePropertyCatalogItem, ProfilePropertyLinkItem, resendMyVerificationEmail } from "../../lib/api";
 
@@ -417,5 +416,5 @@ export default function ProfileRoutePage() {
   if (!routeContext.isAuthenticated) {
     return null;
   }
-  return <SettingsLayout {...routeContext.settingsProps} />;
+  return <ProfilePage accessToken={routeContext.settingsProps.accessToken} />;
 }

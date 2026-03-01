@@ -3,7 +3,6 @@ import { ChevronRight } from "lucide-react";
 
 import { useAppRouteRenderContext } from "../../app/app-route-render-context";
 import { CreateGroupDialog } from "../../components/create-group-dialog";
-import { SettingsLayout } from "../../layouts/settings-layout/";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { showClientToast } from "../../lib/client-toast";
@@ -201,5 +200,11 @@ export default function GroupsRoutePage() {
   if (!routeContext.isAuthenticated) {
     return null;
   }
-  return <SettingsLayout {...routeContext.settingsProps} />;
+  return (
+    <GroupsPage
+      accessToken={routeContext.settingsProps.accessToken}
+      canViewAllGroups={routeContext.settingsProps.adminCapabilities.groups}
+      onOpenGroup={(groupId) => routeContext.settingsProps.navigateTo(`/settings/group/${groupId}`)}
+    />
+  );
 }

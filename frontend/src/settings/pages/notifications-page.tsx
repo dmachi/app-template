@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 
 import { useAppRouteRenderContext } from "../../app/app-route-render-context";
-import { SettingsLayout } from "../../layouts/settings-layout/";
 import { Button } from "../../components/ui/button";
 import { showClientToast } from "../../lib/client-toast";
 import {
@@ -138,5 +137,10 @@ export default function NotificationsRoutePage() {
   if (!routeContext.isAuthenticated) {
     return null;
   }
-  return <SettingsLayout {...routeContext.settingsProps} />;
+  return (
+    <NotificationsPage
+      accessToken={routeContext.settingsProps.accessToken}
+      refreshSignal={routeContext.settingsProps.notificationRefreshSignal}
+    />
+  );
 }

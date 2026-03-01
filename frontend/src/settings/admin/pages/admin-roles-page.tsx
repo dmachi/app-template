@@ -3,7 +3,6 @@ import { ConfirmationDialog } from "../../../components/confirmation-dialog";
 import { RoleDialog } from "../../../components/role-dialog";
 import { Badge } from "../../../components/ui/badge";
 import { useAppRouteRenderContext } from "../../../app/app-route-render-context";
-import { SettingsLayout } from "../../../layouts/settings-layout/";
 import { showClientToast } from "../../../lib/client-toast";
 import { adminCreateRole, adminDeleteRole, adminListRoles, adminPatchRole, type AdminRoleItem } from "../../../lib/api";
 import { useEffect, useState } from "react";
@@ -116,5 +115,5 @@ export default function AdminRolesRoutePage() {
   if (!routeContext.isAuthenticated) {
     return null;
   }
-  return <SettingsLayout {...routeContext.settingsProps} />;
+  return <AdminRolesPage accessToken={routeContext.settingsProps.accessToken} />;
 }

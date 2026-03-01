@@ -2,14 +2,15 @@ import { createRoute } from "@tanstack/react-router";
 import { Suspense, lazy, type ComponentType, type LazyExoticComponent } from "react";
 
 import { useAppRouteRenderContext } from "../../app/app-route-render-context";
-import { APP_SHELL_LAYOUT } from "./layout-config";
+import { APP_SHELL_LAYOUT } from "../../config/layout-config";
 
 type RoutePageLayoutProps = {
   routeContext: ReturnType<typeof useAppRouteRenderContext>;
   Component: ComponentType;
+  layoutProps?: Record<string, unknown>;
 };
 
-type CreateLayoutRouteLayout = string | "none";
+type CreateLayoutRouteLayout = string | "none" | [string, Record<string, unknown>];
 
 const layoutModuleLoaders = import.meta.glob<Record<string, unknown>>([
   "../../layouts/*/index.tsx",
@@ -60,7 +61,8 @@ export function createLayoutRoute(options: CreateLayoutRouteOptions) {
     });
   }
 
-  const layoutName = options.layout;
+  const layoutName = Array.isArray(options.layout) ? options.layout[0] : options.layout;
+  const layoutProps = Array.isArray(options.layout) ? options.layout[1] : undefined;
 
   if (layoutName === APP_SHELL_LAYOUT) {
     throw new Error(`Route layout '${APP_SHELL_LAYOUT}' is reserved for the app shell presenter and cannot be used in createLayoutRoute`);
@@ -76,7 +78,7 @@ export function createLayoutRoute(options: CreateLayoutRouteOptions) {
     const routeContext = useAppRouteRenderContext();
     return (
       <Suspense fallback={null}>
-        <LayoutComponent routeContext={routeContext} Component={options.component} />
+        <LayoutComponent routeContext={routeContext} Component={options.component} layoutProps={layoutProps} />
       </Suspense>
     );
   };

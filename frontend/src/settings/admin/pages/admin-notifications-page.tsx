@@ -5,7 +5,6 @@ import { Button } from "../../../components/ui/button";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "../../../components/ui/dialog";
 import { Input } from "../../../components/ui/input";
 import { useAppRouteRenderContext } from "../../../app/app-route-render-context";
-import { SettingsLayout } from "../../../layouts/settings-layout/";
 import { showClientToast } from "../../../lib/client-toast";
 import {
   adminCancelNotification,
@@ -256,5 +255,5 @@ export default function AdminNotificationsRoutePage() {
   if (!routeContext.isAuthenticated) {
     return null;
   }
-  return <SettingsLayout {...routeContext.settingsProps} />;
+  return <AdminNotificationsPage accessToken={routeContext.settingsProps.accessToken} />;
 }

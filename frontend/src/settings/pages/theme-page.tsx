@@ -1,7 +1,6 @@
 import { FormEvent, useState } from "react";
 
 import { useAppRouteRenderContext } from "../../app/app-route-render-context";
-import { SettingsLayout } from "../../layouts/settings-layout/";
 import { Button } from "../../components/ui/button";
 import { showClientToast } from "../../lib/client-toast";
 import { patchMyProfile } from "../../lib/api";
@@ -62,5 +61,11 @@ export default function ThemeRoutePage() {
   if (!routeContext.isAuthenticated) {
     return null;
   }
-  return <SettingsLayout {...routeContext.settingsProps} />;
+  return (
+    <ThemePage
+      accessToken={routeContext.settingsProps.accessToken}
+      theme={routeContext.settingsProps.theme}
+      onThemeChange={routeContext.settingsProps.setTheme}
+    />
+  );
 }

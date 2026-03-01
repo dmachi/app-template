@@ -7,7 +7,6 @@ import { Badge } from "../../../components/ui/badge";
 import { Button } from "../../../components/ui/button";
 import { Input } from "../../../components/ui/input";
 import { useAppRouteRenderContext } from "../../../app/app-route-render-context";
-import { SettingsLayout } from "../../../layouts/settings-layout/";
 import { showClientToast } from "../../../lib/client-toast";
 import {
   adminGetUser,
@@ -531,5 +530,15 @@ export default function AdminUserDetailRoutePage() {
   if (!routeContext.isAuthenticated) {
     return null;
   }
-  return <SettingsLayout {...routeContext.settingsProps} />;
+  if (!routeContext.settingsProps.selectedAdminUserId) {
+    return null;
+  }
+
+  return (
+    <AdminUserDetailPage
+      accessToken={routeContext.settingsProps.accessToken}
+      userId={routeContext.settingsProps.selectedAdminUserId}
+      onBack={() => routeContext.settingsProps.navigateTo("/settings/admin/users")}
+    />
+  );
 }

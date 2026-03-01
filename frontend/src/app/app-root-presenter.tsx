@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { Suspense, lazy, type ComponentType } from "react";
 
-import { APP_SHELL_LAYOUT } from "../lib/layouts/layout-config";
+import { APP_SHELL_LAYOUT } from "../config/layout-config";
 import type { LayoutBranding, LayoutShell } from "../lib/layouts/types";
 
 export type AppRootPresenterBranding = LayoutBranding;

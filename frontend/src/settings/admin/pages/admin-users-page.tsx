@@ -5,7 +5,6 @@ import { AdminUserActions } from "../../../components/admin-user-actions";
 import { RoleBadges } from "../../../components/role-badges";
 import { Input } from "../../../components/ui/input";
 import { useAppRouteRenderContext } from "../../../app/app-route-render-context";
-import { SettingsLayout } from "../../../layouts/settings-layout/";
 import { showClientToast } from "../../../lib/client-toast";
 import { adminListOutstandingInvitations, adminListUsers, type AdminUserListItem } from "../../../lib/api";
 
@@ -131,5 +130,11 @@ export default function AdminUsersRoutePage() {
   if (!routeContext.isAuthenticated) {
     return null;
   }
-  return <SettingsLayout {...routeContext.settingsProps} />;
+  return (
+    <AdminUsersPage
+      accessToken={routeContext.settingsProps.accessToken}
+      onOpenUser={(userId) => routeContext.settingsProps.navigateTo(`/settings/admin/users/${userId}`)}
+      onOpenInvitations={() => routeContext.settingsProps.navigateTo("/settings/admin/invitations")}
+    />
+  );
 }

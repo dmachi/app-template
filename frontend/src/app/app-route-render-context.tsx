@@ -1,7 +1,7 @@
 import { rootRouteId, useRouteContext } from "@tanstack/react-router";
 import { useSyncExternalStore } from "react";
 
-import type { SettingsLayoutProps } from "../layouts/settings-layout/";
+import type { SettingsLayoutProps } from "../settings/settings-layout-props";
 import type { PublicRouteProps } from "../pages/public-route-props";
 
 export type AppRouteRenderContextValue = {

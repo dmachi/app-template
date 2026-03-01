@@ -16,17 +16,18 @@ import {
 export type NavigationVisibilityContext = {
   isAuthenticated: boolean;
   pathname: string;
+  roles?: string[];
   [key: string]: unknown;
 };
 
 export type NavigationItemConfig = {
   id: string;
   label: string;
-  icon?: string;
+  icon?: ComponentType<{ className?: string }>;
   path?: string;
   pathPatterns?: string[];
   requiresAuth?: boolean;
-  visibleWhen?: string;
+  roles?: string[];
   children?: NavigationItemConfig[];
 };
 
@@ -34,7 +35,7 @@ export type NavigationSectionConfig = {
   id: string;
   title: string;
   requiresAuth?: boolean;
-  visibleWhen?: string;
+  roles?: string[];
   items: NavigationItemConfig[];
 };
 
@@ -42,20 +43,13 @@ export type NavigationMenuConfig = {
   sections: NavigationSectionConfig[];
 };
 
-export type NavigationVisibilityEvaluator = (
-  context: NavigationVisibilityContext,
-  itemOrSection: NavigationItemConfig | NavigationSectionConfig,
-) => boolean;
-
 type NavigationMenuProps = {
   config: NavigationMenuConfig;
   pathname: string;
   isAuthenticated: boolean;
   iconMode?: boolean;
   onNavigate: (path: string) => void;
-  iconRegistry?: Record<string, ComponentType<{ className?: string }>>;
   visibilityContext?: Record<string, unknown>;
-  visibilityEvaluators?: Record<string, NavigationVisibilityEvaluator>;
 };
 
 type RenderableNavigationItem = Omit<NavigationItemConfig, "children"> & {
@@ -102,9 +96,7 @@ export function NavigationMenu(props: NavigationMenuProps) {
     isAuthenticated,
     iconMode = false,
     onNavigate,
-    iconRegistry = {},
     visibilityContext = {},
-    visibilityEvaluators = {},
   } = props;
 
   const effectiveVisibilityContext = useMemo<NavigationVisibilityContext>(() => ({
@@ -119,16 +111,15 @@ export function NavigationMenu(props: NavigationMenuProps) {
         return false;
       }
 
-      if (!itemOrSection.visibleWhen) {
+      if (!itemOrSection.roles || itemOrSection.roles.length === 0) {
         return true;
       }
 
-      const evaluator = visibilityEvaluators[itemOrSection.visibleWhen];
-      if (!evaluator) {
-        return false;
+      const currentRoles = effectiveVisibilityContext.roles || [];
+      if (currentRoles.includes("Superuser")) {
+        return true;
       }
-
-      return evaluator(effectiveVisibilityContext, itemOrSection);
+      return itemOrSection.roles.some((role) => currentRoles.includes(role));
     }
 
     function buildItem(item: NavigationItemConfig): RenderableNavigationItem | null {
@@ -161,7 +152,7 @@ export function NavigationMenu(props: NavigationMenuProps) {
       .filter((section) => section.items.length > 0);
 
     return { sections };
-  }, [config.sections, effectiveVisibilityContext, isAuthenticated, visibilityEvaluators]);
+  }, [config.sections, effectiveVisibilityContext, isAuthenticated]);
 
   function hasActivePath(item: RenderableNavigationItem): boolean {
     const ownMatch = getItemPatterns(item).some((pattern) => pathMatches(pathname, pattern));
@@ -172,18 +163,14 @@ export function NavigationMenu(props: NavigationMenuProps) {
     return item.children.some(hasActivePath);
   }
 
-  function renderIcon(iconName: string | undefined, isIconMode: boolean) {
+  function renderIcon(icon: ComponentType<{ className?: string }> | undefined, isIconMode: boolean) {
     const sizeClass = isIconMode ? "h-5 w-5" : "h-4 w-4";
 
-    if (!iconName) {
+    if (!icon) {
       return <span className={`inline-block ${sizeClass} rounded-full bg-slate-300 dark:bg-slate-700`} aria-hidden />;
     }
 
-    const Icon = iconRegistry[iconName];
-    if (!Icon) {
-      return <span className={`inline-block ${sizeClass} rounded-full bg-slate-300 dark:bg-slate-700`} aria-hidden />;
-    }
-
+    const Icon = icon;
     return <Icon className={sizeClass} aria-hidden />;
   }
 
