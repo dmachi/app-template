@@ -20,16 +20,16 @@ export type SettingsExtensionItem = {
 };
 
 const SETTINGS_EXTENSIONS: SettingsExtensionItem[] = [
-  {
-    id: "sample-app-settings",
-    label: "App Settings (Sample)",
-    section: "settings",
-    render: ({ accessToken }) => (
-      <Suspense fallback={<p className="text-sm text-slate-500">Loading extension...</p>}>
-        <SampleSettingsPage accessToken={accessToken} />
-      </Suspense>
-    ),
-  },
+//   {
+//     id: "sample-app-settings",
+//     label: "App Settings (Sample)",
+//     section: "settings",
+//     render: ({ accessToken }) => (
+//       <Suspense fallback={<p className="text-sm text-slate-500">Loading extension...</p>}>
+//         <SampleSettingsPage accessToken={accessToken} />
+//       </Suspense>
+//     ),
+//   },
 ];
 
 export function getSettingsExtensions(context: SettingsExtensionContext): SettingsExtensionItem[] {
