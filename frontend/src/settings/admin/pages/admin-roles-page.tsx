@@ -1,6 +1,6 @@
 import { Button } from "../../../components/ui/button";
-import { ConfirmationDialog } from "../../../components/shared/confirmation-dialog";
-import { RoleDialog } from "../../../components/shared/role-dialog";
+import { ConfirmationDialog } from "../../../components/confirmation-dialog";
+import { RoleDialog } from "../../../components/role-dialog";
 import { Badge } from "../../../components/ui/badge";
 import { useAppRouteRenderContext } from "../../../app/app-route-render-context";
 import { SettingsLayout } from "../../../layouts/settings-layout/";

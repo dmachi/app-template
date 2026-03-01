@@ -1,11 +1,7 @@
 import { useState } from "react";
+import type { AdminCapabilities } from "./types";
 
-export type AdminCapabilitiesState = {
-  users: boolean;
-  groups: boolean;
-  invitations: boolean;
-  roles: boolean;
-};
+export type AdminCapabilitiesState = AdminCapabilities;
 
 export function useAppSessionState() {
   const [accessToken, setAccessToken] = useState<string | null>(null);

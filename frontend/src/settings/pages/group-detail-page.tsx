@@ -1,10 +1,10 @@
 import { FormEvent, useEffect, useState } from "react";
 
 import { useAppRouteRenderContext } from "../../app/app-route-render-context";
-import { ConfirmationDialog } from "../../components/shared/confirmation-dialog";
+import { ConfirmationDialog } from "../../components/confirmation-dialog";
 import { SettingsLayout } from "../../layouts/settings-layout/";
-import { RoleAssignmentField } from "../../components/shared/role-assignment-field";
-import { UserSearchCombobox } from "../../components/shared/user-search-combobox";
+import { RoleAssignmentField } from "../../components/role-assignment-field";
+import { UserSearchCombobox } from "../../components/user-search-combobox";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { showClientToast } from "../../lib/client-toast";

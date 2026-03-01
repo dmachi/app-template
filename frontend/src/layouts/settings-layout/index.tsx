@@ -1,9 +1,10 @@
 import { Suspense, lazy, type ComponentType } from "react";
 
 import type { AppRouteRenderContextValue } from "../../app/app-route-render-context";
+import type { AdminCapabilities } from "../../app/hooks/types";
 import { getSettingsExtensions } from "../../extensions/settings-registry";
 import type { AuthProviderMeta } from "../../lib/api";
-import { SettingsSidebar } from "../../settings/components/settings-sidebar";
+import { SettingsSidebar } from "./components/settings-sidebar";
 
 const AcceptInvitePage = lazy(async () => {
   const module = await import("../../pages/accept-invite-page");
@@ -61,7 +62,7 @@ const ThemePage = lazy(async () => {
 export type SettingsLayoutProps = {
   locationPathname: string;
   canAccessAdmin: boolean;
-  adminCapabilities: { users: boolean; groups: boolean; invitations: boolean; roles: boolean };
+  adminCapabilities: AdminCapabilities;
   selectedExtensionId: string | null;
   selectedGroupId: string | null;
   selectedAdminUserId: string | null;

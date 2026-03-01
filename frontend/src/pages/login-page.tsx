@@ -1,3 +1,5 @@
+import { FormEvent, useState } from "react";
+
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { useAppRouteRenderContext } from "../app/app-route-render-context";
@@ -5,8 +7,16 @@ import { useAppRouteRenderContext } from "../app/app-route-render-context";
 export default function LoginPage() {
   const routeContext = useAppRouteRenderContext();
   const props = routeContext.publicAuthProps;
+  const [usernameOrEmail, setUsernameOrEmail] = useState("");
+  const [password, setPassword] = useState("");
   const localEnabled = props.authProviders.some((provider) => provider.id === "local");
   const externalProviders = props.authProviders.filter((provider) => provider.id !== "local");
+
+  const onSubmit = async (event: FormEvent) => {
+    event.preventDefault();
+    await props.onLogin({ usernameOrEmail, password });
+    setPassword("");
+  };
 
   return (
     <div className="grid w-full max-w-xl gap-3">
@@ -15,14 +25,14 @@ export default function LoginPage() {
       {!props.authMetaLoaded ? <p className="text-sm">Loading auth options...</p> : null}
 
       {localEnabled ? (
-        <form onSubmit={props.handleLogin} className="grid gap-3 rounded-md border border-slate-200 p-4 dark:border-slate-800">
+        <form onSubmit={onSubmit} className="grid gap-3 rounded-md border border-slate-200 p-4 dark:border-slate-800">
           <label className="grid gap-1">
             <span className="text-sm">Username or Email</span>
-            <Input value={props.usernameOrEmail} onChange={(event) => props.setUsernameOrEmail(event.target.value)} required />
+            <Input value={usernameOrEmail} onChange={(event) => setUsernameOrEmail(event.target.value)} required />
           </label>
           <label className="grid gap-1">
             <span className="text-sm">Password</span>
-            <Input type="password" value={props.password} onChange={(event) => props.setPassword(event.target.value)} required />
+            <Input type="password" value={password} onChange={(event) => setPassword(event.target.value)} required />
           </label>
           <Button type="submit">Login</Button>
         </form>

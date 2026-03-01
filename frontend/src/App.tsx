@@ -3,20 +3,20 @@ import { useCallback } from "react";
 import { renderAppIcon } from "./app/app-branding";
 import { AppRootPresenter } from "./app/app-root-presenter";
 import { useAppAuthActions } from "./app/hooks/use-app-auth-actions";
-import { getProfilePropertyLinkItems, useAppAuthFormState } from "./app/hooks/use-app-auth-form-state";
 import { useAppAuthMetaState } from "./app/hooks/use-app-auth-meta-state";
-import { useAppHomeNotifications } from "./app/hooks/use-app-home-notifications";
+import { useAutoAcceptInvitation, usePendingInvitationTokenSync } from "./app/hooks/use-app-invitations";
 import { useAppNavigation } from "./app/hooks/use-app-navigation";
 import { useAppNotificationState } from "./app/hooks/use-app-notification-state";
-import { useAppOrchestration } from "./app/hooks/use-app-orchestration";
 import { useAppRouteContextPublication } from "./app/hooks/use-app-route-context-publication";
-import { useAppRouteRenderSnapshotParams } from "./app/hooks/use-app-route-render-snapshot-params";
-import { useAppRootPresenterProps } from "./app/hooks/use-app-root-presenter-props";
-import { useAppRouteRenderSnapshot } from "./app/hooks/use-app-route-render-snapshot";
+import { buildAppRouteRenderSnapshotParams } from "./app/hooks/use-app-route-render-snapshot-params";
+import { buildAppRootPresenterProps } from "./app/hooks/use-app-root-presenter-props";
+import { buildAppRouteRenderSnapshot } from "./app/hooks/use-app-route-render-snapshot";
 import { useAppRouteTokens } from "./app/hooks/use-app-route-tokens";
 import { useAppSessionState } from "./app/hooks/use-app-session-state";
 import { isActionRequiredToast, useAppToastActions } from "./app/hooks/use-app-toast-actions";
-import { useSessionRestore } from "./app/hooks/use-app-bootstrap";
+import { useProfileAndAdminBootstrap, useSessionRestore } from "./app/hooks/use-app-bootstrap";
+import { useRouteGuards } from "./app/hooks/use-auth-route-guards";
+import { useRealtimeNotifications } from "./app/hooks/use-realtime-notifications-feed";
 import { useAppRouteState } from "./app/hooks/use-app-route-state";
 import { useTheme } from "./app/theme-provider";
 import { API_BASE } from "./lib/api";
@@ -78,23 +78,6 @@ export function App() {
     setNotificationRefreshSignal,
   } = useAppNotificationState();
 
-  const {
-    usernameOrEmail,
-    setUsernameOrEmail,
-    password,
-    setPassword,
-    registerUsername,
-    setRegisterUsername,
-    registerEmail,
-    setRegisterEmail,
-    registerPassword,
-    setRegisterPassword,
-    registerDisplayName,
-    setRegisterDisplayName,
-    registerProfileProperties,
-    setRegisterProfileProperties,
-  } = useAppAuthFormState();
-
   useSessionRestore({
     refreshTokenStorageKey: REFRESH_TOKEN_STORAGE_KEY,
     setAccessToken,
@@ -113,15 +96,6 @@ export function App() {
   } = useAppRouteTokens();
 
   const {
-    setHomeNotifications,
-    refreshHomeNotifications,
-  } = useAppHomeNotifications({
-    accessToken,
-    navigateTo,
-    setNotificationRefreshSignal,
-  });
-
-  const {
     removeToast,
     removeClientToast,
     onToastManualClose,
@@ -135,22 +109,11 @@ export function App() {
     setNotificationRefreshSignal,
   });
 
-  const getRegisterLinkItems = useCallback((key: string) => {
-    return getProfilePropertyLinkItems(registerProfileProperties, key);
-  }, [registerProfileProperties]);
-
   const onNavigateToAuthWithInvite = useCallback((nextView: "login" | "register") => {
     navigateToAuthWithInvite(nextView, pendingInvitationToken);
   }, [navigateToAuthWithInvite, pendingInvitationToken]);
 
   const { handleLogin, handleRegister, handleProviderStart, handleLogout } = useAppAuthActions({
-    usernameOrEmail,
-    password,
-    registerUsername,
-    registerEmail,
-    registerPassword,
-    registerDisplayName,
-    registerProfileProperties,
     refreshTokenStorageKey: REFRESH_TOKEN_STORAGE_KEY,
     inviteTokenStorageKey: INVITE_TOKEN_STORAGE_KEY,
     refreshToken,
@@ -158,9 +121,6 @@ export function App() {
     setError,
     setAccessToken,
     setRefreshToken,
-    setPassword,
-    setUsernameOrEmail,
-    setRegisterPassword,
     setCurrentUsername,
     setTheme,
     setPendingInvitationToken,
@@ -173,64 +133,64 @@ export function App() {
     navigateTo,
   });
 
-  useAppOrchestration({
-    accessToken,
+  usePendingInvitationTokenSync({
     isAcceptInviteRoute,
     tokenParam,
     inviteTokenParam,
     inviteTokenStorageKey: INVITE_TOKEN_STORAGE_KEY,
     setPendingInvitationToken,
+  });
+
+  useProfileAndAdminBootstrap({
+    accessToken,
     setCurrentUsername,
     setTheme,
     setCanAccessAdmin,
     setAdminAccessChecked,
     setAdminCapabilities,
+  });
+
+  useAutoAcceptInvitation({
+    accessToken,
     pendingInvitationToken,
     acceptingInvitation,
     locationPathname,
+    inviteTokenStorageKey: INVITE_TOKEN_STORAGE_KEY,
     setAcceptingInvitation,
     setInvitationAcceptanceMessage,
+    setPendingInvitationToken,
     navigateHomeReplace,
+  });
+
+  useRealtimeNotifications({
+    accessToken,
+    locationPathname,
     apiBase: API_BASE,
-    refreshHomeNotifications,
     setRealtimePopups,
-    setHomeNotifications,
     setNotificationRefreshSignal,
+  });
+
+  useRouteGuards({
     restoringSession,
+    accessToken,
     canAccessAdmin,
     adminAccessChecked,
     adminCapabilities,
+    locationPathname,
     selectedGroupId,
     selectedExtensionId,
     navigateTo,
   });
 
   const appIconNode = renderAppIcon(appIcon);
-  const routeRenderSnapshotParams = useAppRouteRenderSnapshotParams({
-    appName,
-    appIconNode,
+  const routeRenderSnapshotParams = buildAppRouteRenderSnapshotParams({
     registrationEnabled,
     locationPathname,
     authMetaLoaded,
     authProviders,
-    usernameOrEmail,
-    password,
-    setUsernameOrEmail,
-    setPassword,
-    handleLogin,
-    registerUsername,
-    setRegisterUsername,
-    registerEmail,
-    setRegisterEmail,
-    registerPassword,
-    setRegisterPassword,
-    registerDisplayName,
-    setRegisterDisplayName,
-    handleRegister,
+    onLogin: handleLogin,
+    onRegister: handleRegister,
     registerProfilePropertyCatalog,
-    registerProfileProperties,
-    setRegisterProfileProperties,
-    getRegisterLinkItems,
     emailVerificationToken,
     invitationToken,
     invitationAcceptanceMessage,
@@ -252,8 +212,8 @@ export function App() {
     accessToken: accessToken ?? "",
     navigateTo,
   });
-  const authenticatedOutletContext = useAppRouteRenderSnapshot(routeRenderSnapshotParams);
-  const { branding: presenterBranding, shell: presenterShell } = useAppRootPresenterProps({
+  const authenticatedOutletContext = buildAppRouteRenderSnapshot(routeRenderSnapshotParams);
+  const { branding: presenterBranding, shell: presenterShell } = buildAppRootPresenterProps({
     appName,
     appIconNode,
     currentUsername,

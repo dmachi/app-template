@@ -1,8 +1,8 @@
 import { useMemo, useState } from "react";
 
 import { ConfirmationDialog } from "./confirmation-dialog";
-import { Badge } from "../ui/badge";
-import { Button } from "../ui/button";
+import { Badge } from "./ui/badge";
+import { Button } from "./ui/button";
 
 type RoleAssignmentFieldProps = {
   selectedRoles: string[];

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-import { InviteUsersDialog } from "../../../components/shared/invite-users-dialog";
+import { InviteUsersDialog } from "../../../components/invite-users-dialog";
 import { Button } from "../../../components/ui/button";
 import { useAppRouteRenderContext } from "../../../app/app-route-render-context";
 import { SettingsLayout } from "../../../layouts/settings-layout/";

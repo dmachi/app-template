@@ -3,11 +3,13 @@ import { useNavigate } from "@tanstack/react-router";
 
 import { createAuthPathWithInvite } from "./use-app-invitations";
 
+type NavigateByPath = (options: { to: string; replace?: boolean }) => void | Promise<void>;
+
 export function useAppNavigation() {
-  const routerNavigate = useNavigate();
+  const routerNavigate = useNavigate() as unknown as NavigateByPath;
 
   const navigateTo = useCallback((to: string, replace = false) => {
-    void (routerNavigate as any)({ to, replace });
+    void routerNavigate({ to, replace });
   }, [routerNavigate]);
 
   const navigateHome = useCallback(() => {

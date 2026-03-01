@@ -2,6 +2,7 @@ import { createRoute } from "@tanstack/react-router";
 import { Suspense, lazy, type ComponentType, type LazyExoticComponent } from "react";
 
 import { useAppRouteRenderContext } from "../../app/app-route-render-context";
+import { APP_SHELL_LAYOUT } from "./layout-config";
 
 type RoutePageLayoutProps = {
   routeContext: ReturnType<typeof useAppRouteRenderContext>;
@@ -10,7 +11,25 @@ type RoutePageLayoutProps = {
 
 type CreateLayoutRouteLayout = string | "none";
 
-const layoutModuleLoaders = import.meta.glob<{ default: ComponentType<any> }>("../../layouts/*/index.tsx");
+const layoutModuleLoaders = import.meta.glob<Record<string, unknown>>([
+  "../../layouts/*/index.tsx",
+  "!../../layouts/app-layout/index.tsx",
+]);
+
+function resolveLayoutModuleComponent(
+  layoutName: string,
+  module: Record<string, unknown>,
+): ComponentType<RoutePageLayoutProps> {
+  const defaultExport = module.default;
+  const namedExport = Object.values(module).find((value) => typeof value === "function");
+  const component = (defaultExport ?? namedExport) as ComponentType<RoutePageLayoutProps> | undefined;
+
+  if (!component) {
+    throw new Error(`Route layout '${layoutName}' module did not export a React component`);
+  }
+
+  return component;
+}
 
 const layoutComponents = Object.fromEntries(
   Object.entries(layoutModuleLoaders).flatMap(([modulePath, loader]) => {
@@ -18,7 +37,8 @@ const layoutComponents = Object.fromEntries(
     if (!match) {
       return [];
     }
-    return [[match[1], lazy(loader)]];
+    const layoutName = match[1];
+    return [[layoutName, lazy(async () => ({ default: resolveLayoutModuleComponent(layoutName, await loader()) }))]];
   }),
 ) as Record<string, ComponentType<RoutePageLayoutProps>>;
 
@@ -40,11 +60,17 @@ export function createLayoutRoute(options: CreateLayoutRouteOptions) {
     });
   }
 
+  const layoutName = options.layout;
+
+  if (layoutName === APP_SHELL_LAYOUT) {
+    throw new Error(`Route layout '${APP_SHELL_LAYOUT}' is reserved for the app shell presenter and cannot be used in createLayoutRoute`);
+  }
+
   const WrappedComponent = () => {
-    const LayoutComponent = layoutComponents[options.layout];
+    const LayoutComponent = layoutComponents[layoutName];
 
     if (!LayoutComponent) {
-      throw new Error(`Route layout '${options.layout}' not found under src/layouts/<name>/index.tsx`);
+      throw new Error(`Route layout '${layoutName}' not found under src/layouts/<name>/index.tsx`);
     }
 
     const routeContext = useAppRouteRenderContext();

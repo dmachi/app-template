@@ -1,34 +1,22 @@
-import type { Dispatch, FormEvent, SetStateAction } from "react";
-
 import type { AppRouteRenderContextValue } from "../app-route-render-context";
 import type { ThemeOption } from "../theme-provider";
-import type { AuthProviderMeta, ProfilePropertyCatalogItem, ProfilePropertyLinkItem } from "../../lib/api";
+import type { AuthProviderMeta, ProfilePropertyCatalogItem } from "../../lib/api";
+import type { AdminCapabilities } from "./types";
 
 export type AppRouteRenderSnapshotParams = {
-  appName: string;
-  appIconNode: React.ReactNode;
   registrationEnabled: boolean;
   locationPathname: string;
   authMetaLoaded: boolean;
   authProviders: AuthProviderMeta[];
-  usernameOrEmail: string;
-  password: string;
-  setUsernameOrEmail: Dispatch<SetStateAction<string>>;
-  setPassword: Dispatch<SetStateAction<string>>;
-  handleLogin: (event: FormEvent) => Promise<void>;
-  registerUsername: string;
-  setRegisterUsername: Dispatch<SetStateAction<string>>;
-  registerEmail: string;
-  setRegisterEmail: Dispatch<SetStateAction<string>>;
-  registerPassword: string;
-  setRegisterPassword: Dispatch<SetStateAction<string>>;
-  registerDisplayName: string;
-  setRegisterDisplayName: Dispatch<SetStateAction<string>>;
-  handleRegister: (event: FormEvent) => Promise<void>;
+  onLogin: (credentials: { usernameOrEmail: string; password: string }) => Promise<void>;
+  onRegister: (payload: {
+    username: string;
+    email: string;
+    password: string;
+    displayName: string;
+    profileProperties: Record<string, unknown>;
+  }) => Promise<void>;
   registerProfilePropertyCatalog: ProfilePropertyCatalogItem[];
-  registerProfileProperties: Record<string, unknown>;
-  setRegisterProfileProperties: Dispatch<SetStateAction<Record<string, unknown>>>;
-  getRegisterLinkItems: (key: string) => ProfilePropertyLinkItem[];
   emailVerificationToken: string | null;
   invitationToken: string | null;
   invitationAcceptanceMessage: string | null;
@@ -40,7 +28,7 @@ export type AppRouteRenderSnapshotParams = {
   onNavigateToAuthWithInvite: (view: "login" | "register") => void;
   onProviderStart: (providerId: string) => Promise<void>;
   canAccessAdmin: boolean | null;
-  adminCapabilities: { users: boolean; groups: boolean; invitations: boolean; roles: boolean };
+  adminCapabilities: AdminCapabilities;
   selectedExtensionId: string | null;
   selectedGroupId: string | null;
   selectedAdminUserId: string | null;
@@ -51,34 +39,16 @@ export type AppRouteRenderSnapshotParams = {
   navigateTo: (to: string, replace?: boolean) => void;
 };
 
-export function useAppRouteRenderSnapshot(params: AppRouteRenderSnapshotParams): AppRouteRenderContextValue {
+export function buildAppRouteRenderSnapshot(params: AppRouteRenderSnapshotParams): AppRouteRenderContextValue {
   return {
     isAuthenticated: true,
     publicAuthProps: {
-      appName: params.appName,
-      appIconNode: params.appIconNode,
       registrationEnabled: params.registrationEnabled,
-      locationPathname: params.locationPathname,
       authMetaLoaded: params.authMetaLoaded,
       authProviders: params.authProviders,
-      usernameOrEmail: params.usernameOrEmail,
-      password: params.password,
-      setUsernameOrEmail: params.setUsernameOrEmail,
-      setPassword: params.setPassword,
-      handleLogin: params.handleLogin,
-      registerUsername: params.registerUsername,
-      setRegisterUsername: params.setRegisterUsername,
-      registerEmail: params.registerEmail,
-      setRegisterEmail: params.setRegisterEmail,
-      registerPassword: params.registerPassword,
-      setRegisterPassword: params.setRegisterPassword,
-      registerDisplayName: params.registerDisplayName,
-      setRegisterDisplayName: params.setRegisterDisplayName,
-      handleRegister: params.handleRegister,
+      onLogin: params.onLogin,
+      onRegister: params.onRegister,
       registerProfilePropertyCatalog: params.registerProfilePropertyCatalog,
-      registerProfileProperties: params.registerProfileProperties,
-      setRegisterProfileProperties: params.setRegisterProfileProperties,
-      getRegisterLinkItems: params.getRegisterLinkItems,
       emailVerificationToken: params.emailVerificationToken,
       invitationToken: params.invitationToken,
       invitationAcceptanceMessage: params.invitationAcceptanceMessage,

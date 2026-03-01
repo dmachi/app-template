@@ -1,5 +1,5 @@
 import { InviteUsersDialog } from "./invite-users-dialog";
-import { Button } from "../ui/button";
+import { Button } from "./ui/button";
 
 type AdminUserActionsProps = {
   accessToken: string;

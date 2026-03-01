@@ -1,4 +1,5 @@
 import { Suspense, lazy, type ReactNode } from "react";
+import type { AdminCapabilities } from "../app/hooks/types";
 
 const SampleSettingsPage = lazy(async () => {
   const module = await import("./sample-settings-page");
@@ -7,7 +8,7 @@ const SampleSettingsPage = lazy(async () => {
 
 export type SettingsExtensionContext = {
   canAccessAdmin: boolean;
-  adminCapabilities: { users: boolean; groups: boolean; invitations: boolean; roles: boolean };
+  adminCapabilities: AdminCapabilities;
 };
 
 export type SettingsExtensionItem = {

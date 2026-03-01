@@ -23,7 +23,7 @@ type UseAppRootPresenterPropsParams = {
   onRemoveClientToast: (toastId: string) => void;
 };
 
-export function useAppRootPresenterProps(params: UseAppRootPresenterPropsParams): {
+export function buildAppRootPresenterProps(params: UseAppRootPresenterPropsParams): {
   branding: AppRootPresenterBranding;
   shell: AppRootPresenterShell;
 } {

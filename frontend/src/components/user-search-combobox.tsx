@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 
-import { searchUsers } from "../../lib/api";
-import { Button } from "../ui/button";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "../ui/command";
-import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
+import { searchUsers } from "../lib/api";
+import { Button } from "./ui/button";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "./ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 
 type UserSearchItem = {
   id: string;

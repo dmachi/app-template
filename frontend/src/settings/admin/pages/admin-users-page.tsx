@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { ChevronRight } from "lucide-react";
 
-import { AdminUserActions } from "../../../components/shared/admin-user-actions";
-import { RoleBadges } from "../../../components/shared/role-badges";
+import { AdminUserActions } from "../../../components/admin-user-actions";
+import { RoleBadges } from "../../../components/role-badges";
 import { Input } from "../../../components/ui/input";
 import { useAppRouteRenderContext } from "../../../app/app-route-render-context";
 import { SettingsLayout } from "../../../layouts/settings-layout/";

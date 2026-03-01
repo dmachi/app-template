@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Pencil, RotateCcw } from "lucide-react";
 
-import { ConfirmationDialog } from "../../../components/shared/confirmation-dialog";
-import { RoleAssignmentField } from "../../../components/shared/role-assignment-field";
+import { ConfirmationDialog } from "../../../components/confirmation-dialog";
+import { RoleAssignmentField } from "../../../components/role-assignment-field";
 import { Badge } from "../../../components/ui/badge";
 import { Button } from "../../../components/ui/button";
 import { Input } from "../../../components/ui/input";

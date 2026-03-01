@@ -1,4 +1,5 @@
-import { Button } from "../../components/ui/button";
+import { Button } from "../../../components/ui/button";
+import type { AdminCapabilities } from "../../../app/hooks/types";
 
 type SidebarExtensionItem = {
   id: string;
@@ -8,7 +9,7 @@ type SidebarExtensionItem = {
 type SettingsSidebarProps = {
   locationPathname: string;
   canAccessAdmin: boolean;
-  adminCapabilities: { users: boolean; groups: boolean; invitations: boolean; roles: boolean };
+  adminCapabilities: AdminCapabilities;
   selectedExtensionId: string | null;
   settingsExtensionItems: SidebarExtensionItem[];
   adminExtensionItems: SidebarExtensionItem[];

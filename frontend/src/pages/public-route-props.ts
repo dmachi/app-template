@@ -1,32 +1,18 @@
-import type { Dispatch, FormEvent, ReactNode, SetStateAction } from "react";
-
-import type { AuthProviderMeta, ProfilePropertyCatalogItem, ProfilePropertyLinkItem } from "../lib/api";
+import type { AuthProviderMeta, ProfilePropertyCatalogItem } from "../lib/api";
 
 export type PublicRouteProps = {
-  appName: string;
-  appIconNode: ReactNode;
   registrationEnabled: boolean;
-  locationPathname: string;
   authMetaLoaded: boolean;
   authProviders: AuthProviderMeta[];
-  usernameOrEmail: string;
-  password: string;
-  setUsernameOrEmail: Dispatch<SetStateAction<string>>;
-  setPassword: Dispatch<SetStateAction<string>>;
-  handleLogin: (event: FormEvent) => Promise<void>;
-  registerUsername: string;
-  setRegisterUsername: Dispatch<SetStateAction<string>>;
-  registerEmail: string;
-  setRegisterEmail: Dispatch<SetStateAction<string>>;
-  registerPassword: string;
-  setRegisterPassword: Dispatch<SetStateAction<string>>;
-  registerDisplayName: string;
-  setRegisterDisplayName: Dispatch<SetStateAction<string>>;
-  handleRegister: (event: FormEvent) => Promise<void>;
+  onLogin: (credentials: { usernameOrEmail: string; password: string }) => Promise<void>;
+  onRegister: (payload: {
+    username: string;
+    email: string;
+    password: string;
+    displayName: string;
+    profileProperties: Record<string, unknown>;
+  }) => Promise<void>;
   registerProfilePropertyCatalog: ProfilePropertyCatalogItem[];
-  registerProfileProperties: Record<string, unknown>;
-  setRegisterProfileProperties: Dispatch<SetStateAction<Record<string, unknown>>>;
-  getRegisterLinkItems: (key: string) => ProfilePropertyLinkItem[];
   emailVerificationToken: string | null;
   invitationToken: string | null;
   invitationAcceptanceMessage: string | null;

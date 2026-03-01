@@ -1,10 +1,44 @@
+import { FormEvent, useMemo, useState } from "react";
+
+import type { ProfilePropertyLinkItem } from "../lib/api";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { useAppRouteRenderContext } from "../app/app-route-render-context";
 
+function getProfilePropertyLinkItems(profileProperties: Record<string, unknown>, key: string): ProfilePropertyLinkItem[] {
+  const value = profileProperties[key];
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value
+    .filter((item): item is ProfilePropertyLinkItem => Boolean(item) && typeof item === "object" && "label" in item && "url" in item)
+    .map((item) => ({ label: String(item.label ?? ""), url: String(item.url ?? "") }));
+}
+
 export default function RegisterPage() {
   const routeContext = useAppRouteRenderContext();
   const props = routeContext.publicAuthProps;
+  const [registerUsername, setRegisterUsername] = useState("");
+  const [registerEmail, setRegisterEmail] = useState("");
+  const [registerPassword, setRegisterPassword] = useState("");
+  const [registerDisplayName, setRegisterDisplayName] = useState("");
+  const [registerProfileProperties, setRegisterProfileProperties] = useState<Record<string, unknown>>({});
+  const requiredProperties = useMemo(
+    () => props.registerProfilePropertyCatalog.filter((property) => property.required),
+    [props.registerProfilePropertyCatalog],
+  );
+
+  const onSubmit = async (event: FormEvent) => {
+    event.preventDefault();
+    await props.onRegister({
+      username: registerUsername,
+      email: registerEmail,
+      password: registerPassword,
+      displayName: registerDisplayName,
+      profileProperties: registerProfileProperties,
+    });
+    setRegisterPassword("");
+  };
 
   if (!props.registrationEnabled) {
     return <p className="text-sm">Registration is disabled.</p>;
@@ -16,29 +50,29 @@ export default function RegisterPage() {
 
       {!props.authMetaLoaded ? <p className="text-sm">Loading auth options...</p> : null}
 
-      <form onSubmit={props.handleRegister} className="grid gap-3 rounded-md border border-slate-200 p-4 dark:border-slate-800">
+      <form onSubmit={onSubmit} className="grid gap-3 rounded-md border border-slate-200 p-4 dark:border-slate-800">
         <label className="grid gap-1">
           <span className="text-sm">Username</span>
-          <Input value={props.registerUsername} onChange={(event) => props.setRegisterUsername(event.target.value)} required />
+          <Input value={registerUsername} onChange={(event) => setRegisterUsername(event.target.value)} required />
         </label>
         <label className="grid gap-1">
           <span className="text-sm">Email</span>
-          <Input type="email" value={props.registerEmail} onChange={(event) => props.setRegisterEmail(event.target.value)} required />
+          <Input type="email" value={registerEmail} onChange={(event) => setRegisterEmail(event.target.value)} required />
         </label>
         <label className="grid gap-1">
           <span className="text-sm">Password</span>
-          <Input type="password" value={props.registerPassword} onChange={(event) => props.setRegisterPassword(event.target.value)} required />
+          <Input type="password" value={registerPassword} onChange={(event) => setRegisterPassword(event.target.value)} required />
         </label>
         <label className="grid gap-1">
           <span className="text-sm">Display Name (optional)</span>
-          <Input value={props.registerDisplayName} onChange={(event) => props.setRegisterDisplayName(event.target.value)} />
+          <Input value={registerDisplayName} onChange={(event) => setRegisterDisplayName(event.target.value)} />
         </label>
-        {props.registerProfilePropertyCatalog.filter((property) => property.required).map((property) => {
-          const raw = props.registerProfileProperties[property.key];
+        {requiredProperties.map((property) => {
+          const raw = registerProfileProperties[property.key];
           const value = typeof raw === "string" ? raw : "";
 
           if (property.valueType === "links") {
-            const links = props.getRegisterLinkItems(property.key);
+            const links = getProfilePropertyLinkItems(registerProfileProperties, property.key);
             const maxItems = property.maxItems ?? 10;
             return (
               <label key={property.key} className="grid gap-1">
@@ -52,7 +86,7 @@ export default function RegisterPage() {
                       onChange={(event) => {
                         const next = [...links];
                         next[index] = { ...next[index], label: event.target.value };
-                        props.setRegisterProfileProperties((current) => ({ ...current, [property.key]: next }));
+                        setRegisterProfileProperties((current) => ({ ...current, [property.key]: next }));
                       }}
                     />
                     <Input
@@ -62,7 +96,7 @@ export default function RegisterPage() {
                       onChange={(event) => {
                         const next = [...links];
                         next[index] = { ...next[index], url: event.target.value };
-                        props.setRegisterProfileProperties((current) => ({ ...current, [property.key]: next }));
+                        setRegisterProfileProperties((current) => ({ ...current, [property.key]: next }));
                       }}
                     />
                     <Button
@@ -70,7 +104,7 @@ export default function RegisterPage() {
                       className="bg-transparent"
                       onClick={() => {
                         const next = links.filter((_, itemIndex) => itemIndex !== index);
-                        props.setRegisterProfileProperties((current) => ({ ...current, [property.key]: next }));
+                        setRegisterProfileProperties((current) => ({ ...current, [property.key]: next }));
                       }}
                     >
                       Remove
@@ -83,7 +117,7 @@ export default function RegisterPage() {
                     className="bg-transparent"
                     onClick={() => {
                       const next = [...links, { label: "", url: "" }];
-                      props.setRegisterProfileProperties((current) => ({ ...current, [property.key]: next }));
+                      setRegisterProfileProperties((current) => ({ ...current, [property.key]: next }));
                     }}
                   >
                     Add Link
@@ -103,7 +137,7 @@ export default function RegisterPage() {
                     type="checkbox"
                     checked={checked}
                     onChange={(event) =>
-                      props.setRegisterProfileProperties((current) => ({
+                      setRegisterProfileProperties((current) => ({
                         ...current,
                         [property.key]: event.target.checked,
                       }))
@@ -123,7 +157,7 @@ export default function RegisterPage() {
                 value={value}
                 placeholder={property.placeholder}
                 onChange={(event) =>
-                  props.setRegisterProfileProperties((current) => ({
+                  setRegisterProfileProperties((current) => ({
                     ...current,
                     [property.key]: event.target.value,
                   }))

@@ -1,7 +1,7 @@
 import { FormEvent, useState } from "react";
 
-import { FormField } from "../form-field";
-import { Button } from "../ui/button";
+import { FormField } from "./form-field";
+import { Button } from "./ui/button";
 import {
   Dialog,
   DialogClose,
@@ -10,8 +10,8 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "../ui/dialog";
-import { Input } from "../ui/input";
+} from "./ui/dialog";
+import { Input } from "./ui/input";
 
 type CreateGroupDialogProps = {
   triggerLabel?: string;

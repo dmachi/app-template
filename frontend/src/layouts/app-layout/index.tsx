@@ -1,9 +1,8 @@
 import { Outlet, Link } from "@tanstack/react-router";
 
-import { AuthMenu } from "../../components/shared/auth-menu";
-import { InviteUsersDialog } from "../../components/shared/invite-users-dialog";
-import { Button } from "../../components/ui/button";
-import { Toast, ToastClose, ToastDescription, ToastProvider, ToastTitle, ToastViewport } from "../../components/ui/toast";
+import { AppNotificationToasts } from "../../components/app-notification-toasts";
+import { AuthMenu } from "../../components/auth-menu";
+import { InviteUsersDialog } from "../../components/invite-users-dialog";
 import { useAppRouteRenderContext } from "../../app/app-route-render-context";
 import type { LayoutBranding, LayoutShell } from "../../lib/layouts/types";
 
@@ -12,19 +11,6 @@ type AppLayoutProps = {
   branding: LayoutBranding;
   shell: LayoutShell;
 };
-
-function getToastClassName(severity: "info" | "success" | "warning" | "error"): string {
-  if (severity === "error") {
-    return "border-red-300 bg-red-50 text-red-900 dark:border-red-700 dark:bg-red-950 dark:text-red-200";
-  }
-  if (severity === "warning") {
-    return "border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200";
-  }
-  if (severity === "success") {
-    return "border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-700 dark:bg-emerald-950 dark:text-emerald-200";
-  }
-  return "border-sky-300 bg-sky-50 text-sky-900 dark:border-sky-700 dark:bg-sky-950 dark:text-sky-200";
-}
 
 export function AppLayout(props: AppLayoutProps) {
   const routeContext = useAppRouteRenderContext();
@@ -51,59 +37,16 @@ export function AppLayout(props: AppLayoutProps) {
         </div>
       </header>
 
-      <ToastProvider>
-        {props.shell.realtimePopups.map((popup) => (
-          <Toast
-            key={popup.id}
-            open={popup.open}
-            duration={props.shell.isActionRequiredToast(popup) ? 86_400_000 : 5000}
-            onOpenChange={(open) => {
-              if (!open) {
-                props.shell.onRemoveToast(popup.id);
-              }
-            }}
-            className={getToastClassName(popup.severity)}
-          >
-            <div className="grid gap-1">
-              <ToastTitle>Notification</ToastTitle>
-              <ToastDescription>{popup.message}</ToastDescription>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {popup.requiresAcknowledgement && popup.clearanceMode === "ack" ? (
-                  <Button type="button" onClick={() => props.shell.onToastAcknowledge(popup.id)}>
-                    Acknowledge
-                  </Button>
-                ) : null}
-                {popup.clearanceMode === "task_gate" ? (
-                  <Button type="button" onClick={() => props.shell.onToastOpenTask(popup)}>
-                    Open Task
-                  </Button>
-                ) : null}
-              </div>
-            </div>
-            <ToastClose aria-label="Close" onClick={() => props.shell.onToastManualClose(popup.id)} />
-          </Toast>
-        ))}
-        {props.shell.clientPopups.map((popup) => (
-          <Toast
-            key={popup.id}
-            open={popup.open}
-            duration={4000}
-            onOpenChange={(open) => {
-              if (!open) {
-                props.shell.onRemoveClientToast(popup.id);
-              }
-            }}
-            className={getToastClassName(popup.severity)}
-          >
-            <div className="grid gap-1">
-              <ToastTitle>{popup.title}</ToastTitle>
-              <ToastDescription>{popup.message}</ToastDescription>
-            </div>
-            <ToastClose aria-label="Close" onClick={() => props.shell.onRemoveClientToast(popup.id)} />
-          </Toast>
-        ))}
-        <ToastViewport />
-      </ToastProvider>
+      <AppNotificationToasts
+        realtimePopups={props.shell.realtimePopups}
+        clientPopups={props.shell.clientPopups}
+        isActionRequiredToast={props.shell.isActionRequiredToast}
+        onRemoveToast={props.shell.onRemoveToast}
+        onToastManualClose={props.shell.onToastManualClose}
+        onToastAcknowledge={props.shell.onToastAcknowledge}
+        onToastOpenTask={props.shell.onToastOpenTask}
+        onRemoveClientToast={props.shell.onRemoveClientToast}
+      />
 
       {isAuthenticated && props.shell.showInviteUsers && props.accessToken ? (
         <InviteUsersDialog

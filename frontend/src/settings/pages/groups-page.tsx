@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ChevronRight } from "lucide-react";
 
 import { useAppRouteRenderContext } from "../../app/app-route-render-context";
-import { CreateGroupDialog } from "../../components/shared/create-group-dialog";
+import { CreateGroupDialog } from "../../components/create-group-dialog";
 import { SettingsLayout } from "../../layouts/settings-layout/";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";

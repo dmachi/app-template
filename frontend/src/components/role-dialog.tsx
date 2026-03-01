@@ -1,9 +1,9 @@
 import { FormEvent, useEffect, useState } from "react";
 
-import { FormField } from "../form-field";
-import { Button } from "../ui/button";
-import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "../ui/dialog";
-import { Input } from "../ui/input";
+import { FormField } from "./form-field";
+import { Button } from "./ui/button";
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog";
+import { Input } from "./ui/input";
 
 type RoleDialogProps = {
   triggerLabel: string;

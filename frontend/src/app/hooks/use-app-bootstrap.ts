@@ -9,6 +9,7 @@ import {
   type AuthProviderMeta,
   type ProfilePropertyCatalogItem,
 } from "../../lib/api";
+import type { AdminCapabilities } from "./types";
 
 type ClientPopupToast = {
   id: string;
@@ -43,7 +44,7 @@ type UseProfileAndAdminBootstrapParams = {
   setTheme: Dispatch<SetStateAction<ThemeOption>>;
   setCanAccessAdmin: Dispatch<SetStateAction<boolean | null>>;
   setAdminAccessChecked: Dispatch<SetStateAction<boolean>>;
-  setAdminCapabilities: Dispatch<SetStateAction<{ users: boolean; groups: boolean; invitations: boolean; roles: boolean }>>;
+  setAdminCapabilities: Dispatch<SetStateAction<AdminCapabilities>>;
 };
 
 function resolveThemePreference(preference: unknown): ThemeOption {

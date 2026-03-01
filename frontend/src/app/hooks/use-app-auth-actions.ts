@@ -1,15 +1,9 @@
-import { Dispatch, FormEvent, SetStateAction, useCallback } from "react";
+import { Dispatch, SetStateAction, useCallback } from "react";
 
 import { login, logout, register, startRedirectProvider } from "../../lib/api";
+import type { AdminCapabilities } from "./types";
 
 type UseAppAuthActionsParams = {
-  usernameOrEmail: string;
-  password: string;
-  registerUsername: string;
-  registerEmail: string;
-  registerPassword: string;
-  registerDisplayName: string;
-  registerProfileProperties: Record<string, unknown>;
   refreshTokenStorageKey: string;
   inviteTokenStorageKey: string;
   refreshToken: string | null;
@@ -17,30 +11,33 @@ type UseAppAuthActionsParams = {
   setError: Dispatch<SetStateAction<string | null>>;
   setAccessToken: Dispatch<SetStateAction<string | null>>;
   setRefreshToken: Dispatch<SetStateAction<string | null>>;
-  setPassword: Dispatch<SetStateAction<string>>;
-  setUsernameOrEmail: Dispatch<SetStateAction<string>>;
-  setRegisterPassword: Dispatch<SetStateAction<string>>;
   setCurrentUsername: Dispatch<SetStateAction<string>>;
   setTheme: Dispatch<SetStateAction<"light" | "dark" | "system">>;
   setPendingInvitationToken: Dispatch<SetStateAction<string | null>>;
   setAcceptingInvitation: Dispatch<SetStateAction<boolean>>;
   setInvitationAcceptanceMessage: Dispatch<SetStateAction<string | null>>;
-  setAdminCapabilities: Dispatch<SetStateAction<{ users: boolean; groups: boolean; invitations: boolean; roles: boolean }>>;
+  setAdminCapabilities: Dispatch<SetStateAction<AdminCapabilities>>;
   setInviteDialogOpen: Dispatch<SetStateAction<boolean>>;
   navigateHome: () => void;
   navigateLogin: () => void;
   navigateTo: (to: string, replace?: boolean) => void;
 };
 
+type LoginCredentials = {
+  usernameOrEmail: string;
+  password: string;
+};
+
+type RegisterPayload = {
+  username: string;
+  email: string;
+  password: string;
+  displayName: string;
+  profileProperties: Record<string, unknown>;
+};
+
 export function useAppAuthActions(params: UseAppAuthActionsParams) {
   const {
-    usernameOrEmail,
-    password,
-    registerUsername,
-    registerEmail,
-    registerPassword,
-    registerDisplayName,
-    registerProfileProperties,
     refreshTokenStorageKey,
     inviteTokenStorageKey,
     refreshToken,
@@ -48,9 +45,6 @@ export function useAppAuthActions(params: UseAppAuthActionsParams) {
     setError,
     setAccessToken,
     setRefreshToken,
-    setPassword,
-    setUsernameOrEmail,
-    setRegisterPassword,
     setCurrentUsername,
     setTheme,
     setPendingInvitationToken,
@@ -63,32 +57,28 @@ export function useAppAuthActions(params: UseAppAuthActionsParams) {
     navigateTo,
   } = params;
 
-  const handleLogin = useCallback(async (event: FormEvent) => {
-    event.preventDefault();
+  const handleLogin = useCallback(async (credentials: LoginCredentials) => {
     setError(null);
     try {
-      const tokens = await login(usernameOrEmail, password);
+      const tokens = await login(credentials.usernameOrEmail, credentials.password);
       setAccessToken(tokens.accessToken);
       setRefreshToken(tokens.refreshToken);
       window.localStorage.setItem(refreshTokenStorageKey, tokens.refreshToken);
-      setPassword("");
     } catch (loginError) {
       setError(loginError instanceof Error ? loginError.message : "Unable to login");
     }
-  }, [password, refreshTokenStorageKey, setAccessToken, setError, setPassword, setRefreshToken, usernameOrEmail]);
+  }, [refreshTokenStorageKey, setAccessToken, setError, setRefreshToken]);
 
-  const handleRegister = useCallback(async (event: FormEvent) => {
-    event.preventDefault();
+  const handleRegister = useCallback(async (payload: RegisterPayload) => {
     setError(null);
     try {
       const response = await register(
-        registerUsername,
-        registerEmail,
-        registerPassword,
-        registerDisplayName || undefined,
-        registerProfileProperties,
+        payload.username,
+        payload.email,
+        payload.password,
+        payload.displayName || undefined,
+        payload.profileProperties,
       );
-      setRegisterPassword("");
 
       if (response.accessToken && response.refreshToken) {
         setAccessToken(response.accessToken);
@@ -100,8 +90,6 @@ export function useAppAuthActions(params: UseAppAuthActionsParams) {
       }
 
       navigateLogin();
-      setUsernameOrEmail(registerUsername || registerEmail);
-      setPassword("");
       setError("Registration successful. Check your email for a verification link before logging in.");
     } catch (registerError) {
       setError(registerError instanceof Error ? registerError.message : "Unable to register");
@@ -110,17 +98,9 @@ export function useAppAuthActions(params: UseAppAuthActionsParams) {
     navigateHome,
     navigateLogin,
     refreshTokenStorageKey,
-    registerDisplayName,
-    registerEmail,
-    registerPassword,
-    registerProfileProperties,
-    registerUsername,
     setAccessToken,
     setError,
-    setPassword,
     setRefreshToken,
-    setRegisterPassword,
-    setUsernameOrEmail,
   ]);
 
   const handleProviderStart = useCallback(async (providerId: string) => {
@@ -152,7 +132,6 @@ export function useAppAuthActions(params: UseAppAuthActionsParams) {
       setRefreshToken(null);
       setCurrentUsername("User");
       setTheme("system");
-      setPassword("");
       setPendingInvitationToken(null);
       setAcceptingInvitation(false);
       setInvitationAcceptanceMessage(null);
@@ -172,7 +151,6 @@ export function useAppAuthActions(params: UseAppAuthActionsParams) {
     setCurrentUsername,
     setInvitationAcceptanceMessage,
     setInviteDialogOpen,
-    setPassword,
     setPendingInvitationToken,
     setRefreshToken,
     setTheme,
