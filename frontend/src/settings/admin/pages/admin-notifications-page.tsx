@@ -4,6 +4,8 @@ import { UserSearchCombobox } from "../../../components/shared/user-search-combo
 import { Button } from "../../../components/ui/button";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "../../../components/ui/dialog";
 import { Input } from "../../../components/ui/input";
+import { useAppRouteRenderContext } from "../../../app/app-route-render-context";
+import { SettingsLayout } from "../../../layouts/settings-layout/";
 import { showClientToast } from "../../../lib/client-toast";
 import {
   adminCancelNotification,
@@ -247,4 +249,12 @@ export function AdminNotificationsPage({ accessToken }: AdminNotificationsPagePr
       ) : null}
     </section>
   );
+}
+
+export default function AdminNotificationsRoutePage() {
+  const routeContext = useAppRouteRenderContext();
+  if (!routeContext.isAuthenticated) {
+    return null;
+  }
+  return <SettingsLayout {...routeContext.settingsProps} />;
 }

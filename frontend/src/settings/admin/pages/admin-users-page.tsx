@@ -4,6 +4,8 @@ import { ChevronRight } from "lucide-react";
 import { AdminUserActions } from "../../../components/shared/admin-user-actions";
 import { RoleBadges } from "../../../components/shared/role-badges";
 import { Input } from "../../../components/ui/input";
+import { useAppRouteRenderContext } from "../../../app/app-route-render-context";
+import { SettingsLayout } from "../../../layouts/settings-layout/";
 import { showClientToast } from "../../../lib/client-toast";
 import { adminListOutstandingInvitations, adminListUsers, type AdminUserListItem } from "../../../lib/api";
 
@@ -122,4 +124,12 @@ export function AdminUsersPage({ accessToken, onOpenUser, onOpenInvitations }: A
       </div>
     </section>
   );
+}
+
+export default function AdminUsersRoutePage() {
+  const routeContext = useAppRouteRenderContext();
+  if (!routeContext.isAuthenticated) {
+    return null;
+  }
+  return <SettingsLayout {...routeContext.settingsProps} />;
 }

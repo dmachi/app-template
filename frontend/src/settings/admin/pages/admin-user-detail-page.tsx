@@ -6,6 +6,8 @@ import { RoleAssignmentField } from "../../../components/shared/role-assignment-
 import { Badge } from "../../../components/ui/badge";
 import { Button } from "../../../components/ui/button";
 import { Input } from "../../../components/ui/input";
+import { useAppRouteRenderContext } from "../../../app/app-route-render-context";
+import { SettingsLayout } from "../../../layouts/settings-layout/";
 import { showClientToast } from "../../../lib/client-toast";
 import {
   adminGetUser,
@@ -522,4 +524,12 @@ export function AdminUserDetailPage({ accessToken, userId, onBack }: AdminUserDe
       {savingKey ? <p className="text-xs text-slate-500 dark:text-slate-400">Saving {savingKey}...</p> : null}
     </section>
   );
+}
+
+export default function AdminUserDetailRoutePage() {
+  const routeContext = useAppRouteRenderContext();
+  if (!routeContext.isAuthenticated) {
+    return null;
+  }
+  return <SettingsLayout {...routeContext.settingsProps} />;
 }

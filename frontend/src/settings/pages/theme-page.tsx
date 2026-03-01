@@ -1,5 +1,7 @@
 import { FormEvent, useState } from "react";
 
+import { useAppRouteRenderContext } from "../../app/app-route-render-context";
+import { SettingsLayout } from "../../layouts/settings-layout/";
 import { Button } from "../../components/ui/button";
 import { showClientToast } from "../../lib/client-toast";
 import { patchMyProfile } from "../../lib/api";
@@ -53,4 +55,12 @@ export function ThemePage({ accessToken, theme, onThemeChange }: ThemePageProps)
       </form>
     </section>
   );
+}
+
+export default function ThemeRoutePage() {
+  const routeContext = useAppRouteRenderContext();
+  if (!routeContext.isAuthenticated) {
+    return null;
+  }
+  return <SettingsLayout {...routeContext.settingsProps} />;
 }

@@ -1,8 +1,9 @@
-import { Suspense, lazy } from "react";
+import { Suspense, lazy, type ComponentType } from "react";
 
+import type { AppRouteRenderContextValue } from "../../app/app-route-render-context";
 import { getSettingsExtensions } from "../../extensions/settings-registry";
+import type { AuthProviderMeta } from "../../lib/api";
 import { SettingsSidebar } from "../../settings/components/settings-sidebar";
-import { AuthProviderMeta } from "../../lib/api";
 
 const AcceptInvitePage = lazy(async () => {
   const module = await import("../../pages/accept-invite-page");
@@ -57,7 +58,7 @@ const ThemePage = lazy(async () => {
   return { default: module.ThemePage };
 });
 
-export type AuthenticatedSettingsContentProps = {
+export type SettingsLayoutProps = {
   locationPathname: string;
   canAccessAdmin: boolean;
   adminCapabilities: { users: boolean; groups: boolean; invitations: boolean; roles: boolean };
@@ -78,7 +79,7 @@ export type AuthenticatedSettingsContentProps = {
   navigateTo: (to: string, replace?: boolean) => void;
 };
 
-export function AuthenticatedSettingsContent(props: AuthenticatedSettingsContentProps) {
+export function SettingsLayout(props: SettingsLayoutProps) {
   const lazyFallback = <p className="text-sm text-slate-500">Loading...</p>;
   const settingsExtensions = getSettingsExtensions({ canAccessAdmin: props.canAccessAdmin, adminCapabilities: props.adminCapabilities });
   const settingsExtensionItems = settingsExtensions.filter((item) => (item.section ?? "settings") === "settings");
@@ -215,4 +216,16 @@ export function AuthenticatedSettingsContent(props: AuthenticatedSettingsContent
       </div>
     </main>
   );
+}
+
+type SettingsPageRouteLayoutProps = {
+  routeContext: AppRouteRenderContextValue;
+  Component: ComponentType;
+};
+
+export default function SettingsLayoutRoute({ routeContext, Component }: SettingsPageRouteLayoutProps) {
+  if (!routeContext.isAuthenticated) {
+    return null;
+  }
+  return <Component />;
 }

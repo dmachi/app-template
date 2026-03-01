@@ -1,8 +1,16 @@
-import { Outlet, createRootRouteWithContext, createRoute, createRouter, lazyRouteComponent } from "@tanstack/react-router";
+import { createRootRouteWithContext, createRouter } from "@tanstack/react-router";
+import { lazy } from "react";
 
 import { App } from "./App";
 import { appRouteRenderStore, type AppRouterContext } from "./app/app-route-render-context";
+import { createLayoutRoute } from "./lib/layouts/create-layout-route";
 import { createSettingsRoutes } from "./settings/settings-routes";
+
+const HomePage = lazy(() => import("./pages/home-page"));
+const LoginPage = lazy(() => import("./pages/login-page"));
+const RegisterPage = lazy(() => import("./pages/register-page"));
+const PublicVerifyEmailPage = lazy(() => import("./pages/public-verify-email-page"));
+const PublicAcceptInvitePage = lazy(() => import("./pages/public-accept-invite-page"));
 
 function RootAppRoutePage() {
   return <App />;
@@ -12,40 +20,40 @@ const rootRoute = createRootRouteWithContext<AppRouterContext>()({
   component: RootAppRoutePage,
 });
 
-const indexRoute = createRoute({
+const indexRoute = createLayoutRoute({
   getParentRoute: () => rootRoute,
   path: "/",
-  component: lazyRouteComponent(() => import("./app/route-pages/public-auth-route-pages"), "HomeRoutePage"),
+  component: HomePage,
 });
 
-const loginRoute = createRoute({
+const loginRoute = createLayoutRoute({
   getParentRoute: () => rootRoute,
   path: "/login",
-  component: lazyRouteComponent(() => import("./app/route-pages/public-auth-route-pages"), "LoginRoutePage"),
+  component: LoginPage,
 });
 
-const registerRoute = createRoute({
+const registerRoute = createLayoutRoute({
   getParentRoute: () => rootRoute,
   path: "/register",
-  component: lazyRouteComponent(() => import("./app/route-pages/public-auth-route-pages"), "RegisterRoutePage"),
+  component: RegisterPage,
 });
 
-const verifyEmailRoute = createRoute({
+const verifyEmailRoute = createLayoutRoute({
   getParentRoute: () => rootRoute,
   path: "/verify-email",
-  component: lazyRouteComponent(() => import("./app/route-pages/invite-route-pages"), "VerifyEmailRoutePage"),
+  component: PublicVerifyEmailPage,
 });
 
-const acceptInviteRoute = createRoute({
+const acceptInviteRoute = createLayoutRoute({
   getParentRoute: () => rootRoute,
   path: "/accept-invite",
-  component: lazyRouteComponent(() => import("./app/route-pages/invite-route-pages"), "AcceptInviteRoutePage"),
+  component: PublicAcceptInvitePage,
 });
 
-const fallbackRoute = createRoute({
+const fallbackRoute = createLayoutRoute({
   getParentRoute: () => rootRoute,
   path: "/$",
-  component: lazyRouteComponent(() => import("./app/route-pages/public-auth-route-pages"), "HomeRoutePage"),
+  component: HomePage,
 });
 
 const settingsRoute = createSettingsRoutes(rootRoute);

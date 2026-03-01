@@ -113,11 +113,8 @@ export function App() {
   } = useAppRouteTokens();
 
   const {
-    homeNotifications,
     setHomeNotifications,
     refreshHomeNotifications,
-    onHomeAcknowledge,
-    onOpenTask,
   } = useAppHomeNotifications({
     accessToken,
     navigateTo,
@@ -244,11 +241,6 @@ export function App() {
     onNavigateRegister: navigateRegister,
     onNavigateToAuthWithInvite,
     onProviderStart: handleProviderStart,
-    currentUsername,
-    homeNotifications,
-    onHomeAcknowledge,
-    onOpenTask,
-    onGoToSettings: () => navigateTo("/settings/profile"),
     canAccessAdmin,
     adminCapabilities,
     selectedExtensionId,

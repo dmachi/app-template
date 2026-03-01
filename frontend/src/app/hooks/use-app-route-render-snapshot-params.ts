@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-import type { NotificationItem, ProfilePropertyCatalogItem, ProfilePropertyLinkItem } from "../../lib/api";
+import type { ProfilePropertyCatalogItem, ProfilePropertyLinkItem } from "../../lib/api";
 import type { ThemeOption } from "../theme-provider";
 import type { AppRouteRenderSnapshotParams } from "./use-app-route-render-snapshot";
 
@@ -39,11 +39,6 @@ type UseAppRouteRenderSnapshotParamsParams = {
   onNavigateRegister: () => void;
   onNavigateToAuthWithInvite: (view: "login" | "register") => void;
   onProviderStart: AppRouteRenderSnapshotParams["onProviderStart"];
-  currentUsername: string;
-  homeNotifications: NotificationItem[];
-  onHomeAcknowledge: (notificationId: string) => void;
-  onOpenTask: (notification: NotificationItem) => void;
-  onGoToSettings: () => void;
   canAccessAdmin: boolean | null;
   adminCapabilities: { users: boolean; groups: boolean; invitations: boolean; roles: boolean };
   selectedExtensionId: string | null;
@@ -92,11 +87,6 @@ export function useAppRouteRenderSnapshotParams(params: UseAppRouteRenderSnapsho
     onNavigateRegister: params.onNavigateRegister,
     onNavigateToAuthWithInvite: params.onNavigateToAuthWithInvite,
     onProviderStart: params.onProviderStart,
-    currentUsername: params.currentUsername,
-    homeNotifications: params.homeNotifications,
-    onHomeAcknowledge: params.onHomeAcknowledge,
-    onOpenTask: params.onOpenTask,
-    onGoToSettings: params.onGoToSettings,
     canAccessAdmin: params.canAccessAdmin,
     adminCapabilities: params.adminCapabilities,
     selectedExtensionId: params.selectedExtensionId,

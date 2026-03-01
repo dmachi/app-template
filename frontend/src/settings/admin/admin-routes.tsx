@@ -1,6 +1,14 @@
-import { Outlet, createRoute, lazyRouteComponent } from "@tanstack/react-router";
+import { Outlet, createRoute } from "@tanstack/react-router";
+import { lazy } from "react";
 
-const SettingsRoutePage = lazyRouteComponent(() => import("../../app/route-pages/settings-route-page"), "SettingsRoutePage");
+import { createLayoutRoute } from "../../lib/layouts/create-layout-route";
+
+const AdminIndexPage = lazy(() => import("./pages/admin-users-page"));
+const AdminUsersPage = lazy(() => import("./pages/admin-users-page"));
+const AdminUserDetailPage = lazy(() => import("./pages/admin-user-detail-page"));
+const AdminInvitationsPage = lazy(() => import("./pages/admin-invitations-page"));
+const AdminNotificationsPage = lazy(() => import("./pages/admin-notifications-page"));
+const AdminRolesPage = lazy(() => import("./pages/admin-roles-page"));
 
 export function createSettingsAdminRoutes(settingsRoute: any) {
   const settingsAdminRoute = createRoute({
@@ -9,40 +17,46 @@ export function createSettingsAdminRoutes(settingsRoute: any) {
     component: Outlet,
   });
 
-  const settingsAdminIndexRoute = createRoute({
+  const settingsAdminIndexRoute = createLayoutRoute({
     getParentRoute: () => settingsAdminRoute,
     path: "/",
-    component: SettingsRoutePage,
+    layout: "settings-layout",
+    component: AdminIndexPage,
   });
 
-  const settingsAdminUsersRoute = createRoute({
+  const settingsAdminUsersRoute = createLayoutRoute({
     getParentRoute: () => settingsAdminRoute,
     path: "/users",
-    component: SettingsRoutePage,
+    layout: "settings-layout",
+    component: AdminUsersPage,
   });
 
-  const settingsAdminUserDetailRoute = createRoute({
+  const settingsAdminUserDetailRoute = createLayoutRoute({
     getParentRoute: () => settingsAdminRoute,
     path: "/users/$userId",
-    component: SettingsRoutePage,
+    layout: "settings-layout",
+    component: AdminUserDetailPage,
   });
 
-  const settingsAdminInvitationsRoute = createRoute({
+  const settingsAdminInvitationsRoute = createLayoutRoute({
     getParentRoute: () => settingsAdminRoute,
     path: "/invitations",
-    component: SettingsRoutePage,
+    layout: "settings-layout",
+    component: AdminInvitationsPage,
   });
 
-  const settingsAdminNotificationsRoute = createRoute({
+  const settingsAdminNotificationsRoute = createLayoutRoute({
     getParentRoute: () => settingsAdminRoute,
     path: "/notifications",
-    component: SettingsRoutePage,
+    layout: "settings-layout",
+    component: AdminNotificationsPage,
   });
 
-  const settingsAdminRolesRoute = createRoute({
+  const settingsAdminRolesRoute = createLayoutRoute({
     getParentRoute: () => settingsAdminRoute,
     path: "/roles",
-    component: SettingsRoutePage,
+    layout: "settings-layout",
+    component: AdminRolesPage,
   });
 
   settingsAdminRoute.addChildren([

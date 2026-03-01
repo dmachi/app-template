@@ -1,6 +1,8 @@
 import { FormEvent, useState } from "react";
 
+import { useAppRouteRenderContext } from "../../app/app-route-render-context";
 import { FormField } from "../../components/form-field";
+import { SettingsLayout } from "../../layouts/settings-layout/";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { showClientToast } from "../../lib/client-toast";
@@ -47,4 +49,12 @@ export function SecurityPage() {
       </div>
     </section>
   );
+}
+
+export default function SecurityRoutePage() {
+  const routeContext = useAppRouteRenderContext();
+  if (!routeContext.isAuthenticated) {
+    return null;
+  }
+  return <SettingsLayout {...routeContext.settingsProps} />;
 }

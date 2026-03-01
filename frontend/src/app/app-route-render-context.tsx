@@ -1,15 +1,13 @@
 import { rootRouteId, useRouteContext } from "@tanstack/react-router";
 import { useSyncExternalStore } from "react";
 
-import type { AuthenticatedHomeContentProps } from "../components/layout/authenticated-home-content";
-import type { AuthenticatedSettingsContentProps } from "../components/layout/authenticated-settings-content";
-import type { PublicAuthViewProps } from "../components/layout/public-auth-view";
+import type { SettingsLayoutProps } from "../layouts/settings-layout/";
+import type { PublicRouteProps } from "../pages/public-route-props";
 
 export type AppRouteRenderContextValue = {
   isAuthenticated: boolean;
-  publicAuthProps: PublicAuthViewProps;
-  homeProps: AuthenticatedHomeContentProps;
-  settingsProps: AuthenticatedSettingsContentProps;
+  publicAuthProps: PublicRouteProps;
+  settingsProps: SettingsLayoutProps;
 };
 
 export type AppRouteRenderStore = {
@@ -34,8 +32,11 @@ export const appRouteRenderStore: AppRouteRenderStore = {
   },
 };
 
-export function setAppRouteRenderContextSnapshot(nextSnapshot: AppRouteRenderContextValue) {
+export function setAppRouteRenderContextSnapshot(nextSnapshot: AppRouteRenderContextValue, options?: { notify?: boolean }) {
   currentSnapshot = nextSnapshot;
+  if (options?.notify === false) {
+    return;
+  }
   for (const listener of listeners) {
     listener();
   }

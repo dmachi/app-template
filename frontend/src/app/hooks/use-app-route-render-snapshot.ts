@@ -2,7 +2,7 @@ import type { Dispatch, FormEvent, SetStateAction } from "react";
 
 import type { AppRouteRenderContextValue } from "../app-route-render-context";
 import type { ThemeOption } from "../theme-provider";
-import type { AuthProviderMeta, NotificationItem, ProfilePropertyCatalogItem, ProfilePropertyLinkItem } from "../../lib/api";
+import type { AuthProviderMeta, ProfilePropertyCatalogItem, ProfilePropertyLinkItem } from "../../lib/api";
 
 export type AppRouteRenderSnapshotParams = {
   appName: string;
@@ -39,11 +39,6 @@ export type AppRouteRenderSnapshotParams = {
   onNavigateRegister: () => void;
   onNavigateToAuthWithInvite: (view: "login" | "register") => void;
   onProviderStart: (providerId: string) => Promise<void>;
-  currentUsername: string;
-  homeNotifications: NotificationItem[];
-  onHomeAcknowledge: (notificationId: string) => void;
-  onOpenTask: (notification: NotificationItem) => void;
-  onGoToSettings: () => void;
   canAccessAdmin: boolean | null;
   adminCapabilities: { users: boolean; groups: boolean; invitations: boolean; roles: boolean };
   selectedExtensionId: string | null;
@@ -94,13 +89,6 @@ export function useAppRouteRenderSnapshot(params: AppRouteRenderSnapshotParams):
       onNavigateRegister: params.onNavigateRegister,
       onNavigateToAuthWithInvite: params.onNavigateToAuthWithInvite,
       onProviderStart: params.onProviderStart,
-    },
-    homeProps: {
-      currentUsername: params.currentUsername,
-      homeNotifications: params.homeNotifications,
-      onAcknowledge: params.onHomeAcknowledge,
-      onOpenTask: params.onOpenTask,
-      onGoToSettings: params.onGoToSettings,
     },
     settingsProps: {
       locationPathname: params.locationPathname,

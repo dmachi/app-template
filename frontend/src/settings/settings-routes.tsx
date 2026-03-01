@@ -1,7 +1,17 @@
-import { Outlet, createRoute, lazyRouteComponent } from "@tanstack/react-router";
+import { Outlet, createRoute } from "@tanstack/react-router";
+import { lazy } from "react";
+
+import { createLayoutRoute } from "../lib/layouts/create-layout-route";
 import { createSettingsAdminRoutes } from "./admin/admin-routes";
 
-const SettingsRoutePage = lazyRouteComponent(() => import("../app/route-pages/settings-route-page"), "SettingsRoutePage");
+const SettingsIndexPage = lazy(() => import("./pages/profile-page"));
+const SettingsProfilePage = lazy(() => import("./pages/profile-page"));
+const SettingsNotificationsPage = lazy(() => import("./pages/notifications-page"));
+const SettingsSecurityPage = lazy(() => import("./pages/security-page"));
+const SettingsGroupsPage = lazy(() => import("./pages/groups-page"));
+const SettingsGroupDetailPage = lazy(() => import("./pages/group-detail-page"));
+const SettingsThemePage = lazy(() => import("./pages/theme-page"));
+const SettingsExtensionPage = lazy(() => import("./pages/settings-extension-page"));
 
 export function createSettingsRoutes(rootRoute: any) {
   const settingsRoute = createRoute({
@@ -10,53 +20,61 @@ export function createSettingsRoutes(rootRoute: any) {
     component: Outlet,
   });
 
-  const settingsIndexRoute = createRoute({
+  const settingsIndexRoute = createLayoutRoute({
     getParentRoute: () => settingsRoute,
     path: "/",
-    component: SettingsRoutePage,
+    layout: "settings-layout",
+    component: SettingsIndexPage,
   });
 
-  const settingsProfileRoute = createRoute({
+  const settingsProfileRoute = createLayoutRoute({
     getParentRoute: () => settingsRoute,
     path: "/profile",
-    component: SettingsRoutePage,
+    layout: "settings-layout",
+    component: SettingsProfilePage,
   });
 
-  const settingsNotificationsRoute = createRoute({
+  const settingsNotificationsRoute = createLayoutRoute({
     getParentRoute: () => settingsRoute,
     path: "/notifications",
-    component: SettingsRoutePage,
+    layout: "settings-layout",
+    component: SettingsNotificationsPage,
   });
 
-  const settingsSecurityRoute = createRoute({
+  const settingsSecurityRoute = createLayoutRoute({
     getParentRoute: () => settingsRoute,
     path: "/security",
-    component: SettingsRoutePage,
+    layout: "settings-layout",
+    component: SettingsSecurityPage,
   });
 
-  const settingsGroupsRoute = createRoute({
+  const settingsGroupsRoute = createLayoutRoute({
     getParentRoute: () => settingsRoute,
     path: "/groups",
-    component: SettingsRoutePage,
+    layout: "settings-layout",
+    component: SettingsGroupsPage,
   });
 
-  const settingsGroupDetailRoute = createRoute({
+  const settingsGroupDetailRoute = createLayoutRoute({
     getParentRoute: () => settingsRoute,
     path: "/group/$groupId",
-    component: SettingsRoutePage,
+    layout: "settings-layout",
+    component: SettingsGroupDetailPage,
   });
 
-  const settingsThemeRoute = createRoute({
+  const settingsThemeRoute = createLayoutRoute({
     getParentRoute: () => settingsRoute,
     path: "/theme",
-    component: SettingsRoutePage,
+    layout: "settings-layout",
+    component: SettingsThemePage,
   });
 
-  const settingsExtensionRoute = createRoute({
-    getParentRoute: () => settingsRoute,
-    path: "/extensions/$extensionId",
-    component: SettingsRoutePage,
-  });
+//   const settingsExtensionRoute = createLayoutRoute({
+//     getParentRoute: () => settingsRoute,
+//     path: "/extensions/$extensionId",
+//     layout: "settings-layout",
+//     component: SettingsExtensionPage,
+//   });
 
   const settingsAdminRoute = createSettingsAdminRoutes(settingsRoute);
 
@@ -68,7 +86,7 @@ export function createSettingsRoutes(rootRoute: any) {
     settingsGroupsRoute,
     settingsGroupDetailRoute,
     settingsThemeRoute,
-    settingsExtensionRoute,
+    // settingsExtensionRoute,
     settingsAdminRoute,
   ]);
 

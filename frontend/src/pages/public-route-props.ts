@@ -1,0 +1,40 @@
+import type { Dispatch, FormEvent, ReactNode, SetStateAction } from "react";
+
+import type { AuthProviderMeta, ProfilePropertyCatalogItem, ProfilePropertyLinkItem } from "../lib/api";
+
+export type PublicRouteProps = {
+  appName: string;
+  appIconNode: ReactNode;
+  registrationEnabled: boolean;
+  locationPathname: string;
+  authMetaLoaded: boolean;
+  authProviders: AuthProviderMeta[];
+  usernameOrEmail: string;
+  password: string;
+  setUsernameOrEmail: Dispatch<SetStateAction<string>>;
+  setPassword: Dispatch<SetStateAction<string>>;
+  handleLogin: (event: FormEvent) => Promise<void>;
+  registerUsername: string;
+  setRegisterUsername: Dispatch<SetStateAction<string>>;
+  registerEmail: string;
+  setRegisterEmail: Dispatch<SetStateAction<string>>;
+  registerPassword: string;
+  setRegisterPassword: Dispatch<SetStateAction<string>>;
+  registerDisplayName: string;
+  setRegisterDisplayName: Dispatch<SetStateAction<string>>;
+  handleRegister: (event: FormEvent) => Promise<void>;
+  registerProfilePropertyCatalog: ProfilePropertyCatalogItem[];
+  registerProfileProperties: Record<string, unknown>;
+  setRegisterProfileProperties: Dispatch<SetStateAction<Record<string, unknown>>>;
+  getRegisterLinkItems: (key: string) => ProfilePropertyLinkItem[];
+  emailVerificationToken: string | null;
+  invitationToken: string | null;
+  invitationAcceptanceMessage: string | null;
+  acceptingInvitation: boolean;
+  error: string | null;
+  onNavigateHome: () => void;
+  onNavigateLogin: () => void;
+  onNavigateRegister: () => void;
+  onNavigateToAuthWithInvite: (view: "login" | "register") => void;
+  onProviderStart: (providerId: string) => Promise<void>;
+};

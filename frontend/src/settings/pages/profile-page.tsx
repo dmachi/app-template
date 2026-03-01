@@ -2,9 +2,11 @@ import { KeyboardEvent, useEffect, useState } from "react";
 import { Pencil, RotateCcw } from "lucide-react";
 
 import { FormField } from "../../components/form-field";
+import { useAppRouteRenderContext } from "../../app/app-route-render-context";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
+import { SettingsLayout } from "../../layouts/settings-layout/";
 import { showClientToast } from "../../lib/client-toast";
 import { getMyProfile, patchMyProfile, ProfilePropertyCatalogItem, ProfilePropertyLinkItem, resendMyVerificationEmail } from "../../lib/api";
 
@@ -408,4 +410,12 @@ export function ProfilePage({ accessToken }: ProfilePageProps) {
       {message ? <p className="text-sm text-red-600 dark:text-red-400">{message}</p> : null}
     </section>
   );
+}
+
+export default function ProfileRoutePage() {
+  const routeContext = useAppRouteRenderContext();
+  if (!routeContext.isAuthenticated) {
+    return null;
+  }
+  return <SettingsLayout {...routeContext.settingsProps} />;
 }

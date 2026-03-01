@@ -1,3 +1,5 @@
+import { useEffect } from "react";
+
 import type { AppRouteRenderContextValue } from "../app-route-render-context";
 import { setAppRouteRenderContextSnapshot } from "../app-route-render-context";
 
@@ -8,14 +10,21 @@ type UseAppRouteContextPublicationParams = {
 };
 
 export function useAppRouteContextPublication(params: UseAppRouteContextPublicationParams) {
-  if (params.restoringSession) {
-    return;
+  const outletContext: AppRouteRenderContextValue | null = params.restoringSession
+    ? null
+    : {
+      ...params.authenticatedOutletContext,
+      isAuthenticated: Boolean(params.accessToken),
+    };
+
+  if (outletContext) {
+    setAppRouteRenderContextSnapshot(outletContext, { notify: false });
   }
 
-  const outletContext: AppRouteRenderContextValue = {
-    ...params.authenticatedOutletContext,
-    isAuthenticated: Boolean(params.accessToken),
-  };
-
-  setAppRouteRenderContextSnapshot(outletContext);
+  useEffect(() => {
+    if (!outletContext) {
+      return;
+    }
+    setAppRouteRenderContextSnapshot(outletContext);
+  }, [outletContext]);
 }

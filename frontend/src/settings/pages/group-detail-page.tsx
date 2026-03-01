@@ -1,6 +1,8 @@
 import { FormEvent, useEffect, useState } from "react";
 
+import { useAppRouteRenderContext } from "../../app/app-route-render-context";
 import { ConfirmationDialog } from "../../components/shared/confirmation-dialog";
+import { SettingsLayout } from "../../layouts/settings-layout/";
 import { RoleAssignmentField } from "../../components/shared/role-assignment-field";
 import { UserSearchCombobox } from "../../components/shared/user-search-combobox";
 import { Button } from "../../components/ui/button";
@@ -193,4 +195,12 @@ export function GroupDetailPage({ accessToken, groupId, canAssignRoles = false, 
       </div>
     </section>
   );
+}
+
+export default function GroupDetailRoutePage() {
+  const routeContext = useAppRouteRenderContext();
+  if (!routeContext.isAuthenticated) {
+    return null;
+  }
+  return <SettingsLayout {...routeContext.settingsProps} />;
 }

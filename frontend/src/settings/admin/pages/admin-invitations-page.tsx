@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 
 import { InviteUsersDialog } from "../../../components/shared/invite-users-dialog";
 import { Button } from "../../../components/ui/button";
+import { useAppRouteRenderContext } from "../../../app/app-route-render-context";
+import { SettingsLayout } from "../../../layouts/settings-layout/";
 import { showClientToast } from "../../../lib/client-toast";
 import {
   adminCopyInvitationLink,
@@ -103,4 +105,12 @@ export function AdminInvitationsPage({ accessToken }: AdminInvitationsPageProps)
       </div>
     </section>
   );
+}
+
+export default function AdminInvitationsRoutePage() {
+  const routeContext = useAppRouteRenderContext();
+  if (!routeContext.isAuthenticated) {
+    return null;
+  }
+  return <SettingsLayout {...routeContext.settingsProps} />;
 }
