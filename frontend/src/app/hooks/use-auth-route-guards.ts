@@ -137,7 +137,7 @@ export function useRouteGuards(params: UseRouteGuardsParams) {
       return;
     }
 
-    if (locationPathname.startsWith("/settings/extensions/") && !selectedExtension) {
+    if (selectedExtensionId && !selectedExtension) {
       navigateTo("/settings/profile", true);
       return;
     }

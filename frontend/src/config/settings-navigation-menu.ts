@@ -1,20 +1,20 @@
 import { Bell, Palette, Puzzle, Shield, User, UserCog, Users } from "lucide-react";
 
-import type { NavigationMenuConfig } from "../components/navigation-menu";
-
-export type SettingsNavigationExtensionItem = {
-  id: string;
-  label: string;
-};
+import type { NavigationItemConfig, NavigationMenuConfig, NavigationSectionConfig } from "../components/navigation-menu";
 
 type CreateSettingsNavigationMenuConfigInput = {
-  settingsExtensionItems: SettingsNavigationExtensionItem[];
-  adminExtensionItems: SettingsNavigationExtensionItem[];
+  additionalSettingsItems?: NavigationItemConfig[];
+  additionalAdminItems?: NavigationItemConfig[];
+  additionalSections?: NavigationSectionConfig[];
 };
 
 export function createSettingsNavigationMenuConfig(
   input: CreateSettingsNavigationMenuConfigInput,
 ): NavigationMenuConfig {
+  const additionalSettingsItems = input.additionalSettingsItems || [];
+  const additionalAdminItems = input.additionalAdminItems || [];
+  const additionalSections = input.additionalSections || [];
+
   return {
     sections: [
       {
@@ -59,14 +59,7 @@ export function createSettingsNavigationMenuConfig(
             path: "/settings/theme",
             requiresAuth: true,
           },
-          ...input.settingsExtensionItems.map((item) => ({
-            id: `settings-extension-${item.id}`,
-            label: item.label,
-            icon: Puzzle,
-            path: `/settings/extensions/${item.id}`,
-            pathPatterns: [`/settings/extensions/${item.id}`, `/settings/extensions/${item.id}/*`],
-            requiresAuth: true,
-          })),
+          ...additionalSettingsItems,
         ],
       },
       {
@@ -107,14 +100,7 @@ export function createSettingsNavigationMenuConfig(
             requiresAuth: true,
             roles: ["Superuser"],
           },
-          ...input.adminExtensionItems.map((item) => ({
-            id: `admin-extension-${item.id}`,
-            label: item.label,
-            icon: Puzzle,
-            path: `/settings/extensions/${item.id}`,
-            pathPatterns: [`/settings/extensions/${item.id}`, `/settings/extensions/${item.id}/*`],
-            requiresAuth: true,
-          })),
+          ...additionalAdminItems,
         ],
       },
       {
@@ -150,6 +136,7 @@ export function createSettingsNavigationMenuConfig(
           },
         ],
       },
+      ...additionalSections,
     ],
   };
 }
