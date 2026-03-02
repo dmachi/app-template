@@ -65,6 +65,76 @@ test("/cms/:id uses id endpoint and never calls resolver", async ({ page }) => {
   expect(resolverCalls).toBe(0);
 });
 
+test("/cms/:id rewrites to canonical alias when provided", async ({ page }) => {
+  await mockAuthProviders(page);
+
+  await page.route("**/api/v1/cms/demo-id", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        content: {
+          id: "demo-id",
+          contentTypeKey: "page",
+          name: "Canonical Page",
+          content: "# Canonical Alias",
+          additionalFields: {},
+          aliasPath: "/about-us",
+          status: "published",
+          visibility: "public",
+          allowedRoles: [],
+          layoutKey: null,
+          linkRefs: [],
+          createdByUserId: "system",
+          updatedByUserId: "system",
+          publishedAt: null,
+          publishedByUserId: null,
+          createdAt: null,
+          updatedAt: null,
+        },
+        canonicalUrl: "/about-us",
+        visibility: "public",
+        preview: false,
+      }),
+    });
+  });
+
+  await page.route("**/api/v1/cms/resolve?**", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        matched: true,
+        content: {
+          id: "demo-id",
+          contentTypeKey: "page",
+          name: "Canonical Page",
+          content: "# Canonical Alias",
+          additionalFields: {},
+          aliasPath: "/about-us",
+          status: "published",
+          visibility: "public",
+          allowedRoles: [],
+          layoutKey: null,
+          linkRefs: [],
+          createdByUserId: "system",
+          updatedByUserId: "system",
+          publishedAt: null,
+          publishedByUserId: null,
+          createdAt: null,
+          updatedAt: null,
+        },
+        canonicalUrl: "/about-us",
+        visibility: "public",
+      }),
+    });
+  });
+
+  await page.goto("/cms/demo-id");
+  await expect(page).toHaveURL(/\/about-us$/);
+  await expect(page.getByRole("heading", { name: "Canonical Page" })).toBeVisible();
+});
+
 test("unmatched non-blacklisted path calls resolver and renders content", async ({ page }) => {
   await mockAuthProviders(page);
 
@@ -140,4 +210,48 @@ test("explicit app route is never shadowed by resolver fallback", async ({ page 
   await page.goto("/login");
   await expect(page.getByRole("heading", { name: "Login" })).toBeVisible();
   expect(resolverCalls).toBe(0);
+});
+
+test("resolver-rendered markdown is sanitized and does not execute scripts", async ({ page }) => {
+  await mockAuthProviders(page);
+
+  await page.route("**/api/v1/cms/resolve?**", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        matched: true,
+        content: {
+          id: "xss-id",
+          contentTypeKey: "page",
+          name: "Sanitized Page",
+          content: "<script>window.__cms_xss_marker = 1</script>\n# Safe Title",
+          additionalFields: {},
+          aliasPath: "/sanitized",
+          status: "published",
+          visibility: "public",
+          allowedRoles: [],
+          layoutKey: null,
+          linkRefs: [],
+          createdByUserId: "system",
+          updatedByUserId: "system",
+          publishedAt: null,
+          publishedByUserId: null,
+          createdAt: null,
+          updatedAt: null,
+        },
+        canonicalUrl: "/sanitized",
+        visibility: "public",
+      }),
+    });
+  });
+
+  await page.goto("/sanitized");
+  await expect(page.getByRole("heading", { name: "Sanitized Page" })).toBeVisible();
+
+  const scriptCount = await page.locator(".markdown-content script").count();
+  expect(scriptCount).toBe(0);
+
+  const marker = await page.evaluate(() => (window as unknown as { __cms_xss_marker?: number }).__cms_xss_marker);
+  expect(marker).toBeUndefined();
 });

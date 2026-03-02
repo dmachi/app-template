@@ -75,7 +75,7 @@
   - [x] Return `{ matched, content, canonicalUrl, visibility }` on match
   - [x] Return `404` with standard error envelope on no match
   - [x] Return not-found for unmatched/unpublished aliases
-  - [ ] Ensure endpoint is called only for unmatched, non-blacklisted, non-`/cms` paths
+  - [x] Ensure endpoint is called only for unmatched, non-blacklisted, non-`/cms` paths
 
 ### 4.4 Media (GridFS)
 - [x] `POST /api/v1/media/images` (multipart upload)
@@ -137,9 +137,9 @@
 - [x] Add overlay edit button on CMS pages for authorized users that links to `/settings/admin/content/:id`
 
 ## 7) Validation, Security, and Observability
-- [ ] Alias normalization/sanitization and uniqueness checks
-- [ ] Markdown output sanitization policy enforced
-- [ ] Upload file type validation (image types only for MVP)
+- [x] Alias normalization/sanitization and uniqueness checks
+- [x] Markdown output sanitization policy enforced
+- [x] Upload file type validation (image types only for MVP)
 - [ ] Audit events for create/edit/publish/unpublish/delete and media operations
 - [ ] Include correlation ids in CMS endpoint logs/errors
 
@@ -152,19 +152,20 @@
 - [x] Public endpoint denies draft content
 - [x] `/cms/:contentId` returns canonical alias when available
 - [x] `/cms/resolve` matched/unmatched cases
-- [ ] `/cms/resolve` is not invoked for blacklist-matched paths (frontend contract test/integration)
+- [x] `/cms/resolve` is not invoked for blacklist-matched paths (frontend contract test/integration)
 - [x] Alias uniqueness conflict behavior
 - [x] Alias change invalidates old alias (old alias returns 404)
 - [x] GridFS upload + stream roundtrip
 
 ### 8.2 Frontend Tests (Playwright)
-- [ ] ContentEditor can access admin content list/editor
-- [ ] Non-ContentEditor is blocked from admin content routes
-- [ ] Superuser can access content types admin page
-- [ ] Draft save then publish flow
-- [ ] `/cms/:id` loads and rewrites URL to alias
-- [ ] Alias route resolves and renders correct page
-- [ ] Explicit app routes are never shadowed by alias resolver fallback
+- [x] ContentEditor can access admin content list/editor
+- [x] Non-ContentEditor is blocked from admin content routes
+- [x] Superuser can access content types admin page
+- [x] Superuser can create and edit content type definitions
+- [x] Draft save then publish flow
+- [x] `/cms/:id` loads and rewrites URL to alias
+- [x] Alias route resolves and renders correct page
+- [x] Explicit app routes are never shadowed by alias resolver fallback
  - [x] Resolver is not called for `/cms/*` requests
  - [x] Resolver is not called for blacklist-matched paths
 - [ ] Performance optimization for resolver/path routing (caching, dynamic route insertion)

@@ -2,8 +2,8 @@ import { expect, test } from "@playwright/test";
 
 test("home and login views render", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "Home" })).toBeVisible();
-  await expect(page.getByText("Lorem ipsum")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Section One" })).toBeVisible();
+  await expect(page.getByText("Lorem ipsum dolor sit amet consectetur adipisicing elit.", { exact: true })).toBeVisible();
 
   await page.goto("/login");
   await expect(page.getByRole("heading", { name: "Login" })).toBeVisible();

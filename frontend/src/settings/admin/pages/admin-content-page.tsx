@@ -1,6 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { Button } from "../../../components/ui/button";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "../../../components/ui/dialog";
 import { Input } from "../../../components/ui/input";
 import { useAppRouteRenderContext } from "../../../app/app-route-render-context";
 import { showClientToast } from "../../../lib/client-toast";
@@ -21,6 +30,9 @@ export function AdminContentPage({ accessToken, canCreate, canOpen, onOpenConten
   const [contentTypes, setContentTypes] = useState<Array<{ key: string; label: string }>>([]);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [createTypeKey, setCreateTypeKey] = useState("page");
+  const [creatingDraft, setCreatingDraft] = useState(false);
 
   async function loadData() {
     setLoading(true);
@@ -31,7 +43,16 @@ export function AdminContentPage({ accessToken, canCreate, canOpen, onOpenConten
         listCmsContentTypes(),
       ]);
       setItems(Array.isArray(contentPayload.items) ? contentPayload.items : []);
-      setContentTypes((typesPayload.items || []).map((item) => ({ key: item.key, label: item.label })));
+      const nextTypes = (typesPayload.items || []).map((item) => ({ key: item.key, label: item.label }));
+      setContentTypes(nextTypes);
+      if (nextTypes.length > 0) {
+        setCreateTypeKey((current) => {
+          if (nextTypes.some((entry) => entry.key === current)) {
+            return current;
+          }
+          return nextTypes[0].key;
+        });
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unable to load content";
       setErrorMessage(message);
@@ -48,21 +69,27 @@ export function AdminContentPage({ accessToken, canCreate, canOpen, onOpenConten
   }, [accessToken]);
 
   async function handleCreate() {
-    if (!canCreate) {
+    if (!canCreate || !createTypeKey) {
       return;
     }
+
+    const selectedType = contentTypes.find((item) => item.key === createTypeKey) || null;
+    setCreatingDraft(true);
     try {
       const created = await createCmsContent(accessToken, {
-        contentTypeKey: "page",
-        name: "Untitled Page",
+        contentTypeKey: createTypeKey,
+        name: `Untitled ${selectedType?.label || "Content"}`,
         content: "",
         aliasPath: null,
         visibility: "public",
       });
+      setCreateDialogOpen(false);
       showClientToast({ title: "Content", message: "Draft created", severity: "success" });
       onOpenContent(created.id);
     } catch (error) {
       showClientToast({ title: "Content", message: error instanceof Error ? error.message : "Unable to create draft", severity: "error" });
+    } finally {
+      setCreatingDraft(false);
     }
   }
 
@@ -86,7 +113,44 @@ export function AdminContentPage({ accessToken, canCreate, canOpen, onOpenConten
     <section className="grid gap-3">
       <div className="flex items-center justify-between gap-2">
         <h2 className="text-lg font-medium">Content</h2>
-        {canCreate ? <Button type="button" onClick={handleCreate}>Create Draft</Button> : null}
+        {canCreate ? (
+          <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+            <DialogTrigger asChild>
+              <Button type="button" disabled={contentTypes.length === 0}>Create Draft</Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Create Draft</DialogTitle>
+                <DialogDescription>Select a content type for the new draft.</DialogDescription>
+              </DialogHeader>
+
+              <div className="grid gap-3">
+                <label className="grid gap-1 text-sm">
+                  <span>Content type</span>
+                  <select
+                    className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-900"
+                    value={createTypeKey}
+                    onChange={(event) => setCreateTypeKey(event.target.value)}
+                    disabled={creatingDraft}
+                  >
+                    {contentTypes.map((type) => (
+                      <option key={type.key} value={type.key}>{type.label}</option>
+                    ))}
+                  </select>
+                </label>
+
+                <div className="flex justify-end gap-2">
+                  <DialogClose asChild>
+                    <Button type="button" disabled={creatingDraft}>Cancel</Button>
+                  </DialogClose>
+                  <Button type="button" onClick={() => void handleCreate()} disabled={creatingDraft || !createTypeKey}>
+                    {creatingDraft ? "Creating..." : "Create Draft"}
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+        ) : null}
       </div>
 
       <div className="grid gap-3 rounded-md border border-slate-200 p-4 dark:border-slate-800">

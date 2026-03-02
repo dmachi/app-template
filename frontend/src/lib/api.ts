@@ -342,6 +342,8 @@ export type CmsContentType = {
   fieldDefinitions: CmsFieldDefinition[];
   permissionsPolicy: Record<string, unknown>;
   systemManaged: boolean;
+  enableAlias: boolean;
+  fieldOrder: string[];
   createdAt: string | null;
   updatedAt: string | null;
 };
@@ -437,6 +439,8 @@ export async function adminCreateCmsContentType(
     description?: string;
     fieldDefinitions?: CmsFieldDefinition[];
     permissionsPolicy?: Record<string, unknown>;
+    enableAlias?: boolean;
+    fieldOrder?: string[];
   },
 ): Promise<CmsContentType> {
   return parseJson(
@@ -457,6 +461,8 @@ export async function adminPatchCmsContentType(
     status?: string;
     fieldDefinitions?: CmsFieldDefinition[];
     permissionsPolicy?: Record<string, unknown>;
+    enableAlias?: boolean;
+    fieldOrder?: string[];
   },
 ): Promise<CmsContentType> {
   return parseJson(

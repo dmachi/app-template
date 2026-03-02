@@ -124,10 +124,8 @@ export function ContentTypeAdditionalFields({
   }
 
   return (
-    <div className="grid gap-3 rounded-md border border-slate-200 p-4 dark:border-slate-800">
-      <p className="text-sm font-medium">Additional Fields</p>
-      <div className="grid gap-3">
-        {fieldDefinitions.map((definition) => {
+    <>
+      {fieldDefinitions.map((definition) => {
           const key = definition.key;
           const label = definition.required ? `${definition.label} *` : definition.label;
           const currentValue = value[key];
@@ -380,7 +378,6 @@ export function ContentTypeAdditionalFields({
             </label>
           );
         })}
-      </div>
-    </div>
+    </>
   );
 }

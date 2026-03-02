@@ -41,6 +41,8 @@ class MongoCmsStore:
             field_definitions=list(doc.get("field_definitions") or []),
             permissions_policy=dict(doc.get("permissions_policy") or {}),
             system_managed=bool(doc.get("system_managed") or False),
+            enable_alias=bool(doc.get("enable_alias", True)),
+            field_order=list(doc.get("field_order") or []),
             created_at=doc.get("created_at") or datetime.now(UTC),
             updated_at=doc.get("updated_at") or datetime.now(UTC),
         )
@@ -82,6 +84,8 @@ class MongoCmsStore:
                 "$setOnInsert": {
                     "field_definitions": [],
                     "permissions_policy": {},
+                    "enable_alias": True,
+                    "field_order": ["name", "content"],
                     "created_at": now,
                 },
             },
@@ -107,9 +111,14 @@ class MongoCmsStore:
         description: str | None,
         field_definitions: list[dict[str, Any]] | None,
         permissions_policy: dict[str, Any] | None,
+        enable_alias: bool = True,
+        field_order: list[str] | None = None,
     ) -> ContentTypeRecord:
         normalized_key = key.strip().lower()
         now = datetime.now(UTC)
+        normalized_field_order = list(field_order or [])
+        if not normalized_field_order:
+            normalized_field_order = ["name", "content"]
         try:
             self._content_types.insert_one(
                 {
@@ -120,6 +129,8 @@ class MongoCmsStore:
                     "field_definitions": list(field_definitions or []),
                     "permissions_policy": dict(permissions_policy or {}),
                     "system_managed": False,
+                    "enable_alias": bool(enable_alias),
+                    "field_order": normalized_field_order,
                     "created_at": now,
                     "updated_at": now,
                 }
@@ -137,6 +148,8 @@ class MongoCmsStore:
         status: str | None = None,
         field_definitions: list[dict[str, Any]] | None = None,
         permissions_policy: dict[str, Any] | None = None,
+        enable_alias: bool | None = None,
+        field_order: list[str] | None = None,
     ) -> ContentTypeRecord | None:
         current = self.get_content_type(key)
         if current is None:
@@ -155,6 +168,10 @@ class MongoCmsStore:
             update_fields["field_definitions"] = list(field_definitions)
         if permissions_policy is not None:
             update_fields["permissions_policy"] = dict(permissions_policy)
+        if enable_alias is not None:
+            update_fields["enable_alias"] = bool(enable_alias)
+        if field_order is not None:
+            update_fields["field_order"] = list(field_order)
 
         self._content_types.update_one({"key": key}, {"$set": update_fields})
         return self.get_content_type(key)

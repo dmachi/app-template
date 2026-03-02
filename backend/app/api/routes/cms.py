@@ -21,6 +21,8 @@ class ContentTypeCreateRequest(BaseModel):
     description: str | None = None
     fieldDefinitions: list[dict[str, Any]] = Field(default_factory=list)
     permissionsPolicy: dict[str, Any] = Field(default_factory=dict)
+    enableAlias: bool = True
+    fieldOrder: list[str] = Field(default_factory=list)
 
 
 class ContentTypePatchRequest(BaseModel):
@@ -29,6 +31,8 @@ class ContentTypePatchRequest(BaseModel):
     status: str | None = None
     fieldDefinitions: list[dict[str, Any]] | None = None
     permissionsPolicy: dict[str, Any] | None = None
+    enableAlias: bool | None = None
+    fieldOrder: list[str] | None = None
 
 
 class ContentCreateRequest(BaseModel):
@@ -73,6 +77,8 @@ def _serialize_content_type(record) -> dict[str, Any]:
         "fieldDefinitions": record.field_definitions,
         "permissionsPolicy": record.permissions_policy,
         "systemManaged": record.system_managed,
+        "enableAlias": record.enable_alias,
+        "fieldOrder": record.field_order,
         "createdAt": _iso(record.created_at),
         "updatedAt": _iso(record.updated_at),
     }
@@ -181,6 +187,8 @@ def create_content_type(payload: ContentTypeCreateRequest, request: Request, _: 
             description=payload.description,
             field_definitions=payload.fieldDefinitions,
             permissions_policy=payload.permissionsPolicy,
+            enable_alias=payload.enableAlias,
+            field_order=payload.fieldOrder,
         )
     except ValueError as exc:
         if str(exc) == "CONTENT_TYPE_EXISTS":
@@ -205,6 +213,8 @@ def patch_content_type(
             status=payload.status,
             field_definitions=payload.fieldDefinitions,
             permissions_policy=payload.permissionsPolicy,
+            enable_alias=payload.enableAlias,
+            field_order=payload.fieldOrder,
         )
     except ValueError as exc:
         if str(exc) == "CONTENT_TYPE_PROTECTED":
@@ -254,6 +264,8 @@ def create_content(payload: ContentCreateRequest, request: Request, current_user
         code = str(exc)
         if code == "CONTENT_TYPE_NOT_FOUND":
             raise ApiError(status_code=404, code=code, message="Content type not found") from exc
+        if code == "ALIAS_INVALID":
+            raise ApiError(status_code=400, code=code, message="Alias path is invalid") from exc
         if code == "ALIAS_CONFLICT":
             raise ApiError(status_code=409, code=code, message="Alias path is already in use") from exc
         raise ApiError(status_code=400, code="CONTENT_CREATE_FAILED", message="Unable to create content") from exc
@@ -297,6 +309,8 @@ def patch_content(
             updated_by_user_id=current_user.id,
         )
     except ValueError as exc:
+        if str(exc) == "ALIAS_INVALID":
+            raise ApiError(status_code=400, code="ALIAS_INVALID", message="Alias path is invalid") from exc
         if str(exc) == "ALIAS_CONFLICT":
             raise ApiError(status_code=409, code="ALIAS_CONFLICT", message="Alias path is already in use") from exc
         raise ApiError(status_code=400, code="CONTENT_UPDATE_FAILED", message="Unable to update content") from exc
@@ -339,7 +353,10 @@ def delete_content(content_id: str, request: Request, current_user: UserRecord =
 def resolve_cms_path(path: str, request: Request) -> dict[str, Any]:
     cms_store = request.app.state.cms_store
     user = _get_optional_user(request)
-    normalized_path = normalize_alias_path(path)
+    try:
+        normalized_path = normalize_alias_path(path)
+    except ValueError:
+        raise ApiError(status_code=404, code="CONTENT_NOT_FOUND", message="Content not found")
     if normalized_path is None:
         raise ApiError(status_code=404, code="CONTENT_NOT_FOUND", message="Content not found")
 

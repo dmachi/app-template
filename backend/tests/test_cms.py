@@ -217,3 +217,49 @@ def test_alias_uniqueness_and_alias_change_invalidates_old_alias(client):
     new_alias = client.get("/api/v1/cms/resolve", params={"path": "/our-team"})
     assert new_alias.status_code == 200
     assert new_alias.json()["content"]["id"] == first_id
+
+
+def test_alias_normalization_and_invalid_alias_rejection(client):
+    register_and_login(client, username="cmseditor4", email="cmseditor4@example.org")
+    auth_store = app.state.auth_store
+    editor = auth_store.authenticate_local_user("cmseditor4", "Password123")
+    assert editor is not None
+    editor.roles = ["ContentEditor"]
+    tokens = relogin(client, "cmseditor4")
+
+    normalized = client.post(
+        "/api/v1/content",
+        headers=auth_headers(tokens["accessToken"]),
+        json={
+            "contentTypeKey": "page",
+            "name": "Normalized Alias",
+            "content": "Body",
+            "aliasPath": "  ABOUT//TEAM/  ",
+            "visibility": "public",
+        },
+    )
+    assert normalized.status_code == 200
+    assert normalized.json()["aliasPath"] == "/about/team"
+
+    invalid_create = client.post(
+        "/api/v1/content",
+        headers=auth_headers(tokens["accessToken"]),
+        json={
+            "contentTypeKey": "page",
+            "name": "Invalid Alias",
+            "content": "Body",
+            "aliasPath": "/about us",
+            "visibility": "public",
+        },
+    )
+    assert invalid_create.status_code == 400
+    assert invalid_create.json()["error"]["code"] == "ALIAS_INVALID"
+
+    content_id = normalized.json()["id"]
+    invalid_patch = client.patch(
+        f"/api/v1/content/{content_id}",
+        headers=auth_headers(tokens["accessToken"]),
+        json={"aliasPath": "/bad?path"},
+    )
+    assert invalid_patch.status_code == 400
+    assert invalid_patch.json()["error"]["code"] == "ALIAS_INVALID"

@@ -8,6 +8,7 @@ import { MediaSelectorDialog } from "../components/media-selector-dialog";
 import { useAppRouteRenderContext } from "../../../app/app-route-render-context";
 import { showClientToast } from "../../../lib/client-toast";
 import {
+  type CmsContentType,
   type CmsFieldDefinition,
   deleteCmsContent,
   getCmsContentById,
@@ -55,7 +56,7 @@ export default function AdminContentEditorRoutePage() {
   const [aliasPathInput, setAliasPathInput] = useState("");
   const [visibility, setVisibility] = useState("public");
   const [contentTypeKey, setContentTypeKey] = useState("page");
-  const [availableTypes, setAvailableTypes] = useState<Array<{ key: string; label: string }>>([]);
+  const [availableTypes, setAvailableTypes] = useState<Array<CmsContentType>>([]);
   const [fieldDefinitions, setFieldDefinitions] = useState<CmsFieldDefinition[]>([]);
   const [additionalFields, setAdditionalFields] = useState<Record<string, unknown>>({});
   const [status, setStatus] = useState("draft");
@@ -83,9 +84,27 @@ export default function AdminContentEditorRoutePage() {
         setContentTypeKey(item.contentTypeKey || "page");
         setStatus(item.status || "draft");
         const nextTypes = types.items || [];
-        setAvailableTypes(nextTypes.map((type) => ({ key: type.key, label: type.label })));
+        setAvailableTypes(nextTypes);
         const selectedType = nextTypes.find((type) => type.key === item.contentTypeKey);
         setFieldDefinitions(selectedType?.fieldDefinitions || []);
+        // Order field definitions according to content type's fieldOrder
+        if (selectedType?.fieldOrder && selectedType.fieldOrder.length > 0) {
+          const orderedDefs: CmsFieldDefinition[] = [];
+          const defsMap = new Map(selectedType.fieldDefinitions.map(f => [f.key, f]));
+          for (const key of selectedType.fieldOrder) {
+            const def = defsMap.get(key);
+            if (def) orderedDefs.push(def);
+          }
+          // Add any fields not in order at the end
+          for (const def of selectedType.fieldDefinitions) {
+            if (!selectedType.fieldOrder.includes(def.key)) {
+              orderedDefs.push(def);
+            }
+          }
+          setFieldDefinitions(orderedDefs);
+        } else {
+          setFieldDefinitions(selectedType?.fieldDefinitions || []);
+        }
         setMediaItems(media.items || []);
       })
       .catch((error) => {
@@ -96,13 +115,21 @@ export default function AdminContentEditorRoutePage() {
 
   const normalizedAlias = useMemo(() => normalizeAliasInput(aliasPathInput), [aliasPathInput]);
   const aliasValid = useMemo(() => isValidAlias(normalizedAlias || ""), [normalizedAlias]);
+  const currentContentType = useMemo(
+    () => availableTypes.find((type) => type.key === contentTypeKey),
+    [availableTypes, contentTypeKey]
+  );
+  const aliasEnabled = currentContentType?.enableAlias !== false;
   const contentTypeLabel = useMemo(
-    () => availableTypes.find((type) => type.key === contentTypeKey)?.label || contentTypeKey || "Content",
+    () => currentContentType?.label || contentTypeKey || "Content",
     [availableTypes, contentTypeKey],
   );
   const previewPath = normalizedAlias || (contentId ? `/cms/${contentId}` : null);
   async function save() {
-    if (!contentId || !aliasValid) {
+    if (!contentId) {
+      return;
+    }
+    if (aliasEnabled && !aliasValid) {
       return;
     }
     setSaving(true);
@@ -111,7 +138,7 @@ export default function AdminContentEditorRoutePage() {
         name,
         content,
         additionalFields,
-        aliasPath: normalizedAlias,
+        aliasPath: aliasEnabled ? normalizedAlias : null,
         visibility,
       });
       setStatus(updated.status);
@@ -127,6 +154,10 @@ export default function AdminContentEditorRoutePage() {
 
   async function publish() {
     if (!contentId) {
+      return;
+    }
+    if (aliasEnabled && !aliasValid) {
+      showClientToast({ title: "Content", message: "Valid alias required for publishing", severity: "error" });
       return;
     }
     setSaving(true);
@@ -251,11 +282,13 @@ export default function AdminContentEditorRoutePage() {
           </label>
         </div>
 
-        <label className="grid gap-1 text-sm">
-          <span>Alias Path</span>
-          <Input value={aliasPathInput} onChange={(event) => setAliasPathInput(event.target.value)} placeholder="Optional (e.g. /about)" />
-          {!aliasValid ? <span className="text-xs text-rose-600 dark:text-rose-400">Alias must start with "/" and include only lowercase letters, numbers, dashes, and slashes.</span> : null}
-        </label>
+        {aliasEnabled ? (
+          <label className="grid gap-1 text-sm">
+            <span>Alias Path</span>
+            <Input value={aliasPathInput} onChange={(event) => setAliasPathInput(event.target.value)} placeholder="Optional (e.g. /about)" />
+            {!aliasValid ? <span className="text-xs text-rose-600 dark:text-rose-400">Alias must start with "/" and include only lowercase letters, numbers, dashes, and slashes.</span> : null}
+          </label>
+        ) : null}
 
         <label className="grid gap-1 text-sm">
           <span>Visibility</span>
@@ -292,8 +325,8 @@ export default function AdminContentEditorRoutePage() {
         </label>
 
         <div className="flex flex-wrap items-center gap-2">
-          <Button type="button" onClick={save} disabled={saving || !aliasValid}>Save Draft</Button>
-          <Button type="button" className="bg-transparent" onClick={publish} disabled={saving || status === "published"}>Publish</Button>
+          <Button type="button" onClick={save} disabled={saving || (aliasEnabled && !aliasValid)}>Save Draft</Button>
+          <Button type="button" className="bg-transparent" onClick={publish} disabled={saving || status === "published" || (aliasEnabled && !aliasValid)}>Publish</Button>
           <Button type="button" className="bg-transparent" onClick={unpublish} disabled={saving || status !== "published"}>Unpublish</Button>
           <Button type="button" className="bg-transparent" onClick={remove} disabled={saving}>Delete</Button>
         </div>

@@ -14,6 +14,7 @@ const AdminRolesPage = lazy(() => import("./pages/admin-roles-page"));
 const AdminContentPage = lazy(() => import("./pages/admin-content-page"));
 const AdminContentEditorPage = lazy(() => import("./pages/admin-content-editor-page"));
 const AdminContentTypesPage = lazy(() => import("./pages/admin-content-types-page"));
+const AdminContentTypeDetailPage = lazy(() => import("./pages/admin-content-type-detail-page"));
 const AdminMediaPage = lazy(() => import("./pages/admin-media-page"));
 
 export function createSettingsAdminRoutes(settingsRoute: any, layout: RouteLayoutOption = "none") {
@@ -86,6 +87,13 @@ export function createSettingsAdminRoutes(settingsRoute: any, layout: RouteLayou
     component: AdminContentTypesPage,
   });
 
+  const settingsAdminContentTypeDetailRoute = createLayoutRoute({
+    getParentRoute: () => settingsAdminRoute,
+    path: "/content-types/$contentTypeKey",
+    layout,
+    component: AdminContentTypeDetailPage,
+  });
+
   const settingsAdminMediaRoute = createLayoutRoute({
     getParentRoute: () => settingsAdminRoute,
     path: "/media",
@@ -103,6 +111,7 @@ export function createSettingsAdminRoutes(settingsRoute: any, layout: RouteLayou
     settingsAdminContentRoute,
     settingsAdminContentEditorRoute,
     settingsAdminContentTypesRoute,
+    settingsAdminContentTypeDetailRoute,
     settingsAdminMediaRoute,
   ]);
 

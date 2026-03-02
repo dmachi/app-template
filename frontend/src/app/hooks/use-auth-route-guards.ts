@@ -56,7 +56,7 @@ function canAccessAdminPath(pathname: string, capabilities: AdminCapabilities): 
   if (pathname === "/settings/admin/media") {
     return capabilities.content;
   }
-  if (pathname === "/settings/admin/content-types") {
+  if (pathname === "/settings/admin/content-types" || pathname.startsWith("/settings/admin/content-types/")) {
     return capabilities.contentTypes;
   }
   return true;
