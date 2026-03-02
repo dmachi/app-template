@@ -147,7 +147,7 @@ export function useProfileAndAdminBootstrap(params: UseProfileAndAdminBootstrapP
       setCurrentUsername("User");
       setCanAccessAdmin(false);
       setAdminAccessChecked(false);
-      setAdminCapabilities({ users: false, groups: false, invitations: false, roles: false });
+      setAdminCapabilities({ users: false, groups: false, invitations: false, roles: false, content: false, contentTypes: false });
       return;
     }
 
@@ -173,12 +173,14 @@ export function useProfileAndAdminBootstrap(params: UseProfileAndAdminBootstrapP
           groups: capabilities.groups,
           invitations: capabilities.invitations,
           roles: capabilities.roles,
+          content: Boolean(capabilities.content),
+          contentTypes: Boolean(capabilities.contentTypes),
         });
         setAdminAccessChecked(true);
       })
       .catch(() => {
         setCanAccessAdmin(false);
-        setAdminCapabilities({ users: false, groups: false, invitations: false, roles: false });
+        setAdminCapabilities({ users: false, groups: false, invitations: false, roles: false, content: false, contentTypes: false });
         setAdminAccessChecked(true);
       });
   }, [accessToken, setAdminAccessChecked, setAdminCapabilities, setCanAccessAdmin, setCurrentUsername, setTheme]);

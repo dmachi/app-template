@@ -11,6 +11,10 @@ const AdminUserDetailPage = lazy(() => import("./pages/admin-user-detail-page"))
 const AdminInvitationsPage = lazy(() => import("./pages/admin-invitations-page"));
 const AdminNotificationsPage = lazy(() => import("./pages/admin-notifications-page"));
 const AdminRolesPage = lazy(() => import("./pages/admin-roles-page"));
+const AdminContentPage = lazy(() => import("./pages/admin-content-page"));
+const AdminContentEditorPage = lazy(() => import("./pages/admin-content-editor-page"));
+const AdminContentTypesPage = lazy(() => import("./pages/admin-content-types-page"));
+const AdminMediaPage = lazy(() => import("./pages/admin-media-page"));
 
 export function createSettingsAdminRoutes(settingsRoute: any, layout: RouteLayoutOption = "none") {
   const settingsAdminRoute = createRoute({
@@ -61,6 +65,34 @@ export function createSettingsAdminRoutes(settingsRoute: any, layout: RouteLayou
     component: AdminRolesPage,
   });
 
+  const settingsAdminContentRoute = createLayoutRoute({
+    getParentRoute: () => settingsAdminRoute,
+    path: "/content",
+    layout,
+    component: AdminContentPage,
+  });
+
+  const settingsAdminContentEditorRoute = createLayoutRoute({
+    getParentRoute: () => settingsAdminRoute,
+    path: "/content/$contentId",
+    layout,
+    component: AdminContentEditorPage,
+  });
+
+  const settingsAdminContentTypesRoute = createLayoutRoute({
+    getParentRoute: () => settingsAdminRoute,
+    path: "/content-types",
+    layout,
+    component: AdminContentTypesPage,
+  });
+
+  const settingsAdminMediaRoute = createLayoutRoute({
+    getParentRoute: () => settingsAdminRoute,
+    path: "/media",
+    layout,
+    component: AdminMediaPage,
+  });
+
   settingsAdminRoute.addChildren([
     settingsAdminIndexRoute,
     settingsAdminUsersRoute,
@@ -68,6 +100,10 @@ export function createSettingsAdminRoutes(settingsRoute: any, layout: RouteLayou
     settingsAdminInvitationsRoute,
     settingsAdminNotificationsRoute,
     settingsAdminRolesRoute,
+    settingsAdminContentRoute,
+    settingsAdminContentEditorRoute,
+    settingsAdminContentTypesRoute,
+    settingsAdminMediaRoute,
   ]);
 
   return settingsAdminRoute;

@@ -11,6 +11,8 @@ const LoginPage = lazy(() => import("./pages/login-page"));
 const RegisterPage = lazy(() => import("./pages/register-page"));
 const PublicVerifyEmailPage = lazy(() => import("./pages/public-verify-email-page"));
 const PublicAcceptInvitePage = lazy(() => import("./pages/public-accept-invite-page"));
+const CmsContentByIdPage = lazy(() => import("./pages/cms-content-by-id-page"));
+const CmsResolverFallbackPage = lazy(() => import("./pages/cms-resolver-fallback-page"));
 
 function RootAppRoutePage() {
   return <App />;
@@ -55,11 +57,18 @@ const acceptInviteRoute = createLayoutRoute({
   component: PublicAcceptInvitePage,
 });
 
+const cmsByIdRoute = createLayoutRoute({
+  getParentRoute: () => rootRoute,
+  path: "/cms/$contentId",
+  layout: "simple-layout",
+  component: CmsContentByIdPage,
+});
+
 const fallbackRoute = createLayoutRoute({
   getParentRoute: () => rootRoute,
   path: "/$",
   layout: "simple-layout",
-  component: HomePage,
+  component: CmsResolverFallbackPage,
 });
 
 const settingsRoute = createSettingsRoutes(rootRoute);
@@ -70,6 +79,7 @@ const routeTree = rootRoute.addChildren([
   registerRoute,
   verifyEmailRoute,
   acceptInviteRoute,
+  cmsByIdRoute,
   fallbackRoute,
   settingsRoute,
 ]);

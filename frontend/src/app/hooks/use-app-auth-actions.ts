@@ -135,7 +135,7 @@ export function useAppAuthActions(params: UseAppAuthActionsParams) {
       setPendingInvitationToken(null);
       setAcceptingInvitation(false);
       setInvitationAcceptanceMessage(null);
-      setAdminCapabilities({ users: false, groups: false, invitations: false, roles: false });
+      setAdminCapabilities({ users: false, groups: false, invitations: false, roles: false, content: false, contentTypes: false });
       setInviteDialogOpen(false);
       window.localStorage.removeItem(inviteTokenStorageKey);
       navigateTo("/", true);

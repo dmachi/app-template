@@ -16,6 +16,9 @@ type UseRouteGuardsParams = {
 };
 
 function getFirstAllowedAdminPath(capabilities: AdminCapabilities): string | null {
+  if (capabilities.content) {
+    return "/settings/admin/content";
+  }
   if (capabilities.users) {
     return "/settings/admin/users";
   }
@@ -47,6 +50,15 @@ function canAccessAdminPath(pathname: string, capabilities: AdminCapabilities): 
   if (pathname === "/settings/admin/roles") {
     return capabilities.roles;
   }
+  if (pathname === "/settings/admin/content" || pathname.startsWith("/settings/admin/content/")) {
+    return capabilities.content;
+  }
+  if (pathname === "/settings/admin/media") {
+    return capabilities.content;
+  }
+  if (pathname === "/settings/admin/content-types") {
+    return capabilities.contentTypes;
+  }
   return true;
 }
 
@@ -55,7 +67,13 @@ function isAdminPath(pathname: string): boolean {
 }
 
 function isPublicUnauthenticatedPath(pathname: string): boolean {
-  return pathname === "/" || pathname === "/login" || pathname === "/register" || pathname === "/verify-email" || pathname === "/accept-invite";
+  if (pathname === "/" || pathname === "/login" || pathname === "/register" || pathname === "/verify-email" || pathname === "/accept-invite") {
+    return true;
+  }
+  if (pathname.startsWith("/settings")) {
+    return false;
+  }
+  return true;
 }
 
 const ROUTE_DEBUG_ENABLED = import.meta.env.DEV && import.meta.env.VITE_ROUTE_DEBUG === "true";

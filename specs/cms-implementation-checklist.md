@@ -1,24 +1,24 @@
 # CMS Implementation Checklist (v1)
 
 ## 1) Scope and Readiness
-- [ ] Confirm role names in seed/config include `ContentEditor` and `Superuser`
-- [ ] Confirm built-in `page` content type bootstrap contract
-- [ ] Confirm canonical alias format policy (`/path`, lowercase, no trailing slash except root)
-- [ ] Confirm collision policy for aliases (global uniqueness)
-- [ ] Configure frontend resolver blacklist wildcard patterns (`FRONTEND_CMS_RESOLVER_BLACKLIST_PATTERNS`)
+- [x] Confirm role names in seed/config include `ContentEditor` and `Superuser`
+- [x] Confirm built-in `page` content type bootstrap contract
+- [x] Confirm canonical alias format policy (`/path`, lowercase, no trailing slash except root)
+- [x] Confirm collision policy for aliases (global uniqueness)
+- [x] Configure frontend resolver blacklist wildcard patterns (`FRONTEND_CMS_RESOLVER_BLACKLIST_PATTERNS`)
 
 ## 2) Backend — Data and Persistence
 
 ### 2.1 Schema/Collections
-- [ ] Add `content_types` collection fields from `data-model.md`
-- [ ] Add `content_items` collection with `alias_path` unique sparse index
-- [ ] Add `media_assets` collection and GridFS linkage (`gridfs_file_id`)
+- [x] Add `content_types` collection fields from `data-model.md`
+- [x] Add `content_items` collection with `alias_path` unique sparse index
+- [x] Add `media_assets` collection and GridFS linkage (`gridfs_file_id`)
 - [ ] Add indexes:
-  - [ ] `content_type_key`
-  - [ ] `alias_path` unique sparse
-  - [ ] `(status, visibility)`
-  - [ ] `created_by_user_id`
-  - [ ] `updated_at`
+  - [x] `content_type_key`
+  - [x] `alias_path` unique sparse
+  - [x] `(status, visibility)`
+  - [x] `created_by_user_id`
+  - [x] `updated_at`
 
 ### 2.2 Repository Contracts
 - [ ] Implement `ContentTypeRepository`
@@ -35,94 +35,106 @@
   - [ ] `update`
   - [ ] `publish` / `unpublish`
   - [ ] `deleteOrArchive`
-- [ ] Implement `MediaRepository`
-  - [ ] `uploadToGridFS`
-  - [ ] `getFileStream`
-  - [ ] `list`
-  - [ ] `updateMetadata`
-  - [ ] `delete`
+- [x] Implement `MediaRepository`
+  - [x] `uploadToGridFS`
+  - [x] `getFileStream`
+  - [x] `list`
+  - [x] `updateMetadata`
+  - [x] `delete`
 
 ## 3) Backend — Authorization and Roles
-- [ ] Seed/ensure role `ContentEditor`
+- [x] Seed/ensure role `ContentEditor`
 - [ ] Map capability policy:
   - [ ] `ContentEditor`: content CRUD/publish + media upload/manage
   - [ ] `Superuser`: all CMS capabilities including content type management
-- [ ] Enforce `superuser`-only checks for content type endpoints
-- [ ] Enforce public-read rules (`published` + visibility policy)
+- [x] Enforce `superuser`-only checks for content type endpoints
+- [x] Enforce public-read rules (`published` + visibility policy)
 
 ## 4) Backend — API Endpoints
 
 ### 4.1 Content Types (Admin)
-- [ ] `GET /api/v1/content/types`
-- [ ] `POST /api/v1/admin/content/types` (`superuser` only)
-- [ ] `PATCH /api/v1/admin/content/types/:key` (`superuser` only)
+- [x] `GET /api/v1/content/types`
+- [x] `POST /api/v1/admin/content/types` (`superuser` only)
+- [x] `PATCH /api/v1/admin/content/types/:key` (`superuser` only)
 
 ### 4.2 Content Items
-- [ ] `GET /api/v1/content` (role/visibility filtered)
-- [ ] `POST /api/v1/content` (default `draft`)
-- [ ] `GET /api/v1/content/:id`
-- [ ] `PATCH /api/v1/content/:id`
-- [ ] `POST /api/v1/content/:id/publish`
-- [ ] `POST /api/v1/content/:id/unpublish`
-- [ ] `DELETE /api/v1/content/:id`
+- [x] `GET /api/v1/content` (role/visibility filtered)
+- [x] `POST /api/v1/content` (default `draft`)
+- [x] `GET /api/v1/content/:id`
+- [x] `PATCH /api/v1/content/:id`
+- [x] `POST /api/v1/content/:id/publish`
+- [x] `POST /api/v1/content/:id/unpublish`
+- [x] `DELETE /api/v1/content/:id`
 
 ### 4.3 Public CMS and Resolver
-- [ ] `GET /api/v1/cms/:contentId`
-  - [ ] Return canonical URL metadata when alias exists
-  - [ ] Return full content JSON dictionary by default
-  - [ ] Allow unpublished preview response for `ContentEditor`/`superuser`
-- [ ] `GET /api/v1/cms/resolve?path=/...`
-  - [ ] Return `{ matched, content, canonicalUrl, visibility }` on match
-  - [ ] Return `404` with standard error envelope on no match
-  - [ ] Return not-found for unmatched/unpublished aliases
+- [x] `GET /api/v1/cms/:contentId`
+  - [x] Return canonical URL metadata when alias exists
+  - [x] Return full content JSON dictionary by default
+  - [x] Allow unpublished preview response for `ContentEditor`/`superuser`
+- [x] `GET /api/v1/cms/resolve?path=/...`
+  - [x] Return `{ matched, content, canonicalUrl, visibility }` on match
+  - [x] Return `404` with standard error envelope on no match
+  - [x] Return not-found for unmatched/unpublished aliases
   - [ ] Ensure endpoint is called only for unmatched, non-blacklisted, non-`/cms` paths
 
 ### 4.4 Media (GridFS)
-- [ ] `POST /api/v1/media/images` (multipart upload)
-- [ ] Enforce image MIME type validation only (MVP scope)
-- [ ] `GET /api/v1/media/images`
-- [ ] `GET /api/v1/media/images/:id` (stream)
-- [ ] `PATCH /api/v1/media/images/:id` (metadata)
-- [ ] `DELETE /api/v1/media/images/:id`
+- [x] `POST /api/v1/media/images` (multipart upload)
+- [x] Enforce image MIME type validation only (MVP scope)
+- [x] `GET /api/v1/media/images`
+- [x] `GET /api/v1/media/images/:id` (stream)
+- [x] `PATCH /api/v1/media/images/:id` (metadata)
+- [x] `DELETE /api/v1/media/images/:id`
 
 ## 5) Frontend — Admin and Editor UI
 
 ### 5.1 Routes and Guards
-- [ ] Add admin content list route: `/settings/admin/content`
-- [ ] Add admin content editor route: `/settings/admin/content/:id`
-- [ ] Guard admin content routes to `ContentEditor` or `superuser`
-- [ ] Guard `/settings/admin/content-types` to `superuser`
+- [x] Add admin content list route: `/settings/admin/content`
+- [x] Add admin content editor route: `/settings/admin/content/:id`
+- [x] Guard admin content routes to `ContentEditor` or `superuser`
+- [x] Guard `/settings/admin/content-types` to `superuser`
 
 ### 5.2 Admin Content List
-- [ ] Filter by type/status/search
-- [ ] Create/edit/open actions based on capability
-- [ ] Empty/loading/error states
+- [x] Filter by type/status/search
+- [x] Create/edit/open actions based on capability
+- [x] Empty/loading/error states
 
 ### 5.3 Content Editor
-- [ ] Render required fields (`name`, `content`)
-- [ ] Render content-type additional fields dynamically
-- [ ] Save draft flow
-- [ ] Publish/unpublish actions
-- [ ] Alias path input with validation feedback
+- [x] Render required fields (`name`, `content`)
+- [x] Render content-type additional fields dynamically
+- [x] Save draft flow
+- [x] Publish/unpublish actions
+- [x] Alias path input with validation feedback
 
 ### 5.4 Markdown + Images
-- [ ] Integrate ByteMD (`@bytemd/react`) editor component
-- [ ] Implement `uploadImages` hook to call `/api/v1/media/images`
-- [ ] Insert URL-based markdown image references (no base64)
-- [ ] Existing-image picker from `/api/v1/media/images`
-- [ ] Image metadata edit (alt/title)
+- [x] Integrate ByteMD (`@bytemd/react`) editor component
+- [x] Implement `uploadImages` hook to call `/api/v1/media/images`
+- [x] Insert URL-based markdown image references (no base64)
+- [x] Existing-image picker from `/api/v1/media/images`
+- [x] Image metadata edit (alt/title)
+- [x] Create media selector dialog component for editor image toolbar
+- [x] Override editor upload action to use media selector dialog
+- [x] Support multi-select in media selector for batch insertions
+
+### 5.5 Admin Media Library
+- [x] Add admin media list route: `/settings/admin/media`
+- [x] Guard `/settings/admin/media` to `ContentEditor` or `superuser`
+- [x] List all uploaded media with thumbnails
+- [x] Display media metadata (filename, size, upload date, alt text, title, tags)
+- [x] Search/filter media by filename, alt text, or title
+- [x] Delete media with confirmation
+- [x] Add "Media" link to admin navigation menu
 
 ## 6) Frontend — Public CMS Experience
-- [ ] Add public route handler for `/cms/:contentId`
-- [ ] Fetch content by id endpoint
-- [ ] If response includes canonical alias URL, call history replace to alias
-- [ ] Add default route handler for unmatched, non-`/cms` paths that calls `/api/v1/cms/resolve`
-- [ ] Enforce route precedence: explicit app routes -> `/cms/:contentId` -> default handler resolver
-- [ ] Ensure resolver is never called for `/cms/*` routes
-- [ ] Ensure resolver is never called for blacklist-matched routes
-- [ ] Render 404 page when resolver returns `404`
-- [ ] Show preview header/banner when rendering unpublished content for authorized users
-- [ ] Add overlay edit button on CMS pages for authorized users that links to `/settings/admin/content/:id`
+- [x] Add public route handler for `/cms/:contentId`
+- [x] Fetch content by id endpoint
+- [x] If response includes canonical alias URL, call history replace to alias
+- [x] Add default route handler for unmatched, non-`/cms` paths that calls `/api/v1/cms/resolve`
+- [x] Enforce route precedence: explicit app routes -> `/cms/:contentId` -> default handler resolver
+- [x] Ensure resolver is never called for `/cms/*` routes
+- [x] Ensure resolver is never called for blacklist-matched routes
+- [x] Render 404 page when resolver returns `404`
+- [x] Show preview header/banner when rendering unpublished content for authorized users
+- [x] Add overlay edit button on CMS pages for authorized users that links to `/settings/admin/content/:id`
 
 ## 7) Validation, Security, and Observability
 - [ ] Alias normalization/sanitization and uniqueness checks
@@ -134,16 +146,16 @@
 ## 8) Testing Checklist
 
 ### 8.1 Backend Tests
-- [ ] Content type admin authorization (`superuser` only)
-- [ ] Content create defaults to `draft`
-- [ ] Publish/unpublish state transitions
-- [ ] Public endpoint denies draft content
-- [ ] `/cms/:contentId` returns canonical alias when available
-- [ ] `/cms/resolve` matched/unmatched cases
+- [x] Content type admin authorization (`superuser` only)
+- [x] Content create defaults to `draft`
+- [x] Publish/unpublish state transitions
+- [x] Public endpoint denies draft content
+- [x] `/cms/:contentId` returns canonical alias when available
+- [x] `/cms/resolve` matched/unmatched cases
 - [ ] `/cms/resolve` is not invoked for blacklist-matched paths (frontend contract test/integration)
-- [ ] Alias uniqueness conflict behavior
-- [ ] Alias change invalidates old alias (old alias returns 404)
-- [ ] GridFS upload + stream roundtrip
+- [x] Alias uniqueness conflict behavior
+- [x] Alias change invalidates old alias (old alias returns 404)
+- [x] GridFS upload + stream roundtrip
 
 ### 8.2 Frontend Tests (Playwright)
 - [ ] ContentEditor can access admin content list/editor
@@ -153,16 +165,8 @@
 - [ ] `/cms/:id` loads and rewrites URL to alias
 - [ ] Alias route resolves and renders correct page
 - [ ] Explicit app routes are never shadowed by alias resolver fallback
-- [ ] Resolver is not called for `/cms/*` requests
-- [ ] Resolver is not called for blacklist-matched paths
-- [ ] Unmatched non-`/cms` route with resolver `404` shows 404 page
-- [ ] Unpublished content view for ContentEditor/superuser shows preview header/banner
-- [ ] Drag/drop image upload inserts URL markdown
-- [ ] Overlay edit button appears only for authorized users
-
-## 10) Deferred (Post-MVP)
-- [ ] Alias redirect map support when alias changes
-- [ ] Resolver/content response representation negotiation (e.g., HTML rendering)
+ - [x] Resolver is not called for `/cms/*` requests
+ - [x] Resolver is not called for blacklist-matched paths
 - [ ] Performance optimization for resolver/path routing (caching, dynamic route insertion)
 
 ## 9) Done Criteria

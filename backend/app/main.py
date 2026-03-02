@@ -8,9 +8,13 @@ from app.api.router import router as api_router
 from app.auth.middleware import resolve_auth_context
 from app.auth.mongo_store import MongoAuthStore
 from app.auth.store import AuthStore
+from app.cms.mongo_store import MongoCmsStore
+from app.cms.store import InMemoryCmsStore
 from app.core.config import get_settings
 from app.core.errors import register_error_handlers
 from app.db.factory import create_database_adapter
+from app.media.mongo_store import MongoMediaStore
+from app.media.store import InMemoryMediaStore
 from app.notifications.email import create_mail_sender
 from app.notifications.redis_bus import RedisEventBus
 from app.api.routes.notifications import NotificationRealtimeHub
@@ -37,8 +41,12 @@ async def lifespan(app: FastAPI):
     app.state.notification_realtime_hub = NotificationRealtimeHub(redis_bus)
     if settings.app_env == "test" or os.getenv("PYTEST_CURRENT_TEST"):
         app.state.auth_store = AuthStore()
+        app.state.cms_store = InMemoryCmsStore()
+        app.state.media_store = InMemoryMediaStore()
     else:
         app.state.auth_store = MongoAuthStore(database_adapter)
+        app.state.cms_store = MongoCmsStore(database_adapter)
+        app.state.media_store = MongoMediaStore(database_adapter)
     yield
 
     if redis_bus:

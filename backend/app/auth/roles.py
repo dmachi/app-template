@@ -1,4 +1,5 @@
 ROLE_SUPERUSER = "Superuser"
+ROLE_CONTENT_EDITOR = "ContentEditor"
 ROLE_ADMIN_USERS = "AdminUsers"
 ROLE_ADMIN_GROUPS = "AdminGroups"
 ROLE_GROUP_MANAGER = "GroupManager"
@@ -6,6 +7,7 @@ ROLE_INVITE_USERS = "InviteUsers"
 
 CORE_ROLE_DESCRIPTIONS: dict[str, str] = {
     ROLE_SUPERUSER: "Can do anything",
+    ROLE_CONTENT_EDITOR: "Can create/edit/publish CMS content and manage media",
     ROLE_ADMIN_USERS: "Can view/reset/disable users and assign non-superuser roles",
     ROLE_ADMIN_GROUPS: "Can view/edit/modify all groups and assign roles to groups",
     ROLE_GROUP_MANAGER: "Can create and manage groups they own",

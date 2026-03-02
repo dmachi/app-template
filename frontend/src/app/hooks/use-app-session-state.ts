@@ -15,6 +15,8 @@ export function useAppSessionState() {
     groups: false,
     invitations: false,
     roles: false,
+    content: false,
+    contentTypes: false,
   });
   const [pendingInvitationToken, setPendingInvitationToken] = useState<string | null>(null);
   const [acceptingInvitation, setAcceptingInvitation] = useState(false);

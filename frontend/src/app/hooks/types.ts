@@ -3,4 +3,6 @@ export type AdminCapabilities = {
   groups: boolean;
   invitations: boolean;
   roles: boolean;
+  content: boolean;
+  contentTypes: boolean;
 };

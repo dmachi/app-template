@@ -295,7 +295,103 @@ export type AdminCapabilities = {
   groups: boolean;
   invitations: boolean;
   roles: boolean;
+  content?: boolean;
+  contentTypes?: boolean;
   effectiveRoles: string[];
+};
+
+export type CmsFieldType =
+  | "text"
+  | "textarea"
+  | "markdown"
+  | "number"
+  | "boolean"
+  | "date"
+  | "datetime"
+  | "select"
+  | "multiselect"
+  | "url"
+  | "link"
+  | "links"
+  | "imageRef"
+  | "imageRefs";
+
+export type CmsFieldDefinitionOption = {
+  label?: string;
+  value: string | number | boolean;
+};
+
+export type CmsFieldDefinition = {
+  key: string;
+  label: string;
+  description?: string | null;
+  type: CmsFieldType | string;
+  required?: boolean;
+  defaultValue?: unknown;
+  placeholder?: string;
+  helpText?: string;
+  options?: Array<CmsFieldDefinitionOption | string | number | boolean>;
+  validation?: Record<string, unknown>;
+};
+
+export type CmsContentType = {
+  key: string;
+  label: string;
+  description: string | null;
+  status: string;
+  fieldDefinitions: CmsFieldDefinition[];
+  permissionsPolicy: Record<string, unknown>;
+  systemManaged: boolean;
+  createdAt: string | null;
+  updatedAt: string | null;
+};
+
+export type CmsContentItem = {
+  id: string;
+  contentTypeKey: string;
+  name: string;
+  content: string;
+  additionalFields: Record<string, unknown>;
+  aliasPath: string | null;
+  status: string;
+  visibility: string;
+  allowedRoles: string[];
+  layoutKey: string | null;
+  linkRefs: Record<string, unknown>[];
+  createdByUserId: string;
+  updatedByUserId: string;
+  publishedAt: string | null;
+  publishedByUserId: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+};
+
+export type CmsResolveResponse = {
+  matched: boolean;
+  content: CmsContentItem;
+  canonicalUrl: string | null;
+  visibility: string;
+};
+
+export type CmsByIdResponse = {
+  content: CmsContentItem;
+  canonicalUrl: string | null;
+  visibility: string;
+  preview: boolean;
+};
+
+export type MediaImageItem = {
+  id: string;
+  filename: string;
+  contentType: string;
+  byteSize: number;
+  sha256: string;
+  uploadedByUserId: string;
+  createdAt: string | null;
+  updatedAt: string | null;
+  altText: string | null;
+  title: string | null;
+  tags: string[];
 };
 
 export type NotificationItem = {
@@ -324,6 +420,203 @@ export type NotificationItem = {
 export async function getAdminCapabilities(accessToken: string): Promise<AdminCapabilities> {
   return parseJson(
     await fetch(`${API_BASE}/auth/admin-capabilities`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    }),
+  );
+}
+
+export async function listCmsContentTypes(): Promise<{ items: CmsContentType[] }> {
+  return parseJson(await fetch(`${API_BASE}/content/types`));
+}
+
+export async function adminCreateCmsContentType(
+  accessToken: string,
+  body: {
+    key: string;
+    label: string;
+    description?: string;
+    fieldDefinitions?: CmsFieldDefinition[];
+    permissionsPolicy?: Record<string, unknown>;
+  },
+): Promise<CmsContentType> {
+  return parseJson(
+    await fetch(`${API_BASE}/admin/content/types`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify(body),
+    }),
+  );
+}
+
+export async function adminPatchCmsContentType(
+  accessToken: string,
+  key: string,
+  body: {
+    label?: string;
+    description?: string | null;
+    status?: string;
+    fieldDefinitions?: CmsFieldDefinition[];
+    permissionsPolicy?: Record<string, unknown>;
+  },
+): Promise<CmsContentType> {
+  return parseJson(
+    await fetch(`${API_BASE}/admin/content/types/${encodeURIComponent(key)}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify(body),
+    }),
+  );
+}
+
+export async function listCmsContent(accessToken: string): Promise<{ items: CmsContentItem[] }> {
+  return parseJson(
+    await fetch(`${API_BASE}/content`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    }),
+  );
+}
+
+export async function createCmsContent(
+  accessToken: string,
+  body: {
+    contentTypeKey: string;
+    name: string;
+    content: string;
+    additionalFields?: Record<string, unknown>;
+    aliasPath?: string | null;
+    visibility?: string;
+    allowedRoles?: string[];
+    layoutKey?: string | null;
+    linkRefs?: Record<string, unknown>[];
+  },
+): Promise<CmsContentItem> {
+  return parseJson(
+    await fetch(`${API_BASE}/content`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify(body),
+    }),
+  );
+}
+
+export async function getCmsContentById(accessToken: string, contentId: string): Promise<CmsContentItem> {
+  return parseJson(
+    await fetch(`${API_BASE}/content/${encodeURIComponent(contentId)}`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    }),
+  );
+}
+
+export async function patchCmsContent(
+  accessToken: string,
+  contentId: string,
+  body: {
+    name?: string;
+    content?: string;
+    additionalFields?: Record<string, unknown>;
+    aliasPath?: string | null;
+    visibility?: string;
+    allowedRoles?: string[];
+    layoutKey?: string | null;
+    linkRefs?: Record<string, unknown>[];
+  },
+): Promise<CmsContentItem> {
+  return parseJson(
+    await fetch(`${API_BASE}/content/${encodeURIComponent(contentId)}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify(body),
+    }),
+  );
+}
+
+export async function publishCmsContent(accessToken: string, contentId: string): Promise<CmsContentItem> {
+  return parseJson(
+    await fetch(`${API_BASE}/content/${encodeURIComponent(contentId)}/publish`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}` },
+    }),
+  );
+}
+
+export async function unpublishCmsContent(accessToken: string, contentId: string): Promise<CmsContentItem> {
+  return parseJson(
+    await fetch(`${API_BASE}/content/${encodeURIComponent(contentId)}/unpublish`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}` },
+    }),
+  );
+}
+
+export async function deleteCmsContent(accessToken: string, contentId: string): Promise<{ success: boolean }> {
+  return parseJson(
+    await fetch(`${API_BASE}/content/${encodeURIComponent(contentId)}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${accessToken}` },
+    }),
+  );
+}
+
+export async function getPublicCmsContentById(contentId: string, accessToken?: string | null): Promise<CmsByIdResponse> {
+  return parseJson(
+    await fetch(`${API_BASE}/cms/${encodeURIComponent(contentId)}`, {
+      headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
+    }),
+  );
+}
+
+export async function resolveCmsPath(path: string, accessToken?: string | null): Promise<CmsResolveResponse> {
+  const params = new URLSearchParams({ path });
+  return parseJson(
+    await fetch(`${API_BASE}/cms/resolve?${params.toString()}`, {
+      headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
+    }),
+  );
+}
+
+export function getMediaImageUrl(mediaId: string): string {
+  return `${API_BASE}/media/images/${encodeURIComponent(mediaId)}`;
+}
+
+export async function uploadMediaImage(accessToken: string, file: File): Promise<MediaImageItem> {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  return parseJson(
+    await fetch(`${API_BASE}/media/images`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}` },
+      body: formData,
+    }),
+  );
+}
+
+export async function listMediaImages(accessToken: string): Promise<{ items: MediaImageItem[] }> {
+  return parseJson(
+    await fetch(`${API_BASE}/media/images`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    }),
+  );
+}
+
+export async function updateMediaImageMetadata(
+  accessToken: string,
+  mediaId: string,
+  body: { altText?: string | null; title?: string | null; tags?: string[] },
+): Promise<MediaImageItem> {
+  return parseJson(
+    await fetch(`${API_BASE}/media/images/${encodeURIComponent(mediaId)}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify(body),
+    }),
+  );
+}
+
+export async function deleteMediaImage(accessToken: string, mediaId: string): Promise<{ success: boolean }> {
+  return parseJson(
+    await fetch(`${API_BASE}/media/images/${encodeURIComponent(mediaId)}`, {
+      method: "DELETE",
       headers: { Authorization: `Bearer ${accessToken}` },
     }),
   );
