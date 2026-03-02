@@ -116,6 +116,12 @@ Priority order:
   - prefix a key with `!` (e.g., `!orcid`) to mark it required at registration
   - core properties are always enabled and may also be marked required with `!`
 
+### Frontend CMS Routing
+- `FRONTEND_CMS_RESOLVER_BLACKLIST_PATTERNS` (comma-separated wildcard patterns; paths that must never invoke alias resolver fallback)
+  - Examples: `/api/*,/settings/*,/login,/register,/cms/*`
+  - Applied by frontend default route handler before calling `/api/v1/cms/resolve`
+  - Stored/managed with other frontend runtime config entries (frontend config module/settings files)
+
 ### Redis (Realtime Event Bus)
 - `REDIS_URL`
 - `REDIS_CHANNEL_NOTIFICATIONS` (default `notifications.events`)
@@ -141,6 +147,7 @@ Priority order:
 - When notifications/realtime events are enabled, `REDIS_URL` must be present
 - `WS_AUTH_MODE` must be compatible with configured auth mode (JWT in MVP)
 - `PROFILE_PROPERTIES` entries must map to known built-in property keys; unknown keys are ignored
+- `FRONTEND_CMS_RESOLVER_BLACKLIST_PATTERNS` must parse as valid path wildcard patterns; invalid patterns fail frontend startup/config validation
 
 ## 5) Config Endpoint
 - Provide read-only sanitized endpoint for frontend:

@@ -97,6 +97,33 @@
 - Displays group details including owner
 - Allows superuser edits and delete
 
+### M) CMS — Content List
+- Shows content items user is allowed to view/manage
+- Supports filters by type, status, and text query
+- Provides create/edit/open actions based on role capabilities
+- Visible from admin navigation to `ContentEditor` and `superuser`
+- Route: `/settings/admin/content`
+
+### N) CMS — Content Editor
+- Supports required shared fields: `name` and `content`
+- Renders additional typed fields from selected content type definition
+- `content` field uses markdown editor with edit + preview
+- Supports drag/drop image uploads to backend media API (no base64 embedding)
+- Supports selecting existing images from media library and inserting references
+- Supports editing existing image metadata (e.g., alt text/title)
+
+### O) Admin — Content Types
+- Lists configured content types including built-in `page`
+- Allows `superuser` to create/edit/disable custom content types
+- Built-in `page` type is visible and protected from deletion
+
+### P) CMS — Public Content Route
+- Published content renders at `/cms/:contentId`
+- If the content has a defined alias/pretty URL, loading via id route updates browser history to canonical alias URL
+- Draft/unpublished content is not publicly viewable but is visible to superuser and ContentEditor.
+- When superuser/ContentEditor views unpublished content through normal route handling, show a clear preview header/banner (`Preview — Not Published`).
+- When a content editor or user is on a page, include an overlay edit button that they can click to bring them to the editor for that page.
+
 ## 2) Routing
 - `/login`
 - `/register`
@@ -110,11 +137,30 @@
 - `/settings/admin/roles`
 - `/settings/admin/invitations`
 - `/settings/admin/notifications`
+- `/settings/admin/content`
+- `/settings/admin/content/:id`
+- `/settings/admin/content-types`
+- `/cms/:contentId`
+- default route handler resolves unmatched, non-`/cms` paths via backend resolver for arbitrary alias mounts
+- frontend resolver blacklist config is applied before resolver calls
 - `/notifications` (optional dedicated page or panel route)
+
+### 2.1 Route Resolution Order (Required)
+For any incoming frontend URL, route resolution order must be:
+1. Static and explicitly registered application routes (e.g., `/login`, `/settings/*`, `/notifications`)
+2. Explicit CMS id route (`/cms/:contentId`)
+3. Resolver blacklist check for unmatched, non-`/cms` paths
+4. Final default handler for unmatched, non-blacklisted, non-`/cms` paths that calls backend resolver (`/api/v1/cms/resolve`)
+5. Render 404 page when resolver returns `404`
+
+The resolver fallback must never override a matched explicit application route.
+The resolver fallback must never be used for `/cms/*` routes.
 
 ## 3) Route Protection Rules
 - `/settings/*` requires authenticated user
 - `/settings/admin/*` requires authenticated privileged role per page policy
+- `/settings/admin/content*` requires `ContentEditor` or `superuser`
+- `/settings/admin/content-types` requires `superuser`
 - Unauthorized/forbidden routes redirect to login or show access denied state
 - UI auth layer must attempt token refresh on access-token expiration before redirecting to login
 - If refresh fails, clear local auth state and redirect to `/login`
@@ -137,3 +183,9 @@
 - During active use, UI refreshes tokens without interrupting user flow until refresh token becomes invalid/expired
 - Default shell/header behavior matches authenticated vs unauthenticated requirements
 - Notifications display and state updates are near real-time while websocket is connected
+- Content type-driven forms render correctly for built-in `page` and at least one custom type
+- Markdown editor supports preview and drag/drop image upload with URL-based insertion
+- Content list appears in admin pages for `ContentEditor` and `superuser`
+- Public route `/cms/:contentId` resolves published content and normalizes URL to pretty alias when available
+- Unmatched non-`/cms` paths use resolver; resolver `404` results show 404 page
+- Unpublished content viewed by superuser/ContentEditor shows preview header/banner

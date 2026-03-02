@@ -524,3 +524,182 @@ Audit events required for:
 - Notifications can be created and retrieved with clear/ack/task-gate semantics
 - Connected users receive notification events in near real-time via websocket
 - Eligible offline users receive fallback email after configured disconnect threshold
+
+## 11) CMS Endpoints
+
+CMS details are defined in `cms.md`; this section defines required API surface.
+
+### `GET /content/types`
+Returns active content type catalog and field definitions usable by editor UI.
+
+### `POST /admin/content/types`
+Creates a content type.
+
+Authorization: `superuser` only.
+
+Request example:
+```json
+{
+  "key": "article",
+  "label": "Article",
+  "fieldDefinitions": [
+    { "key": "tagline", "label": "Tagline", "type": "text", "required": false },
+    { "key": "summary", "label": "Summary", "type": "textarea", "required": false }
+  ]
+}
+```
+
+### `PATCH /admin/content/types/:key`
+Updates content type metadata and field definitions.
+
+Authorization: `superuser` only.
+
+### `GET /content`
+Lists content visible to requester according to visibility + role policy.
+
+Query params (draft):
+- `type`, `status`, `q`, `page`, `pageSize`
+
+### `POST /content`
+Creates content item.
+
+Authorization: authenticated user with `content.create` capability.
+
+Behavior:
+- New content defaults to `status=draft` when status is not explicitly provided.
+
+Request example:
+```json
+{
+  "contentTypeKey": "page",
+  "name": "About",
+  "content": "# About\nThis is markdown.",
+  "aliasPath": "/about",
+  "fields": {
+    "summary": "About this site",
+    "layoutKey": "default"
+  },
+  "visibility": "public",
+  "allowedRoles": []
+}
+```
+
+### `GET /content/:id`
+Returns content item if requester has read access.
+
+### `PATCH /content/:id`
+Updates content item (name/content/custom fields/visibility/layout/links).
+
+Authorization:
+- `content.edit.any`, or
+- `content.edit.own` when requester is creator
+
+### `POST /content/:id/publish`
+Sets content status to `published`.
+
+Authorization: `content.publish`.
+
+### `POST /content/:id/unpublish`
+Sets content status from `published` to `draft`.
+
+Authorization: `content.publish`.
+
+### `DELETE /content/:id`
+Deletes or archives content per deployment policy.
+
+Authorization: `content.delete`.
+
+### `GET /content/public/:aliasPath`
+Public read endpoint for published content with `visibility=public` using alias path.
+
+### `GET /cms/:contentId`
+Public content endpoint by id.
+
+Behavior:
+- Returns content only when item is `published` and visibility permits public access.
+- If requester is `ContentEditor` or `superuser`, unpublished content may be returned for preview.
+- If item has `aliasPath`, response includes canonical URL metadata for client-side URL normalization.
+- Default response returns full content JSON dictionary for client rendering.
+- Future (post-MVP): support optional response representations (e.g., pre-rendered HTML).
+
+### `GET /cms/resolve`
+Resolves arbitrary path/alias to published content.
+
+Invocation rule:
+- This endpoint is intended for final fallback resolution only, after explicit frontend/app routes do not match.
+- This endpoint should not be used for `/cms/*` paths, which are handled by explicit CMS route handlers.
+- Frontend should apply configured resolver blacklist patterns before calling this endpoint.
+
+Query params:
+- `path` (required; e.g., `/about`)
+
+Response example:
+```json
+{
+  "matched": true,
+  "content": {
+    "id": "content-123",
+    "contentTypeKey": "page",
+    "name": "About",
+    "content": "# About\nThis is markdown.",
+    "aliasPath": "/about",
+    "status": "published"
+  },
+  "canonicalUrl": "/about",
+  "visibility": "public"
+}
+```
+
+Behavior:
+- Returns `404` when no published content matches alias path, using standard error envelope `{ code, message, details? }`.
+- Used when frontend supports pages mounted at arbitrary URLs.
+- Default response returns full matched content JSON dictionary for client rendering.
+- Future (post-MVP): support optional response representations (e.g., pre-rendered HTML).
+
+No-match response example:
+```json
+{
+  "code": "CONTENT_NOT_FOUND",
+  "message": "No published content matches the requested path."
+}
+```
+
+CMS error code guidance:
+- Use `CONTENT_NOT_FOUND` for resolver/content-route not-found cases with `404` status and standard error envelope.
+
+### `POST /media/images`
+Uploads image file via multipart and stores file in GridFS.
+
+Authorization: authenticated user with `media.upload`.
+
+Validation scope (MVP):
+- Only image MIME types are accepted.
+
+Response example:
+```json
+{
+  "id": "media-123",
+  "url": "/api/v1/media/images/media-123",
+  "filename": "hero.png",
+  "contentType": "image/png"
+}
+```
+
+### `GET /media/images`
+Lists uploaded image assets for media picker/search.
+
+Query params (draft):
+- `q`, `tag`, `page`, `pageSize`
+
+### `GET /media/images/:id`
+Streams image bytes from GridFS with correct `Content-Type`.
+
+### `PATCH /media/images/:id`
+Updates image metadata (`altText`, `title`, `tags`).
+
+Authorization: `media.manage` or uploader-owner policy.
+
+### `DELETE /media/images/:id`
+Deletes image asset according to retention policy.
+
+Authorization: `media.manage`.

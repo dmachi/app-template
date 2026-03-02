@@ -1,6 +1,6 @@
 # Basic System Template — Specifications
 
-_Last updated: 2026-02-27_
+_Last updated: 2026-03-01_
 
 ## Purpose
 This `specs/` package defines the baseline requirements for a reusable software system template that includes:
@@ -17,6 +17,7 @@ This `specs/` package defines the baseline requirements for a reusable software 
 - Administrative role management and role assignment to users
 - Group management where users create/manage their own groups and superusers can view/manage all groups
 - In-app notifications with realtime websocket delivery (offline fallback email is post-MVP)
+- Simple content management with typed content models and markdown authoring
 
 ## Document Map
 - `overview.md` — Product goals, architecture, scope, and assumptions
@@ -27,6 +28,8 @@ This `specs/` package defines the baseline requirements for a reusable software 
 - `admin.md` — Admin authorization, role/user/group administration, and audit requirements
 - `data-model.md` — Database-agnostic persistence model with MongoDB-first mapping and adapter contracts
 - `notifications.md` — In-app notifications, websocket/Redis delivery architecture, and fallback email policy
+- `cms.md` — Content type model, markdown content authoring, permissions, media upload, and GridFS storage
+- `cms-implementation-checklist.md` — Actionable backend/frontend implementation checklist for CMS delivery
 - `permissions-matrix.md` — Role-to-capability matrix for endpoint and UI authorization
 - `implementation-plan.md` — Milestones and delivery plan from specs to MVP
 - `testing.md` — Detailed backend/API and Playwright frontend testing standards
@@ -47,3 +50,4 @@ Milestone sequencing note:
 4. Lock API response envelope and error format
 5. Add sequence diagrams for auth flows
 6. Finalize data retention window for sessions/audit events
+7. Confirm CMS role defaults for content/media operations beyond `superuser`

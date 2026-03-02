@@ -7,6 +7,7 @@ Default system roles (must always exist):
 - `AdminGroups`
 - `GroupManager`
 - `InviteUsers`
+- `ContentEditor`
 
 Baseline authenticated users may have no explicit elevated role.
 
@@ -22,33 +23,45 @@ Baseline authenticated users may have no explicit elevated role.
 - **Invite scope**: invitation operations guarded by `InviteUsers`/`Superuser`
 - **Notification producer scope**: app/admin/system actor APIs that create notifications for recipients
 - **Notification recipient scope**: read/ack/clear/check operations for own notifications only
+- **CMS scope**: content type administration, content authoring/publishing, and media upload/management
 
 ## 3) Capability Matrix
 
-| Capability | Unauth | Auth User | GroupManager | InviteUsers | AdminUsers | AdminGroups | Superuser |
-|---|---:|---:|---:|---:|---:|---:|---:|
-| Login/Logout | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Register (if enabled) | ✅ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ |
-| View/Update own profile | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| View own notifications | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Read/Ack/Clear own notifications | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Check completion for own task-gated notification | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Receive realtime websocket notification events | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| View own/member groups | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Create group | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ | ✅ |
-| Edit/Delete own group | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ | ✅ |
-| View all groups | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ |
-| Edit/Delete any group | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ |
-| Assign roles to groups | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ |
-| List users | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ |
-| Edit user status/profile | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ |
-| Assign roles to users | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
-| Create/Edit role definitions | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
-| Delete non-core role definitions | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
-| Send/manage invitations | ❌ | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ |
-| Create notifications for other users | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅* |
-| List all notifications (admin scope) | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
-| Resend/cancel/delete any notification | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| Capability | Unauth | Auth User | GroupManager | InviteUsers | ContentEditor | AdminUsers | AdminGroups | Superuser |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| Login/Logout | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Register (if enabled) | ✅ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ |
+| View/Update own profile | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| View own notifications | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Read/Ack/Clear own notifications | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Check completion for own task-gated notification | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Receive realtime websocket notification events | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| View own/member groups | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Create group | ❌ | ❌ | ✅ | ❌ | ❌ | ❌ | ✅ | ✅ |
+| Edit/Delete own group | ❌ | ❌ | ✅ | ❌ | ❌ | ❌ | ✅ | ✅ |
+| View all groups | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ |
+| Edit/Delete any group | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ |
+| Assign roles to groups | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ |
+| List users | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ |
+| Edit user status/profile | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ |
+| Assign roles to users | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| Create/Edit role definitions | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| Delete non-core role definitions | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| Send/manage invitations | ❌ | ❌ | ❌ | ✅ | ❌ | ❌ | ❌ | ✅ |
+| List/read public content | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| List/read authenticated content | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| View admin content list | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ |
+| Create content | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ |
+| Edit own content | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ |
+| Edit any content | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ |
+| Publish/unpublish content | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ |
+| Delete/archive content | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ |
+| Upload media/images | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ |
+| Manage media metadata/delete | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ |
+| Manage content types | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| Create notifications for other users | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅* |
+| List all notifications (admin scope) | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| Resend/cancel/delete any notification | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
 
 Legend: ✅ allowed, ❌ not allowed, ➖ not applicable in typical session state.
 
@@ -61,6 +74,8 @@ Legend: ✅ allowed, ❌ not allowed, ➖ not applicable in typical session stat
 - For endpoints where elevated-role and owner are both valid, authorization passes if either condition is true
 - Notification recipient endpoints must enforce `notification.user_id == requester.id`
 - Notification producer endpoints must enforce privileged producer role policy and be audited
+- CMS write operations must enforce capability checks (`content.*`, `media.*`, `contentType.manage`) server-side
+- Public content reads must still enforce `published` status and visibility policy
 
 ## 5) Audited Authorization Events
 Must record at minimum:

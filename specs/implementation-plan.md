@@ -75,9 +75,20 @@ Deliverables:
 - Group CRUD for owner scope
 - Group pages under user routes
 - Reusable frontend component primitives for forms, tables, and dialogs
+- CMS baseline:
+  - built-in `page` content type
+  - content CRUD for typed content items (`name`, `content` + custom fields)
+  - markdown editor integration with edit/preview modes
+  - role/visibility checks for content read and write paths
+  - `ContentEditor` role for content/media operations with `superuser`-only content type administration
+  - media upload/list APIs backed by Mongo GridFS
+  - public CMS route (`/cms/{contentId}`) with optional alias canonicalization
+  - backend alias/path resolver endpoint for arbitrary URL mounts
 
 Exit criteria:
 - Authenticated user can create/manage owned groups end-to-end
+- Content items can be created/edited/published with markdown content
+- Images can be uploaded and referenced in markdown without base64 embedding
 
 ### Milestone 5 — Admin Users, Roles, and Global Group Management
 Deliverables:
@@ -153,10 +164,11 @@ Exit criteria:
 4. Auth/session middleware
 5. User/profile APIs and UI
 6. Group APIs and UI
-7. Admin APIs and UI
-8. Notifications/realtime APIs and UI
-9. Template extension architecture and registries
-10. Audit/observability and packaging
+7. CMS APIs, media (GridFS), and content UI
+8. Admin APIs and UI
+9. Notifications/realtime APIs and UI
+10. Template extension architecture and registries
+11. Audit/observability and packaging
 
 ## 5) Testing Strategy (MVP)
 Detailed testing standards are defined in `testing.md`.
@@ -177,6 +189,7 @@ CI/CD quality gates and branch protection requirements are defined in `ci-cd.md`
   - framework: Playwright (preferred default); alternatives require explicit project decision
   - browser-flow tests for login/logout, protected-route redirects, token refresh/re-auth behavior
   - UI navigation tests for header dropdown states (logged out vs authenticated) and role-based menu visibility
+  - CMS flow tests for type-driven content creation/editing, markdown preview, and image upload insertion
 
 ## 6) Open Decisions
 - Exact UVA NetBadge protocol details and local dev mocking strategy
@@ -184,3 +197,4 @@ CI/CD quality gates and branch protection requirements are defined in `ci-cd.md`
 - Whether group membership management beyond ownership is in MVP or phase 2
 - Whether role-permission granularity beyond role names is in MVP or phase 2
 - Timing and priority for non-Mongo database adapter implementation
+- Final markdown editor package decision for CMS (`ByteMD` primary candidate)

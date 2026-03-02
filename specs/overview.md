@@ -7,6 +7,7 @@ Create a reusable boilerplate system for future software projects with:
 - Foundational user account lifecycle
 - Administrative user and role management
 - User-created group management with superuser global visibility
+- Simple content management with extensible content types and markdown-authored content
 
 ## 2) In Scope (MVP)
 - User-facing pages for:
@@ -21,8 +22,12 @@ Create a reusable boilerplate system for future software projects with:
   - Global group listing/editing
 - User pages for:
   - Group listing/creation/editing for groups owned by the current user
+- Content pages for:
+  - Content list/create/edit/publish workflows
+  - Built-in `page` content type support
 - API endpoints for authentication, user account, admin user/role management, and group management
 - Notification APIs for in-app delivery, acknowledgement/task-gated clearing, and user notification state
+- CMS APIs for content types, content items, and media/image upload backed by GridFS
 - Realtime websocket event delivery with Redis bus support for multi-process backend deployments
 - Authentication abstraction supporting multiple providers enabled via configuration
 
@@ -74,6 +79,12 @@ Create a reusable boilerplate system for future software projects with:
   - token/session family id, user_id, issued_at, expires_at, revoked_at
 - AuditEvent
   - actor_user_id, action, target_type, target_id, metadata, created_at
+- ContentType
+  - key, label, field_definitions, permissions_policy, status, created_at, updated_at
+- ContentItem
+  - id, content_type_key, name, content(markdown), status, visibility, created_by, updated_by, created_at, updated_at
+- MediaAsset
+  - id, filename, content_type, gridfs_file_id, metadata, uploaded_by, created_at
 
 ## 7) Roles
 - Roles are managed by administrators
@@ -82,6 +93,7 @@ Create a reusable boilerplate system for future software projects with:
   - `superuser`: unrestricted access; can perform all administrative and role-management operations
 - Additional project-specific roles may be added by superusers per policy
 - User-management permissions must be configurable so selected non-superuser roles can manage users when desired
+- CMS baseline role includes `ContentEditor` for content and media operations (content-type administration remains `superuser` only)
 
 ## 8) Non-Functional Baseline
 - Security: secure password handling for local auth, JWT signing/validation hardening, refresh token rotation, CSRF protection when cookie token transport is used, basic rate limiting
@@ -102,3 +114,5 @@ System is acceptable when:
 - Configured user-management roles (if any) can manage users according to configuration policy
 - API supports all documented core operations
 - Access control prevents non-privileged access to privileged operations
+- Built-in `page` content type exists and content CRUD works end-to-end
+- Uploaded images are stored in GridFS and reusable in markdown content

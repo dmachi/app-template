@@ -1,7 +1,7 @@
 # Data Model Specification (v1 Draft)
 
 ## 1) Purpose
-Define a database-agnostic persistence model for authentication, users, role assignment, user-owned groups, and auditing.
+Define a database-agnostic persistence model for authentication, users, role assignment, user-owned groups, content management, media assets, and auditing.
 
 ## 2) Design Principles
 - Keep domain model independent from storage engine implementation
@@ -22,6 +22,9 @@ Define a database-agnostic persistence model for authentication, users, role ass
 - `group_memberships`
 - `notifications`
 - `notification_deliveries`
+- `content_types`
+- `content_items`
+- `media_assets`
 - `audit_events`
 
 ## 4) Storage Model
@@ -36,6 +39,9 @@ Define a database-agnostic persistence model for authentication, users, role ass
 - `group_memberships`
 - `notifications`
 - `notification_deliveries`
+- `content_types`
+- `content_items`
+- `media_assets`
 - `audit_events`
 
 ### 4.2 Optional SQL-Compatible Mapping (Future)
@@ -252,6 +258,77 @@ Indexes:
 - index on `next_email_attempt_at`
 - index on `next_completion_check_at`
 
+### `content_types`
+Defines configurable content type schemas.
+
+Fields (draft):
+- `id` (string/uuid, primary id)
+- `key` (string, unique, stable machine key)
+- `label` (string)
+- `description` (string, nullable)
+- `field_definitions` (json array)
+- `permissions_policy` (json, nullable)
+- `is_system` (boolean, default false)
+- `status` (enum: `active`, `disabled`)
+- `created_at` (timestamp)
+- `updated_at` (timestamp)
+
+Indexes:
+- unique index on `key`
+- index on `status`
+
+### `content_items`
+Stores typed content entries (includes built-in `page` items).
+
+Fields (draft):
+- `id` (string/uuid, primary id)
+- `content_type_key` (string, ref -> `content_types.key`)
+- `name` (string)
+- `alias_path` (string, unique nullable; pretty URL path, e.g., `/about`)
+- `content_markdown` (string)
+- `custom_fields` (json/object)
+- `layout_key` (string, nullable)
+- `link_refs` (json array, nullable)
+- `visibility` (enum: `public`, `authenticated`, `roles`)
+- `allowed_roles` (string array)
+- `status` (enum: `draft`, `published`, `archived`)
+- `published_at` (timestamp, nullable)
+- `published_by_user_id` (string/uuid, ref -> `users.id`, nullable)
+- `created_by_user_id` (string/uuid, ref -> `users.id`)
+- `updated_by_user_id` (string/uuid, ref -> `users.id`)
+- `created_at` (timestamp)
+- `updated_at` (timestamp)
+
+Indexes:
+- index on `content_type_key`
+- unique sparse index on `alias_path`
+- index on (`status`, `visibility`)
+- index on `created_by_user_id`
+- index on `updated_at`
+
+### `media_assets`
+Stores image/file metadata while blob bytes are persisted in MongoDB GridFS.
+
+Fields (draft):
+- `id` (string/uuid, primary id)
+- `gridfs_file_id` (string/object id, ref -> GridFS file record)
+- `filename` (string)
+- `content_type` (string)
+- `byte_size` (int)
+- `sha256` (string, nullable)
+- `alt_text` (string, nullable)
+- `title` (string, nullable)
+- `tags` (string array)
+- `uploaded_by_user_id` (string/uuid, ref -> `users.id`)
+- `created_at` (timestamp)
+- `updated_at` (timestamp)
+
+Indexes:
+- unique index on `gridfs_file_id`
+- index on `uploaded_by_user_id`
+- index on `created_at`
+- index on `tags`
+
 ## 6) Repository Interface Contracts (Required)
 - `UserRepository`
 	- `getById`, `getByUsernameOrEmail`, `create`, `updateProfile`, `list`
@@ -267,6 +344,12 @@ Indexes:
 	- `create`, `createBulk`, `listForUser`, `getForUser`, `markRead`, `acknowledge`, `clearIfAllowed`, `updateCompletionState`
 - `NotificationDeliveryRepository`
 	- `recordInAppAttempt`, `recordInAppDelivery`, `markFallbackEligible`, `recordFallbackEmailSent`, `listFallbackDue`
+- `ContentTypeRepository`
+	- `listActive`, `getByKey`, `create`, `update`, `disableIfAllowed`
+- `ContentRepository`
+	- `create`, `getById`, `getByAliasPath`, `listVisible`, `update`, `publish`, `unpublish`, `deleteOrArchive`
+- `MediaRepository`
+	- `uploadToGridFS`, `getFileStream`, `list`, `updateMetadata`, `delete`
 
 ## 7) Relationship Summary
 - One `user` -> many `auth_identities`
@@ -276,6 +359,9 @@ Indexes:
 - Many `users` <-> many `groups` via `group_memberships`
 - One `user` -> many `notifications`
 - One `notification` -> one `notification_delivery`
+- One `content_type` -> many `content_items`
+- One `user` -> many `content_items` (creator/updater relationships)
+- One `user` -> many `media_assets` (uploader relationship)
 
 ## 8) Deletion/Retention Policies (Draft)
 - Hard delete of user should be restricted by default in production; prefer soft-disable (`status=disabled`)
