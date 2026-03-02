@@ -10,7 +10,7 @@ type CapabilitySet = {
   contentTypes: boolean;
 };
 
-const CONTENT_EDITOR_CAPABILITIES: CapabilitySet = {
+const CONTENT_ADMIN_CAPABILITIES: CapabilitySet = {
   anyAdmin: true,
   users: false,
   groups: false,
@@ -30,7 +30,7 @@ const SUPERUSER_CAPABILITIES: CapabilitySet = {
   contentTypes: true,
 };
 
-const NON_CONTENT_EDITOR_CAPABILITIES: CapabilitySet = {
+const NON_CONTENT_ADMIN_CAPABILITIES: CapabilitySet = {
   anyAdmin: false,
   users: false,
   groups: false,
@@ -42,7 +42,7 @@ const NON_CONTENT_EDITOR_CAPABILITIES: CapabilitySet = {
 
 async function seedSession(page: Page) {
   await page.addInitScript(() => {
-    window.localStorage.setItem("bst.refreshToken", "test-refresh-token");
+    window.localStorage.setItem("refreshToken", "test-refresh-token");
   });
 }
 
@@ -101,7 +101,7 @@ async function mockBootstrapApis(page: Page, capabilities: CapabilitySet) {
       contentType: "application/json",
       body: JSON.stringify({
         ...capabilities,
-        effectiveRoles: capabilities.contentTypes ? ["superuser"] : capabilities.content ? ["ContentAdmin"] : ["member"],
+        effectiveRoles: capabilities.contentTypes ? ["Superuser"] : capabilities.content ? ["ContentAdmin"] : ["Member"],
       }),
     });
   });
@@ -133,7 +133,7 @@ async function mockCmsTypeList(page: Page) {
 
 test("ContentAdmin can access admin content list and editor", async ({ page }) => {
   await seedSession(page);
-  await mockBootstrapApis(page, CONTENT_EDITOR_CAPABILITIES);
+  await mockBootstrapApis(page, CONTENT_ADMIN_CAPABILITIES);
   await mockCmsTypeList(page);
 
   await page.route("**/api/v1/content", async (route) => {
@@ -214,7 +214,7 @@ test("ContentAdmin can access admin content list and editor", async ({ page }) =
 
 test("Non-ContentAdmin is blocked from admin content routes", async ({ page }) => {
   await seedSession(page);
-  await mockBootstrapApis(page, NON_CONTENT_EDITOR_CAPABILITIES);
+  await mockBootstrapApis(page, NON_CONTENT_ADMIN_CAPABILITIES);
 
   await page.goto("/settings/admin/content");
   await expect(page).toHaveURL(/\/$/);
@@ -232,7 +232,7 @@ test("Superuser can access content types admin page", async ({ page }) => {
 
 test("Draft save then publish flow updates status", async ({ page }) => {
   await seedSession(page);
-  await mockBootstrapApis(page, CONTENT_EDITOR_CAPABILITIES);
+  await mockBootstrapApis(page, CONTENT_ADMIN_CAPABILITIES);
   await mockCmsTypeList(page);
 
   await page.route("**/api/v1/media/images", async (route) => {
