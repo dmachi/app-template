@@ -342,7 +342,6 @@ export type CmsContentType = {
   fieldDefinitions: CmsFieldDefinition[];
   permissionsPolicy: Record<string, unknown>;
   systemManaged: boolean;
-  enableAlias: boolean;
   fieldOrder: string[];
   createdAt: string | null;
   updatedAt: string | null;
@@ -354,7 +353,6 @@ export type CmsContentItem = {
   name: string;
   content: string;
   additionalFields: Record<string, unknown>;
-  aliasPath: string | null;
   status: string;
   visibility: string;
   allowedRoles: string[];
@@ -368,16 +366,9 @@ export type CmsContentItem = {
   updatedAt: string | null;
 };
 
-export type CmsResolveResponse = {
-  matched: boolean;
-  content: CmsContentItem;
-  canonicalUrl: string | null;
-  visibility: string;
-};
-
 export type CmsByIdResponse = {
   content: CmsContentItem;
-  canonicalUrl: string | null;
+  canonicalUrl: string;
   visibility: string;
   preview: boolean;
 };
@@ -439,7 +430,6 @@ export async function adminCreateCmsContentType(
     description?: string;
     fieldDefinitions?: CmsFieldDefinition[];
     permissionsPolicy?: Record<string, unknown>;
-    enableAlias?: boolean;
     fieldOrder?: string[];
   },
 ): Promise<CmsContentType> {
@@ -461,7 +451,6 @@ export async function adminPatchCmsContentType(
     status?: string;
     fieldDefinitions?: CmsFieldDefinition[];
     permissionsPolicy?: Record<string, unknown>;
-    enableAlias?: boolean;
     fieldOrder?: string[];
   },
 ): Promise<CmsContentType> {
@@ -489,7 +478,6 @@ export async function createCmsContent(
     name: string;
     content: string;
     additionalFields?: Record<string, unknown>;
-    aliasPath?: string | null;
     visibility?: string;
     allowedRoles?: string[];
     layoutKey?: string | null;
@@ -520,7 +508,6 @@ export async function patchCmsContent(
     name?: string;
     content?: string;
     additionalFields?: Record<string, unknown>;
-    aliasPath?: string | null;
     visibility?: string;
     allowedRoles?: string[];
     layoutKey?: string | null;
@@ -563,18 +550,13 @@ export async function deleteCmsContent(accessToken: string, contentId: string): 
   );
 }
 
-export async function getPublicCmsContentById(contentId: string, accessToken?: string | null): Promise<CmsByIdResponse> {
+export async function getPublicCmsContentById(
+  contentTypeKey: string,
+  contentId: string,
+  accessToken?: string | null,
+): Promise<CmsByIdResponse> {
   return parseJson(
-    await fetch(`${API_BASE}/cms/${encodeURIComponent(contentId)}`, {
-      headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
-    }),
-  );
-}
-
-export async function resolveCmsPath(path: string, accessToken?: string | null): Promise<CmsResolveResponse> {
-  const params = new URLSearchParams({ path });
-  return parseJson(
-    await fetch(`${API_BASE}/cms/resolve?${params.toString()}`, {
+    await fetch(`${API_BASE}/cms/${encodeURIComponent(contentTypeKey)}/${encodeURIComponent(contentId)}`, {
       headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
     }),
   );

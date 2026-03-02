@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { ExternalLink, Pencil } from "lucide-react";
 
 import { Button } from "../../../components/ui/button";
 import {
@@ -20,9 +21,31 @@ type AdminContentPageProps = {
   canCreate: boolean;
   canOpen: boolean;
   onOpenContent: (contentId: string) => void;
+  onOpenPublicContent: (contentTypeKey: string, contentId: string) => void;
 };
 
-export function AdminContentPage({ accessToken, canCreate, canOpen, onOpenContent }: AdminContentPageProps) {
+function formatCreatedAt(value: string | null): string {
+  if (!value) {
+    return "-";
+  }
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return "-";
+  }
+  return parsed.toLocaleDateString();
+}
+
+function statusBadgeClasses(status: string): string {
+  if (status === "published") {
+    return "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300";
+  }
+  if (status === "archived") {
+    return "bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300";
+  }
+  return "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300";
+}
+
+export function AdminContentPage({ accessToken, canCreate, canOpen, onOpenContent, onOpenPublicContent }: AdminContentPageProps) {
   const [items, setItems] = useState<CmsContentItem[]>([]);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -80,7 +103,6 @@ export function AdminContentPage({ accessToken, canCreate, canOpen, onOpenConten
         contentTypeKey: createTypeKey,
         name: `Untitled ${selectedType?.label || "Content"}`,
         content: "",
-        aliasPath: null,
         visibility: "public",
       });
       setCreateDialogOpen(false);
@@ -105,7 +127,8 @@ export function AdminContentPage({ accessToken, canCreate, canOpen, onOpenConten
       if (!needle) {
         return true;
       }
-      return [item.name, item.contentTypeKey, item.aliasPath || "", item.status].some((value) => value.toLowerCase().includes(needle));
+      const publicPath = `/cms/${item.contentTypeKey}/${item.id}`;
+      return [item.name, item.contentTypeKey, item.status, publicPath].some((value) => value.toLowerCase().includes(needle));
     });
   }, [items, query, statusFilter, typeFilter]);
 
@@ -158,7 +181,7 @@ export function AdminContentPage({ accessToken, canCreate, canOpen, onOpenConten
           <Input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search by name, alias, status"
+            placeholder="Search by name, type, status, or public path"
           />
           <select
             className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-900"
@@ -193,20 +216,55 @@ export function AdminContentPage({ accessToken, canCreate, canOpen, onOpenConten
         ) : null}
         {!loading && !errorMessage ? (
           <div className="grid gap-2">
-            {filteredItems.map((item) => (
-              <div key={item.id} className="grid gap-1 rounded-md border border-slate-200 p-3 dark:border-slate-700">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="font-medium">{item.name}</span>
-                  <span className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">{item.status}</span>
+            <div className="overflow-x-auto rounded-md border border-slate-200 dark:border-slate-700">
+              <div className="min-w-[760px]">
+                <div className="grid grid-cols-[140px_minmax(0,1fr)_130px_120px_48px_48px] items-center gap-2 border-b border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium uppercase tracking-wide text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">
+                  <span>Type</span>
+                  <span>Name</span>
+                  <span>Created</span>
+                  <span>State</span>
+                  <span className="text-center">Edit</span>
+                  <span className="text-center">Open</span>
                 </div>
-                <p className="text-xs text-slate-500 dark:text-slate-400">{item.contentTypeKey} {item.aliasPath ? `· ${item.aliasPath}` : ""}</p>
-                {canOpen ? (
-                  <div>
-                    <Button type="button" className="bg-transparent" onClick={() => onOpenContent(item.id)}>Open</Button>
+
+                {filteredItems.map((item) => (
+                  <div key={item.id} className="grid grid-cols-[140px_minmax(0,1fr)_130px_120px_48px_48px] items-center gap-2 border-b border-slate-100 px-3 py-1.5 text-sm last:border-b-0 dark:border-slate-800">
+                    <span className="truncate text-xs text-slate-600 dark:text-slate-300">{item.contentTypeKey}</span>
+                    <span className="truncate font-medium" title={item.name}>{item.name}</span>
+                    <span className="text-xs text-slate-500 dark:text-slate-400">{formatCreatedAt(item.createdAt)}</span>
+                    <span>
+                      <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium uppercase tracking-wide ${statusBadgeClasses(item.status)}`}>
+                        {item.status}
+                      </span>
+                    </span>
+                    <div className="flex justify-center">
+                      <Button
+                        type="button"
+                        className="bg-transparent"
+                        onClick={() => onOpenContent(item.id)}
+                        aria-label={`Edit ${item.name}`}
+                        title="Edit"
+                        disabled={!canOpen}
+                      >
+                        <Pencil className="h-4 w-4" aria-hidden="true" />
+                      </Button>
+                    </div>
+                    <div className="flex justify-center">
+                      <Button
+                        type="button"
+                        className="bg-transparent"
+                        onClick={() => onOpenPublicContent(item.contentTypeKey, item.id)}
+                        aria-label={`Open ${item.name}`}
+                        title="Open"
+                      >
+                        <ExternalLink className="h-4 w-4" aria-hidden="true" />
+                      </Button>
+                    </div>
                   </div>
-                ) : null}
+                ))}
               </div>
-            ))}
+            </div>
+
             {items.length === 0 ? (
               <p className="text-sm text-slate-500 dark:text-slate-400">
                 No content items yet.{canCreate ? " Create your first draft to get started." : ""}
@@ -232,6 +290,7 @@ export default function AdminContentRoutePage() {
       canCreate={routeContext.settingsProps.adminCapabilities.content}
       canOpen={routeContext.settingsProps.adminCapabilities.content}
       onOpenContent={(contentId) => routeContext.settingsProps.navigateTo(`/settings/admin/content/${contentId}`)}
+      onOpenPublicContent={(contentTypeKey, contentId) => routeContext.settingsProps.navigateTo(`/cms/${contentTypeKey}/${contentId}`)}
     />
   );
 }

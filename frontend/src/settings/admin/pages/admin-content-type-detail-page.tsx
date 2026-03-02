@@ -77,7 +77,6 @@ export default function AdminContentTypeDetailRoutePage() {
   const [item, setItem] = useState<CmsContentType | null>(null);
   const [label, setLabel] = useState("");
   const [description, setDescription] = useState("");
-  const [enableAlias, setEnableAlias] = useState(true);
   const [fieldDefinitions, setFieldDefinitions] = useState<CmsFieldDefinition[]>([]);
   const [fieldOrder, setFieldOrder] = useState<string[]>([]);
 
@@ -103,7 +102,6 @@ export default function AdminContentTypeDetailRoutePage() {
         setItem(found);
         setLabel(found.label || "");
         setDescription(found.description || "");
-        setEnableAlias(found.enableAlias !== false);
         setFieldDefinitions(Array.isArray(found.fieldDefinitions) ? found.fieldDefinitions : []);
         // Initialize field order with core fields first, then custom fields
         const customFieldKeys = (found.fieldDefinitions || []).map(f => f.key);
@@ -193,14 +191,12 @@ export default function AdminContentTypeDetailRoutePage() {
       const updated = await adminPatchCmsContentType(accessToken, contentTypeKey, {
         label: label.trim(),
         description: description.trim() || null,
-        enableAlias,
         fieldDefinitions,
         fieldOrder,
       });
       setItem(updated);
       setLabel(updated.label || "");
       setDescription(updated.description || "");
-      setEnableAlias(updated.enableAlias !== false);
       setFieldDefinitions(Array.isArray(updated.fieldDefinitions) ? updated.fieldDefinitions : []);
       const customFieldKeys = (updated.fieldDefinitions || []).map(f => f.key);
       const updatedOrder = updated.fieldOrder && updated.fieldOrder.length > 0
@@ -257,16 +253,6 @@ export default function AdminContentTypeDetailRoutePage() {
         <label className="grid gap-1 text-sm">
           <span>Description</span>
           <Input value={description} onChange={(event) => setDescription(event.target.value)} disabled={!canManageTypes} />
-        </label>
-
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={enableAlias}
-            onChange={(event) => setEnableAlias(event.target.checked)}
-            disabled={!canManageTypes}
-          />
-          <span>Enable Alias Path Field</span>
         </label>
 
         <div className="flex items-center justify-between gap-2">

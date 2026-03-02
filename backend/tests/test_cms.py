@@ -88,7 +88,6 @@ def test_content_create_defaults_to_draft_and_publish_unpublish_flow(client):
             "contentTypeKey": "page",
             "name": "About",
             "content": "Draft content",
-            "aliasPath": "/about",
             "visibility": "public",
         },
     )
@@ -97,7 +96,7 @@ def test_content_create_defaults_to_draft_and_publish_unpublish_flow(client):
     assert payload["status"] == "draft"
     content_id = payload["id"]
 
-    public_draft = client.get(f"/api/v1/cms/{content_id}")
+    public_draft = client.get(f"/api/v1/cms/page/{content_id}")
     assert public_draft.status_code == 404
 
     published = client.post(
@@ -107,9 +106,9 @@ def test_content_create_defaults_to_draft_and_publish_unpublish_flow(client):
     assert published.status_code == 200
     assert published.json()["status"] == "published"
 
-    public_published = client.get(f"/api/v1/cms/{content_id}")
+    public_published = client.get(f"/api/v1/cms/page/{content_id}")
     assert public_published.status_code == 200
-    assert public_published.json()["canonicalUrl"] == "/about"
+    assert public_published.json()["canonicalUrl"] == f"/cms/page/{content_id}"
 
     unpublished = client.post(
         f"/api/v1/content/{content_id}/unpublish",
@@ -118,11 +117,11 @@ def test_content_create_defaults_to_draft_and_publish_unpublish_flow(client):
     assert unpublished.status_code == 200
     assert unpublished.json()["status"] == "draft"
 
-    public_after_unpublish = client.get(f"/api/v1/cms/{content_id}")
+    public_after_unpublish = client.get(f"/api/v1/cms/page/{content_id}")
     assert public_after_unpublish.status_code == 404
 
 
-def test_cms_resolve_matched_and_unmatched(client):
+def test_cms_public_path_requires_matching_content_type(client):
     register_and_login(client, username="cmseditor2", email="cmseditor2@example.org")
     auth_store = app.state.auth_store
     editor = auth_store.authenticate_local_user("cmseditor2", "Password123")
@@ -137,7 +136,6 @@ def test_cms_resolve_matched_and_unmatched(client):
             "contentTypeKey": "page",
             "name": "FAQ",
             "content": "FAQ body",
-            "aliasPath": "/faq",
             "visibility": "public",
         },
     )
@@ -150,18 +148,17 @@ def test_cms_resolve_matched_and_unmatched(client):
     )
     assert published.status_code == 200
 
-    matched = client.get("/api/v1/cms/resolve", params={"path": "/faq"})
+    matched = client.get(f"/api/v1/cms/page/{content_id}")
     assert matched.status_code == 200
-    assert matched.json()["matched"] is True
-    assert matched.json()["canonicalUrl"] == "/faq"
+    assert matched.json()["canonicalUrl"] == f"/cms/page/{content_id}"
     assert matched.json()["content"]["id"] == content_id
 
-    missing = client.get("/api/v1/cms/resolve", params={"path": "/missing"})
+    missing = client.get(f"/api/v1/cms/article/{content_id}")
     assert missing.status_code == 404
     assert missing.json()["error"]["code"] == "CONTENT_NOT_FOUND"
 
 
-def test_alias_uniqueness_and_alias_change_invalidates_old_alias(client):
+def test_multiple_content_items_can_share_same_type_and_use_typed_url(client):
     register_and_login(client, username="cmseditor3", email="cmseditor3@example.org")
     auth_store = app.state.auth_store
     editor = auth_store.authenticate_local_user("cmseditor3", "Password123")
@@ -176,26 +173,24 @@ def test_alias_uniqueness_and_alias_change_invalidates_old_alias(client):
             "contentTypeKey": "page",
             "name": "One",
             "content": "Body one",
-            "aliasPath": "/team",
             "visibility": "public",
         },
     )
     assert first.status_code == 200
     first_id = first.json()["id"]
 
-    second_conflict = client.post(
+    second = client.post(
         "/api/v1/content",
         headers=auth_headers(tokens["accessToken"]),
         json={
             "contentTypeKey": "page",
             "name": "Two",
             "content": "Body two",
-            "aliasPath": "/team",
             "visibility": "public",
         },
     )
-    assert second_conflict.status_code == 409
-    assert second_conflict.json()["error"]["code"] == "ALIAS_CONFLICT"
+    assert second.status_code == 200
+    second_id = second.json()["id"]
 
     published = client.post(
         f"/api/v1/content/{first_id}/publish",
@@ -203,23 +198,22 @@ def test_alias_uniqueness_and_alias_change_invalidates_old_alias(client):
     )
     assert published.status_code == 200
 
-    updated_alias = client.patch(
-        f"/api/v1/content/{first_id}",
+    published_second = client.post(
+        f"/api/v1/content/{second_id}/publish",
         headers=auth_headers(tokens["accessToken"]),
-        json={"aliasPath": "/our-team"},
     )
-    assert updated_alias.status_code == 200
-    assert updated_alias.json()["aliasPath"] == "/our-team"
+    assert published_second.status_code == 200
 
-    old_alias = client.get("/api/v1/cms/resolve", params={"path": "/team"})
-    assert old_alias.status_code == 404
+    first_public = client.get(f"/api/v1/cms/page/{first_id}")
+    assert first_public.status_code == 200
+    assert first_public.json()["content"]["id"] == first_id
 
-    new_alias = client.get("/api/v1/cms/resolve", params={"path": "/our-team"})
-    assert new_alias.status_code == 200
-    assert new_alias.json()["content"]["id"] == first_id
+    second_public = client.get(f"/api/v1/cms/page/{second_id}")
+    assert second_public.status_code == 200
+    assert second_public.json()["content"]["id"] == second_id
 
 
-def test_alias_normalization_and_invalid_alias_rejection(client):
+def test_content_patch_without_alias_support(client):
     register_and_login(client, username="cmseditor4", email="cmseditor4@example.org")
     auth_store = app.state.auth_store
     editor = auth_store.authenticate_local_user("cmseditor4", "Password123")
@@ -227,39 +221,23 @@ def test_alias_normalization_and_invalid_alias_rejection(client):
     editor.roles = ["ContentEditor"]
     tokens = relogin(client, "cmseditor4")
 
-    normalized = client.post(
+    created = client.post(
         "/api/v1/content",
         headers=auth_headers(tokens["accessToken"]),
         json={
             "contentTypeKey": "page",
-            "name": "Normalized Alias",
+            "name": "Patch Target",
             "content": "Body",
-            "aliasPath": "  ABOUT//TEAM/  ",
             "visibility": "public",
         },
     )
-    assert normalized.status_code == 200
-    assert normalized.json()["aliasPath"] == "/about/team"
+    assert created.status_code == 200
+    content_id = created.json()["id"]
 
-    invalid_create = client.post(
-        "/api/v1/content",
-        headers=auth_headers(tokens["accessToken"]),
-        json={
-            "contentTypeKey": "page",
-            "name": "Invalid Alias",
-            "content": "Body",
-            "aliasPath": "/about us",
-            "visibility": "public",
-        },
-    )
-    assert invalid_create.status_code == 400
-    assert invalid_create.json()["error"]["code"] == "ALIAS_INVALID"
-
-    content_id = normalized.json()["id"]
-    invalid_patch = client.patch(
+    updated = client.patch(
         f"/api/v1/content/{content_id}",
         headers=auth_headers(tokens["accessToken"]),
-        json={"aliasPath": "/bad?path"},
+        json={"name": "Patch Updated"},
     )
-    assert invalid_patch.status_code == 400
-    assert invalid_patch.json()["error"]["code"] == "ALIAS_INVALID"
+    assert updated.status_code == 200
+    assert updated.json()["name"] == "Patch Updated"

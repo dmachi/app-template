@@ -40,7 +40,6 @@ class ContentTypeRecord:
     field_definitions: list[dict[str, Any]] = field(default_factory=list)
     permissions_policy: dict[str, Any] = field(default_factory=dict)
     system_managed: bool = False
-    enable_alias: bool = True
     field_order: list[str] = field(default_factory=list)
     created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
@@ -111,7 +110,6 @@ class InMemoryCmsStore:
         description: str | None,
         field_definitions: list[dict[str, Any]] | None,
         permissions_policy: dict[str, Any] | None,
-        enable_alias: bool = True,
         field_order: list[str] | None = None,
     ) -> ContentTypeRecord:
         normalized_key = key.strip().lower()
@@ -126,7 +124,6 @@ class InMemoryCmsStore:
             field_definitions=list(field_definitions or []),
             permissions_policy=dict(permissions_policy or {}),
             system_managed=False,
-            enable_alias=enable_alias,
             field_order=list(field_order or []),
             created_at=now,
             updated_at=now,
@@ -143,7 +140,6 @@ class InMemoryCmsStore:
         status: str | None = None,
         field_definitions: list[dict[str, Any]] | None = None,
         permissions_policy: dict[str, Any] | None = None,
-        enable_alias: bool | None = None,
         field_order: list[str] | None = None,
     ) -> ContentTypeRecord | None:
         record = self._content_types.get(key)
@@ -161,8 +157,6 @@ class InMemoryCmsStore:
             record.field_definitions = list(field_definitions)
         if permissions_policy is not None:
             record.permissions_policy = dict(permissions_policy)
-        if enable_alias is not None:
-            record.enable_alias = enable_alias
         if field_order is not None:
             record.field_order = list(field_order)
         record.updated_at = datetime.now(UTC)

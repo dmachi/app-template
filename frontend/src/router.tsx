@@ -59,7 +59,7 @@ const acceptInviteRoute = createLayoutRoute({
 
 const cmsByIdRoute = createLayoutRoute({
   getParentRoute: () => rootRoute,
-  path: "/cms/$contentId",
+  path: "/cms/$contentTypeKey/$contentId",
   layout: "simple-layout",
   component: CmsContentByIdPage,
 });

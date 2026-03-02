@@ -8,7 +8,7 @@ from starlette.responses import Response
 from app.auth.dependencies import get_current_user, require_superuser
 from app.auth.roles import ROLE_CONTENT_EDITOR, ROLE_SUPERUSER, has_any_role
 from app.auth.store import UserRecord
-from app.cms.store import CONTENT_STATUS_PUBLISHED, CONTENT_VISIBILITY_AUTHENTICATED, CONTENT_VISIBILITY_PUBLIC, CONTENT_VISIBILITY_ROLES, normalize_alias_path
+from app.cms.store import CONTENT_STATUS_PUBLISHED, CONTENT_VISIBILITY_AUTHENTICATED, CONTENT_VISIBILITY_PUBLIC, CONTENT_VISIBILITY_ROLES
 from app.core.errors import ApiError
 
 router = APIRouter(tags=["cms"])
@@ -21,7 +21,6 @@ class ContentTypeCreateRequest(BaseModel):
     description: str | None = None
     fieldDefinitions: list[dict[str, Any]] = Field(default_factory=list)
     permissionsPolicy: dict[str, Any] = Field(default_factory=dict)
-    enableAlias: bool = True
     fieldOrder: list[str] = Field(default_factory=list)
 
 
@@ -31,7 +30,6 @@ class ContentTypePatchRequest(BaseModel):
     status: str | None = None
     fieldDefinitions: list[dict[str, Any]] | None = None
     permissionsPolicy: dict[str, Any] | None = None
-    enableAlias: bool | None = None
     fieldOrder: list[str] | None = None
 
 
@@ -40,7 +38,6 @@ class ContentCreateRequest(BaseModel):
     name: str = Field(min_length=1)
     content: str
     additionalFields: dict[str, Any] = Field(default_factory=dict)
-    aliasPath: str | None = None
     visibility: str = CONTENT_VISIBILITY_PUBLIC
     allowedRoles: list[str] = Field(default_factory=list)
     layoutKey: str | None = None
@@ -51,7 +48,6 @@ class ContentPatchRequest(BaseModel):
     name: str | None = Field(default=None, min_length=1)
     content: str | None = None
     additionalFields: dict[str, Any] | None = None
-    aliasPath: str | None = None
     visibility: str | None = None
     allowedRoles: list[str] | None = None
     layoutKey: str | None = None
@@ -77,7 +73,6 @@ def _serialize_content_type(record) -> dict[str, Any]:
         "fieldDefinitions": record.field_definitions,
         "permissionsPolicy": record.permissions_policy,
         "systemManaged": record.system_managed,
-        "enableAlias": record.enable_alias,
         "fieldOrder": record.field_order,
         "createdAt": _iso(record.created_at),
         "updatedAt": _iso(record.updated_at),
@@ -91,7 +86,6 @@ def _serialize_content_item(record) -> dict[str, Any]:
         "name": record.name,
         "content": record.content,
         "additionalFields": record.additional_fields,
-        "aliasPath": record.alias_path,
         "status": record.status,
         "visibility": record.visibility,
         "allowedRoles": record.allowed_roles,
@@ -187,7 +181,6 @@ def create_content_type(payload: ContentTypeCreateRequest, request: Request, _: 
             description=payload.description,
             field_definitions=payload.fieldDefinitions,
             permissions_policy=payload.permissionsPolicy,
-            enable_alias=payload.enableAlias,
             field_order=payload.fieldOrder,
         )
     except ValueError as exc:
@@ -213,7 +206,6 @@ def patch_content_type(
             status=payload.status,
             field_definitions=payload.fieldDefinitions,
             permissions_policy=payload.permissionsPolicy,
-            enable_alias=payload.enableAlias,
             field_order=payload.fieldOrder,
         )
     except ValueError as exc:
@@ -253,7 +245,7 @@ def create_content(payload: ContentCreateRequest, request: Request, current_user
             name=payload.name,
             content=payload.content,
             additional_fields=payload.additionalFields,
-            alias_path=payload.aliasPath,
+            alias_path=None,
             visibility=payload.visibility,
             allowed_roles=payload.allowedRoles,
             layout_key=payload.layoutKey,
@@ -264,10 +256,6 @@ def create_content(payload: ContentCreateRequest, request: Request, current_user
         code = str(exc)
         if code == "CONTENT_TYPE_NOT_FOUND":
             raise ApiError(status_code=404, code=code, message="Content type not found") from exc
-        if code == "ALIAS_INVALID":
-            raise ApiError(status_code=400, code=code, message="Alias path is invalid") from exc
-        if code == "ALIAS_CONFLICT":
-            raise ApiError(status_code=409, code=code, message="Alias path is already in use") from exc
         raise ApiError(status_code=400, code="CONTENT_CREATE_FAILED", message="Unable to create content") from exc
     return _serialize_content_item(created)
 
@@ -301,7 +289,6 @@ def patch_content(
             name=payload.name,
             content=payload.content,
             additional_fields=payload.additionalFields,
-            alias_path=payload.aliasPath,
             visibility=payload.visibility,
             allowed_roles=payload.allowedRoles,
             layout_key=payload.layoutKey,
@@ -309,10 +296,6 @@ def patch_content(
             updated_by_user_id=current_user.id,
         )
     except ValueError as exc:
-        if str(exc) == "ALIAS_INVALID":
-            raise ApiError(status_code=400, code="ALIAS_INVALID", message="Alias path is invalid") from exc
-        if str(exc) == "ALIAS_CONFLICT":
-            raise ApiError(status_code=409, code="ALIAS_CONFLICT", message="Alias path is already in use") from exc
         raise ApiError(status_code=400, code="CONTENT_UPDATE_FAILED", message="Unable to update content") from exc
     if updated is None:
         raise ApiError(status_code=404, code="CONTENT_NOT_FOUND", message="Content not found")
@@ -349,40 +332,15 @@ def delete_content(content_id: str, request: Request, current_user: UserRecord =
     return {"success": True}
 
 
-@router.get("/cms/resolve")
-def resolve_cms_path(path: str, request: Request) -> dict[str, Any]:
-    cms_store = request.app.state.cms_store
-    user = _get_optional_user(request)
-    try:
-        normalized_path = normalize_alias_path(path)
-    except ValueError:
-        raise ApiError(status_code=404, code="CONTENT_NOT_FOUND", message="Content not found")
-    if normalized_path is None:
-        raise ApiError(status_code=404, code="CONTENT_NOT_FOUND", message="Content not found")
-
-    content = cms_store.get_content_item_by_alias(normalized_path)
-    if content is None:
-        raise ApiError(status_code=404, code="CONTENT_NOT_FOUND", message="Content not found")
-
-    can_preview = _is_editor_or_superuser(request, user)
-    if not can_preview and not _can_read_published(content, user):
-        raise ApiError(status_code=404, code="CONTENT_NOT_FOUND", message="Content not found")
-
-    return {
-        "matched": True,
-        "content": _serialize_content_item(content),
-        "canonicalUrl": content.alias_path,
-        "visibility": content.visibility,
-    }
-
-
-@router.get("/cms/{content_id}")
-def get_public_content(content_id: str, request: Request) -> dict[str, Any]:
+@router.get("/cms/{content_type_key}/{content_id}")
+def get_public_content(content_type_key: str, content_id: str, request: Request) -> dict[str, Any]:
     cms_store = request.app.state.cms_store
     user = _get_optional_user(request)
     content = cms_store.get_content_item(content_id)
     if content is None:
         raise ApiError(status_code=404, code="CONTENT_NOT_FOUND", message="Content not found")
+    if content.content_type_key != content_type_key:
+        raise ApiError(status_code=404, code="CONTENT_NOT_FOUND", message="Content not found")
 
     can_preview = _is_editor_or_superuser(request, user)
     if not can_preview and not _can_read_published(content, user):
@@ -390,7 +348,7 @@ def get_public_content(content_id: str, request: Request) -> dict[str, Any]:
 
     return {
         "content": _serialize_content_item(content),
-        "canonicalUrl": content.alias_path,
+        "canonicalUrl": f"/cms/{content.content_type_key}/{content.id}",
         "visibility": content.visibility,
         "preview": bool(can_preview and content.status != CONTENT_STATUS_PUBLISHED),
     }

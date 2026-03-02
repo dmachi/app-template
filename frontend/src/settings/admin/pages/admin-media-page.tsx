@@ -23,7 +23,10 @@ function formatFileSize(bytes: number): string {
   return `${size.toFixed(1)} ${units[unitIndex]}`;
 }
 
-function formatDate(isoString: string): string {
+function formatDate(isoString: string | null): string {
+  if (!isoString) {
+    return "-";
+  }
   return new Date(isoString).toLocaleDateString(undefined, {
     year: "numeric",
     month: "short",

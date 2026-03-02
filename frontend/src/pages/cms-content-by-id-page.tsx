@@ -9,14 +9,15 @@ import { getPublicCmsContentById, type CmsByIdResponse } from "../lib/api";
 export default function CmsContentByIdPage() {
   const routeContext = useAppRouteRenderContext();
   const matchRoute = useMatchRoute() as (options: { to: string; fuzzy?: boolean }) => Record<string, string> | false;
-  const match = matchRoute({ to: "/cms/$contentId", fuzzy: false }) as { contentId?: string } | false;
-  const contentId = match?.contentId || null;
+  const match = matchRoute({ to: "/cms/$contentTypeKey/$contentId", fuzzy: false }) as { contentTypeKey?: string; contentId?: string } | false;
+  const contentTypeKey = (match && match.contentTypeKey) || null;
+  const contentId = (match && match.contentId) || null;
   const [payload, setPayload] = useState<CmsByIdResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!contentId) {
+    if (!contentTypeKey || !contentId) {
       setLoading(false);
       setError("Content not found");
       return;
@@ -24,10 +25,10 @@ export default function CmsContentByIdPage() {
 
     setLoading(true);
     setError(null);
-    getPublicCmsContentById(contentId, routeContext.isAuthenticated ? routeContext.settingsProps.accessToken : null)
+    getPublicCmsContentById(contentTypeKey, contentId, routeContext.isAuthenticated ? routeContext.settingsProps.accessToken : null)
       .then((nextPayload) => {
         setPayload(nextPayload);
-        if (nextPayload.canonicalUrl && window.location.pathname !== nextPayload.canonicalUrl) {
+        if (window.location.pathname !== nextPayload.canonicalUrl) {
           routeContext.settingsProps.navigateTo(nextPayload.canonicalUrl, true);
         }
       })
@@ -35,7 +36,7 @@ export default function CmsContentByIdPage() {
         setError(requestError instanceof Error ? requestError.message : "Unable to load content");
       })
       .finally(() => setLoading(false));
-  }, [contentId, routeContext.isAuthenticated, routeContext.settingsProps.accessToken, routeContext.settingsProps.navigateTo]);
+  }, [contentTypeKey, contentId, routeContext.isAuthenticated, routeContext.settingsProps.accessToken, routeContext.settingsProps.navigateTo]);
 
   if (loading) {
     return <p className="text-sm">Loading content...</p>;
@@ -72,7 +73,7 @@ export default function CmsContentByIdPage() {
         </div>
       ) : null}
 
-      <article className="grid gap-3 rounded-md border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-950">
+      <article className="grid gap-3 rounded-md bg-white p-0 dark:bg-slate-950">
         <h1 className="text-2xl font-semibold">{payload.content.name}</h1>
         <MarkdownContent className="prose prose-slate max-w-none dark:prose-invert" content={payload.content.content} />
       </article>
