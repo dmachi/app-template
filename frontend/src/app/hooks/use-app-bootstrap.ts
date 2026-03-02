@@ -11,6 +11,8 @@ import {
 } from "../../lib/api";
 import type { AdminCapabilities } from "./types";
 
+const DEFAULT_APP_NAME = import.meta.env.VITE_APP_NAME?.trim() || "Basic System Template";
+
 type ClientPopupToast = {
   id: string;
   title: string;
@@ -119,7 +121,7 @@ export function useAuthMeta(params: UseAuthMetaParams) {
   useEffect(() => {
     getAuthProviders()
       .then((payload) => {
-        setAppName(payload.appName || "Basic System Template");
+        setAppName(payload.appName || DEFAULT_APP_NAME);
         setAppIcon(payload.appIcon || "🧩");
         setAuthProviders(payload.providers || []);
         setRegistrationEnabled(payload.localRegistrationEnabled ?? true);

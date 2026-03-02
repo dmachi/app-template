@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useEffect } from "react";
 
 import { renderAppIcon } from "./app/app-branding";
 import { AppRootPresenter } from "./app/app-root-presenter";
@@ -21,8 +21,8 @@ import { useAppRouteState } from "./app/hooks/use-app-route-state";
 import { useTheme } from "./app/theme-provider";
 import { API_BASE } from "./lib/api";
 
-const REFRESH_TOKEN_STORAGE_KEY = "bst.refreshToken";
-const INVITE_TOKEN_STORAGE_KEY = "bst.pendingInviteToken";
+const REFRESH_TOKEN_STORAGE_KEY = "refreshToken";
+const INVITE_TOKEN_STORAGE_KEY = "pendingInviteToken";
 
 export function App() {
   const {
@@ -77,6 +77,10 @@ export function App() {
     notificationRefreshSignal,
     setNotificationRefreshSignal,
   } = useAppNotificationState();
+
+  useEffect(() => {
+    document.title = appName;
+  }, [appName]);
 
   useSessionRestore({
     refreshTokenStorageKey: REFRESH_TOKEN_STORAGE_KEY,
