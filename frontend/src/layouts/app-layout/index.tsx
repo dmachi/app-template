@@ -35,7 +35,7 @@ export function AppLayout(props: AppLayoutProps) {
     roles.push("AdminRoles");
   }
   if (settingsProps.adminCapabilities.content) {
-    roles.push("ContentEditor");
+    roles.push("ContentAdmin");
   }
   if (settingsProps.adminCapabilities.contentTypes) {
     roles.push("CmsTypeAdmin");

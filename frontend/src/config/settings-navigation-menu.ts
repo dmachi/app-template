@@ -129,7 +129,7 @@ export function createSettingsNavigationMenuConfig(
             path: "/settings/admin/content",
             pathPatterns: ["/settings/admin/content", "/settings/admin/content/*"],
             requiresAuth: true,
-            roles: ["ContentEditor", "Superuser"],
+            roles: ["ContentAdmin", "Superuser"],
           },
           {
             id: "admin-media",
@@ -138,7 +138,7 @@ export function createSettingsNavigationMenuConfig(
             path: "/settings/admin/media",
             pathPatterns: ["/settings/admin/media"],
             requiresAuth: true,
-            roles: ["ContentEditor", "Superuser"],
+            roles: ["ContentAdmin", "Superuser"],
           },
           {
             id: "admin-content-types",

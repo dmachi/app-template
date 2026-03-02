@@ -64,7 +64,7 @@ def test_media_upload_validation_image_only(client):
     auth_store = app.state.auth_store
     editor = auth_store.authenticate_local_user("mediaeditor1", "Password123")
     assert editor is not None
-    editor.roles = ["ContentEditor"]
+    editor.roles = ["ContentAdmin"]
     tokens = relogin(client, "mediaeditor1")
 
     invalid = client.post(
@@ -81,7 +81,7 @@ def test_media_upload_list_stream_update_delete_flow(client):
     auth_store = app.state.auth_store
     editor = auth_store.authenticate_local_user("mediaeditor2", "Password123")
     assert editor is not None
-    editor.roles = ["ContentEditor"]
+    editor.roles = ["ContentAdmin"]
     tokens = relogin(client, "mediaeditor2")
 
     uploaded = client.post(

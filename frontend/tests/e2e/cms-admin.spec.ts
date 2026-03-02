@@ -101,7 +101,7 @@ async function mockBootstrapApis(page: Page, capabilities: CapabilitySet) {
       contentType: "application/json",
       body: JSON.stringify({
         ...capabilities,
-        effectiveRoles: capabilities.contentTypes ? ["superuser"] : capabilities.content ? ["ContentEditor"] : ["member"],
+        effectiveRoles: capabilities.contentTypes ? ["superuser"] : capabilities.content ? ["ContentAdmin"] : ["member"],
       }),
     });
   });
@@ -131,7 +131,7 @@ async function mockCmsTypeList(page: Page) {
   });
 }
 
-test("ContentEditor can access admin content list and editor", async ({ page }) => {
+test("ContentAdmin can access admin content list and editor", async ({ page }) => {
   await seedSession(page);
   await mockBootstrapApis(page, CONTENT_EDITOR_CAPABILITIES);
   await mockCmsTypeList(page);
@@ -212,7 +212,7 @@ test("ContentEditor can access admin content list and editor", async ({ page }) 
   await expect(page.getByRole("heading", { name: "Page Editor" })).toBeVisible();
 });
 
-test("Non-ContentEditor is blocked from admin content routes", async ({ page }) => {
+test("Non-ContentAdmin is blocked from admin content routes", async ({ page }) => {
   await seedSession(page);
   await mockBootstrapApis(page, NON_CONTENT_EDITOR_CAPABILITIES);
 

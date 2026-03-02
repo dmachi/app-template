@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 from starlette.responses import Response
 
 from app.auth.dependencies import get_current_user, require_superuser
-from app.auth.roles import ROLE_CONTENT_EDITOR, ROLE_SUPERUSER, has_any_role
+from app.auth.roles import ROLE_CONTENT_ADMIN, ROLE_CONTENT_EDITOR_LEGACY, ROLE_SUPERUSER, has_any_role
 from app.auth.store import UserRecord
 from app.cms.store import CONTENT_STATUS_PUBLISHED, CONTENT_VISIBILITY_AUTHENTICATED, CONTENT_VISIBILITY_PUBLIC, CONTENT_VISIBILITY_ROLES
 from app.core.errors import ApiError
@@ -135,7 +135,7 @@ def _is_editor_or_superuser(request: Request, user: UserRecord | None) -> bool:
         auth_store,
         user_id=user.id,
         direct_roles=user.roles,
-        required_roles={ROLE_CONTENT_EDITOR, ROLE_SUPERUSER},
+        required_roles={ROLE_CONTENT_ADMIN, ROLE_CONTENT_EDITOR_LEGACY, ROLE_SUPERUSER},
     )
 
 

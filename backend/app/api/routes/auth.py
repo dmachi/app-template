@@ -3,7 +3,16 @@ from pydantic import BaseModel, EmailStr, Field
 import jwt
 
 from app.auth.dependencies import get_current_user, require_user_management_role
-from app.auth.roles import ADMIN_GROUP_ROLES, ADMIN_USER_ROLES, INVITE_USER_ROLES, ROLE_CONTENT_EDITOR, ROLE_SUPERUSER, has_any_role, resolve_effective_roles
+from app.auth.roles import (
+    ADMIN_GROUP_ROLES,
+    ADMIN_USER_ROLES,
+    INVITE_USER_ROLES,
+    ROLE_CONTENT_ADMIN,
+    ROLE_CONTENT_EDITOR_LEGACY,
+    ROLE_SUPERUSER,
+    has_any_role,
+    resolve_effective_roles,
+)
 from app.auth.external_providers import get_external_provider_adapter
 from app.auth.providers import get_enabled_providers
 from app.auth.security import decode_email_verification_token, generate_access_token
@@ -281,7 +290,12 @@ def admin_capabilities(request: Request, current_user=Depends(get_current_user))
     can_manage_groups = has_any_role(auth_store, user_id=user_id, direct_roles=direct_roles, required_roles=ADMIN_GROUP_ROLES)
     can_invite_users = has_any_role(auth_store, user_id=user_id, direct_roles=direct_roles, required_roles=INVITE_USER_ROLES)
     is_superuser = has_any_role(auth_store, user_id=user_id, direct_roles=direct_roles, required_roles={ROLE_SUPERUSER})
-    can_manage_content = has_any_role(auth_store, user_id=user_id, direct_roles=direct_roles, required_roles={ROLE_CONTENT_EDITOR, ROLE_SUPERUSER})
+    can_manage_content = has_any_role(
+        auth_store,
+        user_id=user_id,
+        direct_roles=direct_roles,
+        required_roles={ROLE_CONTENT_ADMIN, ROLE_CONTENT_EDITOR_LEGACY, ROLE_SUPERUSER},
+    )
     can_manage_content_types = is_superuser
 
     return {

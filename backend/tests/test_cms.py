@@ -78,7 +78,7 @@ def test_content_create_defaults_to_draft_and_publish_unpublish_flow(client):
     auth_store = app.state.auth_store
     editor = auth_store.authenticate_local_user("cmseditor1", "Password123")
     assert editor is not None
-    editor.roles = ["ContentEditor"]
+    editor.roles = ["ContentAdmin"]
     tokens = relogin(client, "cmseditor1")
 
     created = client.post(
@@ -126,7 +126,7 @@ def test_cms_public_path_requires_matching_content_type(client):
     auth_store = app.state.auth_store
     editor = auth_store.authenticate_local_user("cmseditor2", "Password123")
     assert editor is not None
-    editor.roles = ["ContentEditor"]
+    editor.roles = ["ContentAdmin"]
     tokens = relogin(client, "cmseditor2")
 
     created = client.post(
@@ -163,7 +163,7 @@ def test_multiple_content_items_can_share_same_type_and_use_typed_url(client):
     auth_store = app.state.auth_store
     editor = auth_store.authenticate_local_user("cmseditor3", "Password123")
     assert editor is not None
-    editor.roles = ["ContentEditor"]
+    editor.roles = ["ContentAdmin"]
     tokens = relogin(client, "cmseditor3")
 
     first = client.post(
@@ -218,7 +218,7 @@ def test_content_patch_without_alias_support(client):
     auth_store = app.state.auth_store
     editor = auth_store.authenticate_local_user("cmseditor4", "Password123")
     assert editor is not None
-    editor.roles = ["ContentEditor"]
+    editor.roles = ["ContentAdmin"]
     tokens = relogin(client, "cmseditor4")
 
     created = client.post(

@@ -17,6 +17,7 @@ const CORE_ROLES = new Set([
   "AdminGroups",
   "GroupManager",
   "InviteUsers",
+  "ContentAdmin",
 ]);
 
 export function AdminRolesPage({ accessToken }: AdminRolesPageProps) {
