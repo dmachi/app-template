@@ -20,20 +20,38 @@ export function useRealtimeNotifications(params: UseRealtimeNotificationsParams)
     }
 
     const wsBase = apiBase.replace(/^http/i, "ws");
-    const socket = new WebSocket(`${wsBase}/ws/events?token=${encodeURIComponent(accessToken)}`);
+    const socketUrl = `${wsBase}/ws/events?token=${encodeURIComponent(accessToken)}`;
     const timers = new Map<string, number>();
-    let shouldCloseWhenOpened = false;
+    let socket: WebSocket | null = null;
+    let reconnectAttempts = 0;
+    let reconnectTimer: number | null = null;
+    let disposed = false;
+    let intentionalClose = false;
 
-    socket.onopen = () => {
-      if (shouldCloseWhenOpened) {
-        socket.close(1000, "Unmounted before connection opened");
+    const clearReconnectTimer = () => {
+      if (typeof reconnectTimer === "number") {
+        window.clearTimeout(reconnectTimer);
+        reconnectTimer = null;
       }
     };
 
-    socket.onmessage = (event) => {
+    const scheduleReconnect = () => {
+      if (disposed || typeof reconnectTimer === "number") {
+        return;
+      }
+      const delay = Math.min(5000, 500 * (2 ** reconnectAttempts));
+      reconnectAttempts += 1;
+      reconnectTimer = window.setTimeout(() => {
+        reconnectTimer = null;
+        connect();
+      }, delay);
+    };
+
+    const handleMessage = (event: MessageEvent) => {
       try {
         const envelope = JSON.parse(event.data) as {
           eventType?: string;
+          event_type?: string;
           payload?: {
             id?: string;
             message?: string;
@@ -43,7 +61,12 @@ export function useRealtimeNotifications(params: UseRealtimeNotificationsParams)
             openEndpoint?: string | null;
           };
         };
-        if (envelope.eventType !== "notification.created" && envelope.eventType !== "notification.updated") {
+        const eventType = envelope.eventType ?? envelope.event_type;
+        if (eventType?.startsWith("job.run.")) {
+          window.dispatchEvent(new CustomEvent("jobs:updated", { detail: envelope }));
+          return;
+        }
+        if (eventType !== "notification.created" && eventType !== "notification.updated") {
           return;
         }
 
@@ -92,17 +115,42 @@ export function useRealtimeNotifications(params: UseRealtimeNotificationsParams)
       }
     };
 
+    const connect = () => {
+      if (disposed) {
+        return;
+      }
+
+      intentionalClose = false;
+      socket = new WebSocket(socketUrl);
+      socket.onopen = () => {
+        reconnectAttempts = 0;
+        clearReconnectTimer();
+      };
+      socket.onmessage = handleMessage;
+      socket.onerror = () => {
+        if (socket?.readyState === WebSocket.OPEN || socket?.readyState === WebSocket.CONNECTING) {
+          socket.close();
+        }
+      };
+      socket.onclose = () => {
+        if (!intentionalClose) {
+          scheduleReconnect();
+        }
+      };
+    };
+
+    connect();
+
     return () => {
+      disposed = true;
+      clearReconnectTimer();
+
       for (const timerId of timers.values()) {
         window.clearTimeout(timerId);
       }
 
-      if (socket.readyState === WebSocket.CONNECTING) {
-        shouldCloseWhenOpened = true;
-        return;
-      }
-
-      if (socket.readyState === WebSocket.OPEN) {
+      if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) {
+        intentionalClose = true;
         socket.close(1000, "Unmounted");
       }
     };

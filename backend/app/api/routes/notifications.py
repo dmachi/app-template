@@ -5,12 +5,15 @@ import jwt
 from fastapi import APIRouter, Depends, Query, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, Field
+from starlette.websockets import WebSocketState
 
 from app.auth.dependencies import get_current_user, require_superuser
+from app.auth.roles import ROLE_SUPERUSER
 from app.auth.security import decode_access_token
 from app.auth.store import NotificationRecord, UserRecord
 from app.core.config import Settings, get_settings
 from app.core.errors import ApiError
+from app.jobs.realtime import JOB_ADMIN_EVENTS_CHANNEL
 from app.notifications.redis_bus import RedisEventBus
 
 router = APIRouter(prefix="/notifications", tags=["notifications"])
@@ -43,7 +46,8 @@ class NotificationRealtimeHub:
         self._redis_handlers: dict[str, Any] = {}
 
     async def connect(self, user_id: str, websocket: WebSocket) -> None:
-        await websocket.accept()
+        if websocket.application_state == WebSocketState.CONNECTING:
+            await websocket.accept()
         self._connections.setdefault(user_id, set()).add(websocket)
 
         if self._redis_bus and user_id not in self._redis_handlers:
@@ -354,6 +358,7 @@ async def websocket_events(websocket: WebSocket, token: str = Query(default=""),
         return
 
     user_id = payload.get("sub")
+    roles = payload.get("roles") if isinstance(payload.get("roles"), list) else []
     if not isinstance(user_id, str) or not user_id:
         await websocket.close(code=4401)
         return
@@ -369,6 +374,7 @@ async def websocket_events(websocket: WebSocket, token: str = Query(default=""),
         hub = NotificationRealtimeHub()
         websocket.app.state.notification_realtime_hub = hub
 
+    is_superuser = ROLE_SUPERUSER in roles
     await hub.connect(user_id, websocket)
     try:
         while True:

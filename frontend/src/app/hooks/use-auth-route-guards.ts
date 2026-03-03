@@ -138,6 +138,9 @@ export function useRouteGuards(params: UseRouteGuardsParams) {
     }
 
     if (selectedExtensionId && !selectedExtension) {
+      if (isAdminPath(locationPathname) && !adminAccessChecked) {
+        return;
+      }
       navigateTo("/settings/profile", true);
       return;
     }
