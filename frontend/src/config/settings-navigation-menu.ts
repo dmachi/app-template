@@ -5,6 +5,7 @@ import type { NavigationItemConfig, NavigationMenuConfig, NavigationSectionConfi
 type CreateSettingsNavigationMenuConfigInput = {
   additionalSettingsItems?: NavigationItemConfig[];
   additionalAdminItems?: NavigationItemConfig[];
+  additionalContentManagementItems?: NavigationItemConfig[];
   additionalSections?: NavigationSectionConfig[];
 };
 
@@ -13,6 +14,7 @@ export function createSettingsNavigationMenuConfig(
 ): NavigationMenuConfig {
   const additionalSettingsItems = input.additionalSettingsItems || [];
   const additionalAdminItems = input.additionalAdminItems || [];
+  const additionalContentManagementItems = input.additionalContentManagementItems || [];
   const additionalSections = input.additionalSections || [];
 
   return {
@@ -134,6 +136,7 @@ export function createSettingsNavigationMenuConfig(
             requiresAuth: true,
             roles: ["CmsTypeAdmin"],
           },
+          ...additionalContentManagementItems,
         ],
       },
       ...additionalSections,
