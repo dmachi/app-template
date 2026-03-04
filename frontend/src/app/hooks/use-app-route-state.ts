@@ -1,4 +1,9 @@
 import { useMatchRoute } from "@tanstack/react-router";
+import {
+  additionalBuiltInAdminSegments,
+  additionalBuiltInSettingsSegments,
+  resolveSelectedExtensionIdOverride,
+} from "../../extensions/app-hooks/route-state";
 
 type AppRouteState = {
   selectedGroupId: string | null;
@@ -14,6 +19,7 @@ const BUILT_IN_ADMIN_SEGMENTS = new Set([
   "content",
   "media",
   "content-types",
+  ...(additionalBuiltInAdminSegments || []),
 ]);
 
 const BUILT_IN_SETTINGS_SEGMENTS = new Set([
@@ -24,7 +30,22 @@ const BUILT_IN_SETTINGS_SEGMENTS = new Set([
   "group",
   "theme",
   "admin",
+  ...(additionalBuiltInSettingsSegments || []),
 ]);
+
+function resolveSelectedExtensionId(
+  settingsExtensionId: string | null,
+  adminExtensionId: string | null,
+): string | null {
+  const override = resolveSelectedExtensionIdOverride(settingsExtensionId, adminExtensionId);
+  if (override !== undefined) {
+    return override;
+  }
+
+  return (settingsExtensionId && !BUILT_IN_SETTINGS_SEGMENTS.has(settingsExtensionId) ? settingsExtensionId : null)
+    || (adminExtensionId && !BUILT_IN_ADMIN_SEGMENTS.has(adminExtensionId) ? adminExtensionId : null)
+    || null;
+}
 
 export function useAppRouteState(): AppRouteState {
   const matchRoute = useMatchRoute() as (options: { to: string; fuzzy?: boolean }) => Record<string, string> | false;
@@ -36,9 +57,7 @@ export function useAppRouteState(): AppRouteState {
   const adminExtensionMatch = matchRoute({ to: "/settings/admin/$extensionId", fuzzy: false }) as { extensionId?: string } | false;
   const settingsExtensionId = settingsExtensionMatch && settingsExtensionMatch.extensionId ? settingsExtensionMatch.extensionId : null;
   const adminExtensionId = adminExtensionMatch && adminExtensionMatch.extensionId ? adminExtensionMatch.extensionId : null;
-  const selectedExtensionId = (settingsExtensionId && !BUILT_IN_SETTINGS_SEGMENTS.has(settingsExtensionId) ? settingsExtensionId : null)
-    || (adminExtensionId && !BUILT_IN_ADMIN_SEGMENTS.has(adminExtensionId) ? adminExtensionId : null)
-    || null;
+  const selectedExtensionId = resolveSelectedExtensionId(settingsExtensionId, adminExtensionId);
 
   const adminUserDetailMatch = matchRoute({ to: "/settings/admin/users/$userId", fuzzy: false }) as { userId?: string } | false;
   const selectedAdminUserId = adminUserDetailMatch && adminUserDetailMatch.userId ? adminUserDetailMatch.userId : null;

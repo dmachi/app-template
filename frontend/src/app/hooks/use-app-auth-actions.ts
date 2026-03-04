@@ -1,6 +1,7 @@
 import { Dispatch, SetStateAction, useCallback } from "react";
 
 import { login, logout, register, startRedirectProvider } from "../../lib/api";
+import { getEmptyAdminCapabilities } from "./admin-capabilities-core";
 import type { AdminCapabilities } from "./types";
 
 type UseAppAuthActionsParams = {
@@ -135,7 +136,7 @@ export function useAppAuthActions(params: UseAppAuthActionsParams) {
       setPendingInvitationToken(null);
       setAcceptingInvitation(false);
       setInvitationAcceptanceMessage(null);
-      setAdminCapabilities({ users: false, groups: false, invitations: false, roles: false, content: false, contentTypes: false });
+      setAdminCapabilities(getEmptyAdminCapabilities());
       setInviteDialogOpen(false);
       window.localStorage.removeItem(inviteTokenStorageKey);
       navigateTo("/", true);

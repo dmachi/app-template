@@ -1,5 +1,6 @@
 import { Dispatch, SetStateAction, useEffect } from "react";
 
+import { resolveProfileThemePreferenceOverride } from "../../extensions/app-hooks/bootstrap";
 import { CLIENT_TOAST_EVENT, type ClientToastEventDetail } from "../../lib/client-toast";
 import {
   getAdminCapabilities,
@@ -9,6 +10,7 @@ import {
   type AuthProviderMeta,
   type ProfilePropertyCatalogItem,
 } from "../../lib/api";
+import { getEmptyAdminCapabilities, mapApiAdminCapabilitiesToApp } from "./admin-capabilities-core";
 import type { AdminCapabilities } from "./types";
 
 const DEFAULT_APP_NAME = import.meta.env.VITE_APP_NAME?.trim() || "Basic System Template";
@@ -149,7 +151,7 @@ export function useProfileAndAdminBootstrap(params: UseProfileAndAdminBootstrapP
       setCurrentUsername("User");
       setCanAccessAdmin(false);
       setAdminAccessChecked(false);
-      setAdminCapabilities({ users: false, groups: false, invitations: false, roles: false, content: false, contentTypes: false });
+      setAdminCapabilities(getEmptyAdminCapabilities());
       return;
     }
 
@@ -160,7 +162,9 @@ export function useProfileAndAdminBootstrap(params: UseProfileAndAdminBootstrapP
       .then((profile) => {
         const username = profile?.displayName || profile?.username || profile?.email || "User";
         setCurrentUsername(username);
-        setTheme(resolveThemePreference(profile?.preferences?.theme));
+        const baseTheme = resolveThemePreference(profile?.preferences?.theme);
+        const overrideTheme = resolveProfileThemePreferenceOverride(profile?.preferences?.theme);
+        setTheme(overrideTheme || baseTheme);
       })
       .catch(() => {
         setCurrentUsername("User");
@@ -170,19 +174,12 @@ export function useProfileAndAdminBootstrap(params: UseProfileAndAdminBootstrapP
     getAdminCapabilities(accessToken)
       .then((capabilities) => {
         setCanAccessAdmin(capabilities.anyAdmin);
-        setAdminCapabilities({
-          users: capabilities.users,
-          groups: capabilities.groups,
-          invitations: capabilities.invitations,
-          roles: capabilities.roles,
-          content: Boolean(capabilities.content),
-          contentTypes: Boolean(capabilities.contentTypes),
-        });
+        setAdminCapabilities(mapApiAdminCapabilitiesToApp(capabilities));
         setAdminAccessChecked(true);
       })
       .catch(() => {
         setCanAccessAdmin(false);
-        setAdminCapabilities({ users: false, groups: false, invitations: false, roles: false, content: false, contentTypes: false });
+        setAdminCapabilities(getEmptyAdminCapabilities());
         setAdminAccessChecked(true);
       });
   }, [accessToken, setAdminAccessChecked, setAdminCapabilities, setCanAccessAdmin, setCurrentUsername, setTheme]);

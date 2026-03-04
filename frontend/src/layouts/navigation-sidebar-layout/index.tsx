@@ -3,6 +3,7 @@ import type { ComponentType, ReactNode } from "react";
 import type { AppRouteRenderContextValue } from "../../app/app-route-render-context";
 import type { SidebarResizableLevel } from "../../components/sidebar";
 import { Sidebar } from "../../components/sidebar";
+import { resolveAdditionalCapabilityRoles } from "../../extensions/app-hooks/layout-roles";
 import {
   type NavigationMenuConfig,
 } from "../../components/navigation-menu";
@@ -29,7 +30,7 @@ type NavigationSidebarLayoutRouteProps = {
 };
 
 type NavigationSidebarLayoutRouteConfig = {
-  navigationConfig: NavigationMenuConfig;
+  navigationConfig: NavigationMenuConfig | ((routeContext: AppRouteRenderContextValue) => NavigationMenuConfig);
   sidebarType?: "fixed" | "resizable";
   fixedWidthClassName?: string;
   resizableLevels?: SidebarResizableLevel[];
@@ -75,6 +76,10 @@ export default function NavigationSidebarLayoutRoute(props: NavigationSidebarLay
     return <props.Component />;
   }
 
+  const navigationConfig = typeof routeConfig.navigationConfig === "function"
+    ? routeConfig.navigationConfig(props.routeContext)
+    : routeConfig.navigationConfig;
+
   const settingsProps = props.routeContext.settingsProps;
   const roles: string[] = [];
 
@@ -90,6 +95,7 @@ export default function NavigationSidebarLayoutRoute(props: NavigationSidebarLay
   if (settingsProps.adminCapabilities.roles) {
     roles.push("AdminRoles");
   }
+  roles.push(...resolveAdditionalCapabilityRoles(settingsProps.adminCapabilities));
 
   if (
     settingsProps.adminCapabilities.users
@@ -104,7 +110,7 @@ export default function NavigationSidebarLayoutRoute(props: NavigationSidebarLay
     <NavigationSidebarLayout
       locationPathname={settingsProps.locationPathname}
       isAuthenticated={props.routeContext.isAuthenticated}
-      navigationConfig={routeConfig.navigationConfig}
+      navigationConfig={navigationConfig}
       visibilityContext={{
         roles,
         canAccessAdmin: settingsProps.canAccessAdmin,

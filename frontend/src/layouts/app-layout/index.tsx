@@ -6,6 +6,7 @@ import { AppNotificationToasts } from "../../components/app-notification-toasts"
 import { InviteUsersDialog } from "../../components/invite-users-dialog";
 import { createAppHeaderNavigationMenuConfig } from "../../config/app-header-menu";
 import { resolveAppHeaderPathVariant } from "../../config/app-header-variants";
+import { resolveAdditionalCapabilityRoles } from "../../extensions/app-hooks/layout-roles";
 import type { LayoutBranding, LayoutShell } from "../../lib/layouts/types";
 
 type AppLayoutProps = {
@@ -40,6 +41,7 @@ export function AppLayout(props: AppLayoutProps) {
   if (settingsProps.adminCapabilities.contentTypes) {
     roles.push("CmsTypeAdmin");
   }
+  roles.push(...resolveAdditionalCapabilityRoles(settingsProps.adminCapabilities));
 
   if (
     settingsProps.adminCapabilities.users
