@@ -13,7 +13,6 @@ from app.auth.security import decode_access_token
 from app.auth.store import NotificationRecord, UserRecord
 from app.core.config import Settings, get_settings
 from app.core.errors import ApiError
-from app.jobs.realtime import JOB_ADMIN_EVENTS_CHANNEL
 from app.notifications.redis_bus import RedisEventBus
 
 router = APIRouter(prefix="/notifications", tags=["notifications"])

@@ -14,10 +14,7 @@ const SettingsGroupDetailPage = lazy(() => import("./pages/group-detail-page"));
 const SettingsThemePage = lazy(() => import("./pages/theme-page"));
 const SettingsExtensionPage = lazy(() => import("./pages/settings-extension-page"));
 
-const settingsNavigationConfig = createSettingsNavigationMenuConfig({
-  settingsExtensionItems: [],
-  adminExtensionItems: [],
-});
+const settingsNavigationConfig = createSettingsNavigationMenuConfig({});
 
 const settingsSidebarLevels = [
   {
