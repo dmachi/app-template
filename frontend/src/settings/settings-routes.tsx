@@ -2,8 +2,13 @@ import { Outlet, createRoute } from "@tanstack/react-router";
 import { lazy } from "react";
 
 import { createSettingsNavigationMenuConfig } from "../config/settings-navigation-menu";
+import { getAdditionalAdminItems, getSettingsExtensions } from "../extensions/settings-registry";
 import { createLayoutRoute } from "../lib/layouts/create-layout-route";
 import { createSettingsAdminRoutes } from "./admin/admin-routes";
+import {
+  buildSettingsExtensionNavigationItems,
+  DEFAULT_SETTINGS_NAVIGATION_CONTEXT,
+} from "./settings-extension-navigation";
 
 const SettingsIndexPage = lazy(() => import("./pages/profile-page"));
 const SettingsProfilePage = lazy(() => import("./pages/profile-page"));
@@ -14,7 +19,15 @@ const SettingsGroupDetailPage = lazy(() => import("./pages/group-detail-page"));
 const SettingsThemePage = lazy(() => import("./pages/theme-page"));
 const SettingsExtensionPage = lazy(() => import("./pages/settings-extension-page"));
 
-const settingsNavigationConfig = createSettingsNavigationMenuConfig({});
+const extensionItems = getSettingsExtensions(DEFAULT_SETTINGS_NAVIGATION_CONTEXT);
+const extensionAdditionalAdminItems = getAdditionalAdminItems(DEFAULT_SETTINGS_NAVIGATION_CONTEXT);
+
+const extensionNavigationItems = buildSettingsExtensionNavigationItems({
+  extensionItems,
+  additionalAdminItems: extensionAdditionalAdminItems,
+});
+
+const settingsNavigationConfig = createSettingsNavigationMenuConfig(extensionNavigationItems);
 
 const settingsSidebarLevels = [
   {
@@ -95,12 +108,19 @@ export function createSettingsRoutes(rootRoute: any) {
     component: SettingsThemePage,
   });
 
-//   const settingsExtensionRoute = createLayoutRoute({
-//     getParentRoute: () => settingsRoute,
-//     path: "/extensions/$extensionId",
-//     layout: "settings-layout",
-//     component: SettingsExtensionPage,
-//   });
+  const settingsExtensionRoute = createLayoutRoute({
+    getParentRoute: () => settingsRoute,
+    path: "/$extensionId",
+    layout: settingsLayoutOption,
+    component: SettingsExtensionPage,
+  });
+
+  const settingsAdminExtensionRoute = createLayoutRoute({
+    getParentRoute: () => settingsRoute,
+    path: "/admin/$extensionId",
+    layout: settingsLayoutOption,
+    component: SettingsExtensionPage,
+  });
 
   const settingsAdminRoute = createSettingsAdminRoutes(settingsRoute, settingsLayoutOption);
 
@@ -112,7 +132,8 @@ export function createSettingsRoutes(rootRoute: any) {
     settingsGroupsRoute,
     settingsGroupDetailRoute,
     settingsThemeRoute,
-    // settingsExtensionRoute,
+    settingsExtensionRoute,
+    settingsAdminExtensionRoute,
     settingsAdminRoute,
   ]);
 
