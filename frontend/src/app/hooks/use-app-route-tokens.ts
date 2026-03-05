@@ -8,6 +8,7 @@ export function useAppRouteTokens() {
   const searchParams = new URLSearchParams(location.searchStr || "");
   const tokenParam = searchParams.get("token");
   const inviteTokenParam = searchParams.get("inviteToken");
+  const oauthReturnTo = searchParams.get("oauth_return_to");
   const emailVerificationToken = isVerifyEmailRoute ? tokenParam : null;
   const invitationToken = isAcceptInviteRoute ? tokenParam : null;
 
@@ -17,6 +18,7 @@ export function useAppRouteTokens() {
     isAcceptInviteRoute,
     tokenParam,
     inviteTokenParam,
+    oauthReturnTo,
     emailVerificationToken,
     invitationToken,
   };

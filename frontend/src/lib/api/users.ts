@@ -5,6 +5,14 @@ export {
   type MyProfileResponse,
 } from "./core";
 
+export type ConnectedAppItem = {
+  clientId: string;
+  name: string;
+  scopes: string[];
+  connectedAt: string;
+  updatedAt: string;
+};
+
 export async function getMyProfile(accessToken: string): Promise<MyProfileResponse> {
   return parseJson(
     await fetch(`${API_BASE}/users/me`, {
@@ -47,6 +55,23 @@ export async function resendMyVerificationEmail(accessToken: string): Promise<{ 
 export async function getUserBasic(accessToken: string, userId: string): Promise<{ id: string; displayName: string }> {
   return parseJson(
     await fetch(`${API_BASE}/users/${userId}`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    }),
+  );
+}
+
+export async function listMyConnectedApps(accessToken: string): Promise<{ items: ConnectedAppItem[] }> {
+  return parseJson(
+    await fetch(`${API_BASE}/users/me/connected-apps`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    }),
+  );
+}
+
+export async function revokeMyConnectedApp(accessToken: string, clientId: string): Promise<{ success: boolean; revoked: boolean }> {
+  return parseJson(
+    await fetch(`${API_BASE}/users/me/connected-apps/${encodeURIComponent(clientId)}`, {
+      method: "DELETE",
       headers: { Authorization: `Bearer ${accessToken}` },
     }),
   );

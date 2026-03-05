@@ -72,7 +72,7 @@ Configuration is primarily loaded from `backend/.env` via `backend/app/core/conf
 | `APP_ICON` | `/app-icon.svg` | App icon value. Supports emoji/text or a frontend-served asset path/URL (for example `/app-icon.svg` from `frontend/public/`). |
 | `APP_ENV` | `development` | Runtime mode (`development`, `test`, `production`). |
 | `API_PREFIX` | `/api/v1` | API base path prefix. |
-| `CORS_ALLOW_ORIGINS` | `http://localhost:5173,http://127.0.0.1:5173` | Comma-separated allowed CORS origins. |
+| `CORS_ALLOW_ORIGINS` | `http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://127.0.0.1:5174` | Comma-separated allowed CORS origins. |
 
 ### Authentication and token behavior
 

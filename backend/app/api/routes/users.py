@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Any
 
 from fastapi import APIRouter, Depends, Request
@@ -19,6 +20,18 @@ class UserProfilePatchRequest(BaseModel):
     email: EmailStr | None = None
     preferences: dict[str, Any] | None = None
     profileProperties: dict[str, Any] | None = None
+
+
+class ConnectedAppItemResponse(BaseModel):
+    clientId: str
+    name: str
+    scopes: list[str]
+    connectedAt: datetime
+    updatedAt: datetime
+
+
+class ConnectedAppsListResponse(BaseModel):
+    items: list[ConnectedAppItemResponse]
 
 
 def _profile_properties_from_preferences(preferences: Any) -> dict[str, Any]:
@@ -258,6 +271,41 @@ def resend_my_email_verification(
         "success": True,
         "sent": True,
         "message": "Verification email sent",
+    }
+
+
+@router.get("/me/connected-apps")
+def list_my_connected_apps(
+    request: Request,
+    current_user: UserRecord = Depends(get_current_user),
+) -> ConnectedAppsListResponse:
+    auth_store = request.app.state.auth_store
+    connected = auth_store.list_oauth_connected_apps_for_user(current_user.id)
+    return ConnectedAppsListResponse(
+        items=[
+            ConnectedAppItemResponse(
+                clientId=client.client_id,
+                name=client.name,
+                scopes=consent.scopes,
+                connectedAt=consent.created_at,
+                updatedAt=consent.updated_at,
+            )
+            for consent, client in connected
+        ]
+    )
+
+
+@router.delete("/me/connected-apps/{client_id}")
+def revoke_my_connected_app(
+    client_id: str,
+    request: Request,
+    current_user: UserRecord = Depends(get_current_user),
+) -> dict:
+    auth_store = request.app.state.auth_store
+    revoked = auth_store.revoke_oauth_connected_app_for_user(user_id=current_user.id, client_id=client_id)
+    return {
+        "success": True,
+        "revoked": revoked,
     }
 
 

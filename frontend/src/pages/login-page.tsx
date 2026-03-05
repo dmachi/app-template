@@ -1,16 +1,38 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { useAppRouteRenderContext } from "../app/app-route-render-context";
+import { establishOAuthSession } from "../lib/api";
 
 export default function LoginPage() {
   const routeContext = useAppRouteRenderContext();
   const props = routeContext.publicAuthProps;
   const [usernameOrEmail, setUsernameOrEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [oauthContinuing, setOauthContinuing] = useState(false);
   const localEnabled = props.authProviders.some((provider) => provider.id === "local");
   const externalProviders = props.authProviders.filter((provider) => provider.id !== "local");
+
+  useEffect(() => {
+    if (!routeContext.isAuthenticated || oauthContinuing) {
+      return;
+    }
+    const search = new URLSearchParams(window.location.search);
+    const oauthReturnTo = search.get("oauth_return_to");
+    if (!oauthReturnTo) {
+      return;
+    }
+
+    setOauthContinuing(true);
+    establishOAuthSession(routeContext.settingsProps.accessToken, oauthReturnTo)
+      .then((session) => {
+        window.location.href = session.redirectUrl;
+      })
+      .catch(() => {
+        setOauthContinuing(false);
+      });
+  }, [oauthContinuing, routeContext.isAuthenticated, routeContext.settingsProps.accessToken]);
 
   const onSubmit = async (event: FormEvent) => {
     event.preventDefault();
@@ -21,6 +43,8 @@ export default function LoginPage() {
   return (
     <div className="grid w-full max-w-xl gap-3">
       <h2 className="text-xl font-medium">Login</h2>
+
+      {oauthContinuing ? <p className="text-sm">Continuing OAuth sign-in...</p> : null}
 
       {!props.authMetaLoaded ? <p className="text-sm">Loading auth options...</p> : null}
 

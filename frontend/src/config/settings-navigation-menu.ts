@@ -1,4 +1,4 @@
-import { Bell, Palette, Puzzle, Shield, User, UserCog, Users } from "lucide-react";
+import { Bell, KeyRound, Link2, Palette, Puzzle, Shield, User, UserCog, Users } from "lucide-react";
 
 import type { NavigationItemConfig, NavigationMenuConfig, NavigationSectionConfig } from "../components/navigation-menu";
 
@@ -44,6 +44,13 @@ export function createSettingsNavigationMenuConfig(
             label: "Security",
             icon: Shield,
             path: "/settings/security",
+            requiresAuth: true,
+          },
+          {
+            id: "settings-connected-apps",
+            label: "Connected Apps",
+            icon: Link2,
+            path: "/settings/connected-apps",
             requiresAuth: true,
           },
           {
@@ -99,6 +106,14 @@ export function createSettingsNavigationMenuConfig(
             label: "Roles",
             icon: Shield,
             path: "/settings/admin/roles",
+            requiresAuth: true,
+            roles: ["Superuser"],
+          },
+          {
+            id: "admin-oauth-clients",
+            label: "OAuth Clients",
+            icon: KeyRound,
+            path: "/settings/admin/oauth/clients",
             requiresAuth: true,
             roles: ["Superuser"],
           },

@@ -1,9 +1,21 @@
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
+from app.auth.oauth_security import hash_oauth_secret
 from app.auth.roles import CORE_ROLE_DESCRIPTIONS, NON_DELETABLE_CORE_ROLES
 from app.auth.security import generate_refresh_token, hash_password, hash_refresh_token, verify_password
-from app.auth.store import ExternalAccountLinkageRecord, GroupRecord, InvitationRecord, NotificationRecord, UserRecord
+from app.auth.store import (
+    ExternalAccountLinkageRecord,
+    GroupRecord,
+    InvitationRecord,
+    NotificationRecord,
+    OAuthAccessTokenRecord,
+    OAuthAuthorizationCodeRecord,
+    OAuthClientRecord,
+    OAuthConsentGrantRecord,
+    OAuthRefreshTokenRecord,
+    UserRecord,
+)
 from app.core.config import Settings
 
 
@@ -17,6 +29,11 @@ class MongoAuthStore:
         self._invitations = database_adapter.get_collection("invitations")
         self._notifications = database_adapter.get_collection("notifications")
         self._external_account_linkages = database_adapter.get_collection("external_account_linkages")
+        self._oauth_clients = database_adapter.get_collection("oauth_clients")
+        self._oauth_authorization_codes = database_adapter.get_collection("oauth_authorization_codes")
+        self._oauth_consents = database_adapter.get_collection("oauth_consents")
+        self._oauth_access_tokens = database_adapter.get_collection("oauth_access_tokens")
+        self._oauth_refresh_tokens = database_adapter.get_collection("oauth_refresh_tokens")
 
         now = datetime.now(UTC)
         for role_name, description in CORE_ROLE_DESCRIPTIONS.items():
@@ -103,6 +120,69 @@ class MongoAuthStore:
             metadata=doc.get("metadata") or {},
             created_at=doc.get("created_at") or datetime.now(UTC),
             updated_at=doc.get("updated_at") or datetime.now(UTC),
+        )
+
+    def _doc_to_oauth_client(self, doc) -> OAuthClientRecord:
+        return OAuthClientRecord(
+            id=doc["id"],
+            client_id=doc["client_id"],
+            name=doc.get("name") or "",
+            redirect_uris=doc.get("redirect_uris") or [],
+            allowed_scopes=doc.get("allowed_scopes") or [],
+            grant_types=doc.get("grant_types") or ["authorization_code", "refresh_token"],
+            token_endpoint_auth_method=doc.get("token_endpoint_auth_method") or "none",
+            client_secret_hash=doc.get("client_secret_hash"),
+            trusted=bool(doc.get("trusted") or False),
+            created_at=doc.get("created_at") or datetime.now(UTC),
+            updated_at=doc.get("updated_at") or datetime.now(UTC),
+        )
+
+    def _doc_to_oauth_authorization_code(self, doc) -> OAuthAuthorizationCodeRecord:
+        return OAuthAuthorizationCodeRecord(
+            code_hash=doc["code_hash"],
+            client_id=doc["client_id"],
+            user_id=doc["user_id"],
+            redirect_uri=doc["redirect_uri"],
+            scopes=doc.get("scopes") or [],
+            code_challenge=doc.get("code_challenge") or "",
+            code_challenge_method=doc.get("code_challenge_method") or "S256",
+            nonce=doc.get("nonce"),
+            expires_at=doc.get("expires_at") or datetime.now(UTC),
+            created_at=doc.get("created_at") or datetime.now(UTC),
+            consumed_at=doc.get("consumed_at"),
+        )
+
+    def _doc_to_oauth_consent(self, doc) -> OAuthConsentGrantRecord:
+        return OAuthConsentGrantRecord(
+            user_id=doc["user_id"],
+            client_id=doc["client_id"],
+            scopes=doc.get("scopes") or [],
+            created_at=doc.get("created_at") or datetime.now(UTC),
+            updated_at=doc.get("updated_at") or datetime.now(UTC),
+        )
+
+    def _doc_to_oauth_access_token(self, doc) -> OAuthAccessTokenRecord:
+        return OAuthAccessTokenRecord(
+            token_hash=doc["token_hash"],
+            jti=doc["jti"],
+            user_id=doc["user_id"],
+            client_id=doc["client_id"],
+            scopes=doc.get("scopes") or [],
+            expires_at=doc.get("expires_at") or datetime.now(UTC),
+            created_at=doc.get("created_at") or datetime.now(UTC),
+            revoked_at=doc.get("revoked_at"),
+        )
+
+    def _doc_to_oauth_refresh_token(self, doc) -> OAuthRefreshTokenRecord:
+        return OAuthRefreshTokenRecord(
+            token_hash=doc["token_hash"],
+            user_id=doc["user_id"],
+            client_id=doc["client_id"],
+            scopes=doc.get("scopes") or [],
+            family_id=doc.get("family_id") or "",
+            expires_at=doc.get("expires_at") or datetime.now(UTC),
+            created_at=doc.get("created_at") or datetime.now(UTC),
+            revoked_at=doc.get("revoked_at"),
         )
 
     @staticmethod
@@ -836,6 +916,289 @@ class MongoAuthStore:
         token_hash = hash_refresh_token(refresh_token)
         result = self._sessions.update_one(
             {"refresh_token_hash": token_hash, "revoked_at": None},
+            {"$set": {"revoked_at": datetime.now(UTC)}},
+        )
+        return result.matched_count > 0
+
+    def create_oauth_client(
+        self,
+        *,
+        name: str,
+        redirect_uris: list[str],
+        allowed_scopes: list[str],
+        grant_types: list[str] | None = None,
+        trusted: bool = False,
+        token_endpoint_auth_method: str = "none",
+        client_secret: str | None = None,
+    ) -> OAuthClientRecord:
+        now = datetime.now(UTC)
+        client_id = f"client_{uuid4().hex}"
+        doc = {
+            "id": str(uuid4()),
+            "client_id": client_id,
+            "name": name.strip(),
+            "redirect_uris": list(dict.fromkeys(item.strip() for item in redirect_uris if item.strip())),
+            "allowed_scopes": list(dict.fromkeys(item.strip() for item in allowed_scopes if item.strip())),
+            "grant_types": list(dict.fromkeys(item.strip() for item in (grant_types or ["authorization_code", "refresh_token"]) if item.strip())),
+            "token_endpoint_auth_method": token_endpoint_auth_method,
+            "client_secret_hash": hash_oauth_secret(client_secret) if client_secret else None,
+            "trusted": trusted,
+            "created_at": now,
+            "updated_at": now,
+        }
+        self._oauth_clients.insert_one(doc)
+        return self._doc_to_oauth_client(doc)
+
+    def list_oauth_clients(self) -> list[OAuthClientRecord]:
+        docs = self._oauth_clients.find({}).sort("name", 1)
+        return [self._doc_to_oauth_client(doc) for doc in docs]
+
+    def get_oauth_client_by_client_id(self, client_id: str) -> OAuthClientRecord | None:
+        doc = self._oauth_clients.find_one({"client_id": client_id})
+        return self._doc_to_oauth_client(doc) if doc else None
+
+    def update_oauth_client(
+        self,
+        *,
+        client_id: str,
+        name: str | None = None,
+        redirect_uris: list[str] | None = None,
+        allowed_scopes: list[str] | None = None,
+        grant_types: list[str] | None = None,
+        trusted: bool | None = None,
+        token_endpoint_auth_method: str | None = None,
+        client_secret: str | None = None,
+    ) -> OAuthClientRecord | None:
+        update_fields: dict = {"updated_at": datetime.now(UTC)}
+        if name is not None:
+            update_fields["name"] = name.strip()
+        if redirect_uris is not None:
+            update_fields["redirect_uris"] = list(dict.fromkeys(item.strip() for item in redirect_uris if item.strip()))
+        if allowed_scopes is not None:
+            update_fields["allowed_scopes"] = list(dict.fromkeys(item.strip() for item in allowed_scopes if item.strip()))
+        if grant_types is not None:
+            update_fields["grant_types"] = list(dict.fromkeys(item.strip() for item in grant_types if item.strip()))
+        if trusted is not None:
+            update_fields["trusted"] = trusted
+        if token_endpoint_auth_method is not None:
+            update_fields["token_endpoint_auth_method"] = token_endpoint_auth_method
+        if client_secret is not None:
+            update_fields["client_secret_hash"] = hash_oauth_secret(client_secret)
+
+        result = self._oauth_clients.update_one({"client_id": client_id}, {"$set": update_fields})
+        if result.matched_count == 0:
+            return None
+        return self.get_oauth_client_by_client_id(client_id)
+
+    def delete_oauth_client(self, client_id: str) -> bool:
+        result = self._oauth_clients.delete_one({"client_id": client_id})
+        return result.deleted_count > 0
+
+    def create_oauth_authorization_code(
+        self,
+        *,
+        code: str,
+        client_id: str,
+        user_id: str,
+        redirect_uri: str,
+        scopes: list[str],
+        code_challenge: str,
+        code_challenge_method: str,
+        nonce: str | None,
+        expires_at: datetime,
+    ) -> OAuthAuthorizationCodeRecord:
+        now = datetime.now(UTC)
+        doc = {
+            "code_hash": hash_oauth_secret(code),
+            "client_id": client_id,
+            "user_id": user_id,
+            "redirect_uri": redirect_uri,
+            "scopes": list(dict.fromkeys(scopes)),
+            "code_challenge": code_challenge,
+            "code_challenge_method": code_challenge_method,
+            "nonce": nonce,
+            "expires_at": expires_at,
+            "created_at": now,
+            "consumed_at": None,
+        }
+        self._oauth_authorization_codes.update_one({"code_hash": doc["code_hash"]}, {"$set": doc}, upsert=True)
+        return self._doc_to_oauth_authorization_code(doc)
+
+    def consume_oauth_authorization_code(self, code: str) -> OAuthAuthorizationCodeRecord | None:
+        code_hash = hash_oauth_secret(code)
+        now = datetime.now(UTC)
+        doc = self._oauth_authorization_codes.find_one({"code_hash": code_hash})
+        if doc is None:
+            return None
+        if doc.get("consumed_at") is not None:
+            return None
+        expires_at = self._to_utc_naive(doc.get("expires_at"))
+        if expires_at <= self._to_utc_naive(now):
+            return None
+
+        result = self._oauth_authorization_codes.update_one(
+            {"code_hash": code_hash, "consumed_at": None},
+            {"$set": {"consumed_at": now}},
+        )
+        if result.matched_count == 0:
+            return None
+        updated = self._oauth_authorization_codes.find_one({"code_hash": code_hash})
+        return self._doc_to_oauth_authorization_code(updated) if updated else None
+
+    def has_oauth_consent_for_scopes(self, *, user_id: str, client_id: str, scopes: list[str]) -> bool:
+        doc = self._oauth_consents.find_one({"user_id": user_id, "client_id": client_id})
+        if doc is None:
+            return False
+        granted_scopes = set(doc.get("scopes") or [])
+        return set(scopes).issubset(granted_scopes)
+
+    def upsert_oauth_consent_grant(self, *, user_id: str, client_id: str, scopes: list[str]) -> OAuthConsentGrantRecord:
+        now = datetime.now(UTC)
+        current = self._oauth_consents.find_one({"user_id": user_id, "client_id": client_id})
+        existing_scopes = set(current.get("scopes") or []) if current else set()
+        merged_scopes = sorted(existing_scopes.union(scopes))
+        self._oauth_consents.update_one(
+            {"user_id": user_id, "client_id": client_id},
+            {
+                "$set": {"scopes": merged_scopes, "updated_at": now},
+                "$setOnInsert": {"created_at": now},
+            },
+            upsert=True,
+        )
+        doc = self._oauth_consents.find_one({"user_id": user_id, "client_id": client_id})
+        return self._doc_to_oauth_consent(doc)
+
+    def list_oauth_connected_apps_for_user(self, user_id: str) -> list[tuple[OAuthConsentGrantRecord, OAuthClientRecord]]:
+        consent_docs = list(
+            self._oauth_consents.find(
+                {"user_id": user_id},
+                sort=[("updated_at", -1)],
+            )
+        )
+        if not consent_docs:
+            return []
+
+        client_ids = list({doc.get("client_id") for doc in consent_docs if doc.get("client_id")})
+        client_docs = self._oauth_clients.find({"client_id": {"$in": client_ids}})
+        clients_by_client_id = {doc.get("client_id"): self._doc_to_oauth_client(doc) for doc in client_docs if doc.get("client_id")}
+
+        connected: list[tuple[OAuthConsentGrantRecord, OAuthClientRecord]] = []
+        for consent_doc in consent_docs:
+            client_id = consent_doc.get("client_id")
+            if not client_id:
+                continue
+            client = clients_by_client_id.get(client_id)
+            if client is None:
+                continue
+            connected.append((self._doc_to_oauth_consent(consent_doc), client))
+        return connected
+
+    def revoke_oauth_connected_app_for_user(self, *, user_id: str, client_id: str) -> bool:
+        now = datetime.now(UTC)
+        consent_result = self._oauth_consents.delete_one({"user_id": user_id, "client_id": client_id})
+
+        access_result = self._oauth_access_tokens.update_many(
+            {
+                "user_id": user_id,
+                "client_id": client_id,
+                "revoked_at": None,
+            },
+            {"$set": {"revoked_at": now}},
+        )
+
+        refresh_result = self._oauth_refresh_tokens.update_many(
+            {
+                "user_id": user_id,
+                "client_id": client_id,
+                "revoked_at": None,
+            },
+            {"$set": {"revoked_at": now}},
+        )
+
+        return bool(consent_result.deleted_count or access_result.modified_count or refresh_result.modified_count)
+
+    def store_oauth_access_token(
+        self,
+        *,
+        token: str,
+        jti: str,
+        user_id: str,
+        client_id: str,
+        scopes: list[str],
+        expires_at: datetime,
+    ) -> OAuthAccessTokenRecord:
+        now = datetime.now(UTC)
+        doc = {
+            "token_hash": hash_oauth_secret(token),
+            "jti": jti,
+            "user_id": user_id,
+            "client_id": client_id,
+            "scopes": list(dict.fromkeys(scopes)),
+            "expires_at": expires_at,
+            "created_at": now,
+            "revoked_at": None,
+        }
+        self._oauth_access_tokens.update_one({"token_hash": doc["token_hash"]}, {"$set": doc}, upsert=True)
+        return self._doc_to_oauth_access_token(doc)
+
+    def revoke_oauth_access_token(self, token: str) -> bool:
+        token_hash = hash_oauth_secret(token)
+        result = self._oauth_access_tokens.update_one(
+            {"token_hash": token_hash, "revoked_at": None},
+            {"$set": {"revoked_at": datetime.now(UTC)}},
+        )
+        return result.matched_count > 0
+
+    def is_oauth_access_token_active(self, token: str) -> bool:
+        token_hash = hash_oauth_secret(token)
+        doc = self._oauth_access_tokens.find_one({"token_hash": token_hash})
+        if doc is None:
+            return False
+        if doc.get("revoked_at") is not None:
+            return False
+        expires_at = self._to_utc_naive(doc.get("expires_at"))
+        return expires_at > self._to_utc_naive(datetime.now(UTC))
+
+    def create_oauth_refresh_token(
+        self,
+        *,
+        user_id: str,
+        client_id: str,
+        scopes: list[str],
+        expires_at: datetime,
+        family_id: str | None = None,
+    ) -> tuple[str, OAuthRefreshTokenRecord]:
+        token = generate_refresh_token()
+        now = datetime.now(UTC)
+        doc = {
+            "token_hash": hash_oauth_secret(token),
+            "user_id": user_id,
+            "client_id": client_id,
+            "scopes": list(dict.fromkeys(scopes)),
+            "family_id": family_id or str(uuid4()),
+            "expires_at": expires_at,
+            "created_at": now,
+            "revoked_at": None,
+        }
+        self._oauth_refresh_tokens.update_one({"token_hash": doc["token_hash"]}, {"$set": doc}, upsert=True)
+        return token, self._doc_to_oauth_refresh_token(doc)
+
+    def get_active_oauth_refresh_token(self, token: str) -> OAuthRefreshTokenRecord | None:
+        token_hash = hash_oauth_secret(token)
+        doc = self._oauth_refresh_tokens.find_one({"token_hash": token_hash})
+        if doc is None:
+            return None
+        if doc.get("revoked_at") is not None:
+            return None
+        expires_at = self._to_utc_naive(doc.get("expires_at"))
+        if expires_at <= self._to_utc_naive(datetime.now(UTC)):
+            return None
+        return self._doc_to_oauth_refresh_token(doc)
+
+    def revoke_oauth_refresh_token(self, token: str) -> bool:
+        token_hash = hash_oauth_secret(token)
+        result = self._oauth_refresh_tokens.update_one(
+            {"token_hash": token_hash, "revoked_at": None},
             {"$set": {"revoked_at": datetime.now(UTC)}},
         )
         return result.matched_count > 0

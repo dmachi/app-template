@@ -1,6 +1,6 @@
 import { Dispatch, SetStateAction, useCallback } from "react";
 
-import { login, logout, register, startRedirectProvider } from "../../lib/api";
+import { establishOAuthSession, login, logout, register, startRedirectProvider } from "../../lib/api";
 import { getEmptyAdminCapabilities } from "./admin-capabilities-core";
 import type { AdminCapabilities } from "./types";
 
@@ -65,6 +65,13 @@ export function useAppAuthActions(params: UseAppAuthActionsParams) {
       setAccessToken(tokens.accessToken);
       setRefreshToken(tokens.refreshToken);
       window.localStorage.setItem(refreshTokenStorageKey, tokens.refreshToken);
+
+      const search = new URLSearchParams(window.location.search);
+      const oauthReturnTo = search.get("oauth_return_to");
+      if (oauthReturnTo) {
+        const session = await establishOAuthSession(tokens.accessToken, oauthReturnTo);
+        window.location.href = session.redirectUrl;
+      }
     } catch (loginError) {
       setError(loginError instanceof Error ? loginError.message : "Unable to login");
     }

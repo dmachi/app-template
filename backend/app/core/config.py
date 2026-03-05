@@ -10,13 +10,13 @@ ENV_FILE_PATH = Path(__file__).resolve().parents[2] / ".env"
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=str(ENV_FILE_PATH), env_file_encoding="utf-8", case_sensitive=False)
+    model_config = SettingsConfigDict(env_file=str(ENV_FILE_PATH), env_file_encoding="utf-8", case_sensitive=False, extra="ignore")
 
     app_name: str = "Basic System Template"
     app_icon: str = "🧩"
     app_env: Literal["development", "test", "production"] = "development"
     api_prefix: str = "/api/v1"
-    cors_allow_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
+    cors_allow_origins: str = "http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://127.0.0.1:5174"
 
     auth_mode: Literal["jwt"] = "jwt"
     jwt_access_token_secret: str | None = None
@@ -52,6 +52,25 @@ class Settings(BaseSettings):
     auth_providers_enabled: str = "local,uva-netbadge"
     local_registration_enabled: bool = True
     email_verification_required_for_login: bool = False
+
+    oauth_enabled: bool = True
+    oauth_issuer: str = "http://localhost:8000"
+    oauth_authorization_code_ttl_seconds: int = 600
+    oauth_access_token_ttl_seconds: int = 900
+    oauth_id_token_ttl_seconds: int = 900
+    oauth_refresh_token_ttl_seconds: int = 2592000
+    oauth_refresh_token_rotation_enabled: bool = True
+    oauth_require_pkce: bool = True
+    oauth_default_scopes: str = "openid,profile,email"
+    oauth_trusted_client_ids: str = ""
+    oauth_rs256_private_key_pem: str | None = None
+    oauth_rs256_public_key_pem: str | None = None
+    oauth_signing_key_id: str = "oauth-default"
+    oauth_session_cookie_name: str = "oauth_session"
+    oauth_session_cookie_ttl_seconds: int = 3600
+    oauth_session_cookie_secure: bool = False
+    oauth_session_cookie_same_site: Literal["lax", "strict", "none"] = "lax"
+    oauth_login_ui_url: str = "http://localhost:5173/login"
 
     email_delivery_mode: Literal["local", "external"] = "local"
     email_local_sendmail: bool = False
@@ -90,6 +109,11 @@ class Settings(BaseSettings):
         "email_verification_token_ttl_seconds",
         "email_invitation_ttl_seconds",
         "notifications_completed_retention_hours",
+        "oauth_authorization_code_ttl_seconds",
+        "oauth_access_token_ttl_seconds",
+        "oauth_id_token_ttl_seconds",
+        "oauth_refresh_token_ttl_seconds",
+        "oauth_session_cookie_ttl_seconds",
     )
     @classmethod
     def validate_positive_ttl(cls, value: int) -> int:
@@ -111,6 +135,14 @@ class Settings(BaseSettings):
     @property
     def cors_allow_origin_list(self) -> list[str]:
         return [item.strip() for item in self.cors_allow_origins.split(",") if item.strip()]
+
+    @property
+    def oauth_scope_list(self) -> list[str]:
+        return [item.strip() for item in self.oauth_default_scopes.split(",") if item.strip()]
+
+    @property
+    def oauth_trusted_client_id_list(self) -> list[str]:
+        return [item.strip() for item in self.oauth_trusted_client_ids.split(",") if item.strip()]
 
     @property
     def resolved_database_url(self) -> str:
@@ -165,6 +197,18 @@ class Settings(BaseSettings):
                 raise ValueError("email_dkim_domain_name and email_dkim_key_selector are required when email_dkim_enabled=true")
             if not self.email_dkim_private_key and not self.email_dkim_private_key_path:
                 raise ValueError("email_dkim_private_key or email_dkim_private_key_path is required when email_dkim_enabled=true")
+
+        if self.oauth_enabled:
+            if self.oauth_authorization_code_ttl_seconds <= 0:
+                raise ValueError("oauth_authorization_code_ttl_seconds must be positive")
+            if self.oauth_access_token_ttl_seconds <= 0:
+                raise ValueError("oauth_access_token_ttl_seconds must be positive")
+            if self.oauth_id_token_ttl_seconds <= 0:
+                raise ValueError("oauth_id_token_ttl_seconds must be positive")
+            if self.oauth_refresh_token_ttl_seconds <= 0:
+                raise ValueError("oauth_refresh_token_ttl_seconds must be positive")
+            if not self.oauth_issuer.strip():
+                raise ValueError("oauth_issuer is required when oauth_enabled=true")
 
         return self
 

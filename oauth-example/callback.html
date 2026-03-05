@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>oauth-example callback</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="container">
+      <h1>Callback</h1>
+      <p class="subtitle">Authorization response and token operations.</p>
+
+      <section class="card">
+        <h2>Auth Result</h2>
+        <pre id="authResult">Processing callback...</pre>
+      </section>
+
+      <section class="card">
+        <h2>Token Response</h2>
+        <pre id="tokenOutput">(none)</pre>
+      </section>
+
+      <section class="card">
+        <h2>OIDC/OAuth Operations</h2>
+        <div class="actions">
+          <button id="userinfoBtn">Call UserInfo</button>
+          <button id="refreshBtn">Refresh Token</button>
+          <button id="introspectBtn">Introspect</button>
+          <button id="revokeBtn">Revoke Access Token</button>
+          <button id="logoutBtn">End Session</button>
+          <a href="/index.html" class="button-link">Back to Start</a>
+        </div>
+        <pre id="operationOutput">(none)</pre>
+      </section>
+    </main>
+
+    <script type="module" src="./callback.js"></script>
+  </body>
+</html>

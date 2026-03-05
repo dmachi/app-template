@@ -95,6 +95,7 @@ export function App() {
     isAcceptInviteRoute,
     tokenParam,
     inviteTokenParam,
+    oauthReturnTo,
     emailVerificationToken,
     invitationToken,
   } = useAppRouteTokens();
@@ -181,6 +182,7 @@ export function App() {
     adminAccessChecked,
     adminCapabilities,
     locationPathname,
+    oauthReturnTo,
     selectedGroupId,
     selectedExtensionId,
     navigateTo,

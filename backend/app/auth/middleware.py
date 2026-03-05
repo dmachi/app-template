@@ -19,12 +19,14 @@ class AuthContext:
 
 def resolve_auth_context(request: Request, settings: Settings) -> AuthContext:
     authorization = request.headers.get("Authorization")
-    if not authorization or not authorization.startswith("Bearer "):
-        return AuthContext(is_authenticated=False)
+    token: str | None = None
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization.split(" ", 1)[1].strip()
+    else:
+        token = request.cookies.get(settings.oauth_session_cookie_name)
 
-    token = authorization.split(" ", 1)[1].strip()
     if not token:
-        return AuthContext(is_authenticated=False, error_code="TOKEN_INVALID")
+        return AuthContext(is_authenticated=False)
 
     try:
         payload = decode_access_token(token, settings)

@@ -1,5 +1,6 @@
 import { API_BASE, parseJson } from "./core";
 import type {
+  AdminOAuthClientItem,
   AdminOutstandingInvitation,
   AdminRoleItem,
   AdminUserDetail,
@@ -8,6 +9,7 @@ import type {
 } from "./core";
 
 export {
+  type AdminOAuthClientItem,
   type AdminUserListItem,
   type AdminUserDetail,
   type AdminUserGroupMembership,
@@ -214,6 +216,65 @@ export async function adminAssignGroupRoles(accessToken: string, groupId: string
       method: "PUT",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
       body: JSON.stringify({ roles }),
+    }),
+  );
+}
+
+export async function adminListOAuthClients(accessToken: string): Promise<{ items: AdminOAuthClientItem[] }> {
+  return parseJson(
+    await fetch(`${API_BASE}/admin/oauth/clients`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    }),
+  );
+}
+
+export async function adminCreateOAuthClient(
+  accessToken: string,
+  body: {
+    name: string;
+    redirectUris: string[];
+    allowedScopes: string[];
+    grantTypes: string[];
+    trusted: boolean;
+    tokenEndpointAuthMethod: "none" | "client_secret_post";
+  },
+): Promise<AdminOAuthClientItem & { clientSecret?: string }> {
+  return parseJson(
+    await fetch(`${API_BASE}/admin/oauth/clients`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify(body),
+    }),
+  );
+}
+
+export async function adminPatchOAuthClient(
+  accessToken: string,
+  clientId: string,
+  body: {
+    name?: string;
+    redirectUris?: string[];
+    allowedScopes?: string[];
+    grantTypes?: string[];
+    trusted?: boolean;
+    tokenEndpointAuthMethod?: "none" | "client_secret_post";
+    rotateSecret?: boolean;
+  },
+): Promise<AdminOAuthClientItem & { clientSecret?: string }> {
+  return parseJson(
+    await fetch(`${API_BASE}/admin/oauth/clients/${encodeURIComponent(clientId)}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify(body),
+    }),
+  );
+}
+
+export async function adminDeleteOAuthClient(accessToken: string, clientId: string): Promise<{ success: boolean }> {
+  return parseJson(
+    await fetch(`${API_BASE}/admin/oauth/clients/${encodeURIComponent(clientId)}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${accessToken}` },
     }),
   );
 }

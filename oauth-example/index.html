@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>oauth-example</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="container">
+      <h1>oauth-example</h1>
+      <p class="subtitle">Standalone external app demo for OAuth/OIDC verification.</p>
+
+      <section id="authSection" class="card">
+        <h2>Client Settings</h2>
+        <label>
+          Issuer Base URL
+          <input id="issuer" type="text" value="http://localhost:8000" />
+        </label>
+        <label>
+          Client ID
+          <input id="clientId" type="text" placeholder="Paste from admin OAuth clients" />
+        </label>
+        <label>
+          Redirect URI
+          <input id="redirectUri" type="text" />
+        </label>
+        <label>
+          Scope
+          <input id="scope" type="text" value="openid profile email" />
+        </label>
+        <div class="actions">
+          <button id="loadDiscovery">Load Discovery</button>
+          <button id="startAuth" class="primary">Start OAuth Login</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Discovery</h2>
+        <pre id="discoveryOutput">(not loaded)</pre>
+      </section>
+
+      <section id="summarySection" class="card" hidden>
+        <h2>Session Summary</h2>
+        <p class="subtitle">You are authenticated in oauth-example.</p>
+        <h3>Auth Status</h3>
+        <pre id="authStatus">(none)</pre>
+        <h3>Token State</h3>
+        <pre id="tokenSummary">(none)</pre>
+        <div class="actions">
+          <button id="userinfoBtn">Call UserInfo</button>
+          <button id="refreshBtn">Refresh Token</button>
+          <button id="introspectBtn">Introspect</button>
+          <button id="revokeBtn">Revoke Access Token</button>
+          <button id="logoutBtn">Logout</button>
+        </div>
+        <pre id="operationOutput">(none)</pre>
+      </section>
+    </main>
+
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>

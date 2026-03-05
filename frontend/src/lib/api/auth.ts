@@ -51,6 +51,56 @@ export async function startRedirectProvider(providerId: string): Promise<{ provi
   return parseJson(await fetch(`${API_BASE}/auth/${providerId}/start`));
 }
 
+export async function establishOAuthSession(
+  accessToken: string,
+  returnTo: string,
+): Promise<{ success: boolean; redirectUrl: string }> {
+  return parseJson(
+    await fetch(`${API_BASE}/oauth/session`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      credentials: "include",
+      body: JSON.stringify({ returnTo }),
+    }),
+  );
+}
+
+export async function getOAuthConsentDetails(
+  accessToken: string,
+  returnTo: string,
+): Promise<{ returnTo: string; clientId: string; clientName: string; scopes: string[] }> {
+  const params = new URLSearchParams({ return_to: returnTo });
+  return parseJson(
+    await fetch(`${API_BASE}/oauth/consent/details?${params.toString()}`, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+      credentials: "include",
+    }),
+  );
+}
+
+export async function submitOAuthConsentDecision(
+  accessToken: string,
+  returnTo: string,
+  decision: "approve" | "deny",
+): Promise<{ success: boolean; decision: "approve" | "deny"; redirectUrl: string }> {
+  return parseJson(
+    await fetch(`${API_BASE}/oauth/consent/decision`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      credentials: "include",
+      body: JSON.stringify({ returnTo, decision }),
+    }),
+  );
+}
+
 export async function verifyEmail(token: string): Promise<{ success: boolean; status: string; emailVerified: boolean }> {
   const params = new URLSearchParams({ token });
   return parseJson(await fetch(`${API_BASE}/auth/verify-email?${params.toString()}`));

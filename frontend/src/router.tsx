@@ -8,6 +8,7 @@ import { createSettingsRoutes } from "./settings/settings-routes";
 
 const HomePage = lazy(() => import("./pages/home-page"));
 const LoginPage = lazy(() => import("./pages/login-page"));
+const OAuthConsentPage = lazy(() => import("./pages/oauth-consent-page"));
 const RegisterPage = lazy(() => import("./pages/register-page"));
 const PublicVerifyEmailPage = lazy(() => import("./pages/public-verify-email-page"));
 const PublicAcceptInvitePage = lazy(() => import("./pages/public-accept-invite-page"));
@@ -41,6 +42,13 @@ const registerRoute = createLayoutRoute({
   path: "/register",
   layout: "simple-layout",
   component: RegisterPage,
+});
+
+const oauthConsentRoute = createLayoutRoute({
+  getParentRoute: () => rootRoute,
+  path: "/oauth/consent",
+  layout: "simple-layout",
+  component: OAuthConsentPage,
 });
 
 const verifyEmailRoute = createLayoutRoute({
@@ -77,6 +85,7 @@ const routeTree = rootRoute.addChildren([
   indexRoute,
   loginRoute,
   registerRoute,
+  oauthConsentRoute,
   verifyEmailRoute,
   acceptInviteRoute,
   cmsByIdRoute,

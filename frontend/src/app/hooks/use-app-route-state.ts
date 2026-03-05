@@ -25,6 +25,7 @@ const BUILT_IN_ADMIN_SEGMENTS = new Set([
 const BUILT_IN_SETTINGS_SEGMENTS = new Set([
   "profile",
   "notifications",
+  "connected-apps",
   "security",
   "groups",
   "group",

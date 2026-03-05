@@ -1,0 +1,9 @@
+services:
+  oauth-example:
+    image: nginx:1.27-alpine
+    volumes:
+      - ./oauth-example/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./oauth-example:/usr/share/nginx/html:ro
+    ports:
+      - "5174:80"
+    restart: unless-stopped

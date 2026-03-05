@@ -278,6 +278,19 @@ export type AdminRoleItem = {
   description?: string | null;
 };
 
+export type AdminOAuthClientItem = {
+  id: string;
+  clientId: string;
+  name: string;
+  redirectUris: string[];
+  allowedScopes: string[];
+  grantTypes: string[];
+  trusted: boolean;
+  tokenEndpointAuthMethod: "none" | "client_secret_post" | string;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type ProjectLink = {
   label: string;
   url: string;

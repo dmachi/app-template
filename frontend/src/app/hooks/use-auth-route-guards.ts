@@ -10,6 +10,7 @@ type UseRouteGuardsParams = {
   adminAccessChecked: boolean;
   adminCapabilities: AdminCapabilities;
   locationPathname: string;
+  oauthReturnTo: string | null;
   selectedGroupId: string | null;
   selectedExtensionId: string | null;
   navigateTo: (to: string, replace?: boolean) => void;
@@ -67,7 +68,7 @@ function isAdminPath(pathname: string): boolean {
 }
 
 function isPublicUnauthenticatedPath(pathname: string): boolean {
-  if (pathname === "/" || pathname === "/login" || pathname === "/register" || pathname === "/verify-email" || pathname === "/accept-invite") {
+  if (pathname === "/" || pathname === "/login" || pathname === "/register" || pathname === "/verify-email" || pathname === "/accept-invite" || pathname === "/oauth/consent") {
     return true;
   }
   if (pathname.startsWith("/settings")) {
@@ -97,6 +98,7 @@ export function useRouteGuards(params: UseRouteGuardsParams) {
     adminAccessChecked,
     adminCapabilities,
     locationPathname,
+    oauthReturnTo,
     selectedGroupId,
     selectedExtensionId,
     navigateTo,
@@ -146,6 +148,13 @@ export function useRouteGuards(params: UseRouteGuardsParams) {
     }
 
     if (locationPathname === "/login" || locationPathname === "/register") {
+      if (locationPathname === "/login" && oauthReturnTo) {
+        debugRouteGuard("[route-debug] auth-guard:allow oauth-login-continuation", {
+          pathname: locationPathname,
+          oauthReturnTo,
+        });
+        return;
+      }
       debugRouteGuard("[route-debug] auth-guard:redirect auth-page-while-authenticated", {
         pathname: locationPathname,
         target: "/",
@@ -199,6 +208,7 @@ export function useRouteGuards(params: UseRouteGuardsParams) {
     canAccessAdmin,
     locationPathname,
     navigateTo,
+    oauthReturnTo,
     restoringSession,
     selectedExtensionId,
     selectedGroupId,
