@@ -1,5 +1,10 @@
 import { useEffect } from "react";
 
+import {
+  additionalPublicUnauthenticatedPaths,
+  resolveAdminPathCapabilityOverride,
+  resolveFirstAllowedAdminPathOverride,
+} from "../../extensions/app-hooks/route-guards";
 import { getSettingsExtensions } from "../../extensions/settings-registry";
 import type { AdminCapabilities } from "./types";
 
@@ -17,6 +22,11 @@ type UseRouteGuardsParams = {
 };
 
 function getFirstAllowedAdminPath(capabilities: AdminCapabilities): string | null {
+  const override = resolveFirstAllowedAdminPathOverride(capabilities);
+  if (override !== undefined) {
+    return override;
+  }
+
   if (capabilities.content) {
     return "/settings/admin/content";
   }
@@ -36,6 +46,11 @@ function getFirstAllowedAdminPath(capabilities: AdminCapabilities): string | nul
 }
 
 function canAccessAdminPath(pathname: string, capabilities: AdminCapabilities): boolean {
+  const override = resolveAdminPathCapabilityOverride(pathname, capabilities);
+  if (override !== undefined) {
+    return override;
+  }
+
   if (pathname === "/settings/admin") {
     return capabilities.users;
   }
@@ -68,7 +83,10 @@ function isAdminPath(pathname: string): boolean {
 }
 
 function isPublicUnauthenticatedPath(pathname: string): boolean {
-  if (pathname === "/" || pathname === "/login" || pathname === "/register" || pathname === "/verify-email" || pathname === "/accept-invite" || pathname === "/oauth/consent") {
+  if (pathname === "/" || pathname === "/login" || pathname === "/register" || pathname === "/verify-email" || pathname === "/accept-invite") {
+    return true;
+  }
+  if ((additionalPublicUnauthenticatedPaths || []).includes(pathname)) {
     return true;
   }
   if (pathname.startsWith("/settings")) {
