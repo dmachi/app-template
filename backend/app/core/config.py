@@ -74,6 +74,7 @@ class Settings(BaseSettings):
 
     personal_access_tokens_enabled: bool = True
     personal_access_token_encryption_key: str | None = None
+    external_account_token_encryption_key: str | None = None
 
     email_delivery_mode: Literal["local", "external"] = "local"
     email_local_sendmail: bool = False
@@ -212,6 +213,13 @@ class Settings(BaseSettings):
                 raise ValueError("oauth_refresh_token_ttl_seconds must be positive")
             if not self.oauth_issuer.strip():
                 raise ValueError("oauth_issuer is required when oauth_enabled=true")
+
+        try:
+            from app.auth.external_oauth import get_enabled_external_oauth_provider_configs
+
+            get_enabled_external_oauth_provider_configs()
+        except Exception as exc:
+            raise ValueError(f"External OAuth provider configuration is invalid: {exc}") from exc
 
         return self
 

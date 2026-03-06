@@ -119,6 +119,13 @@ class MongoAuthStore:
             user_id=doc["user_id"],
             provider=doc["provider"],
             external_subject=doc["external_subject"],
+            scopes=doc.get("scopes") or [],
+            access_token_encrypted=doc.get("access_token_encrypted"),
+            refresh_token_encrypted=doc.get("refresh_token_encrypted"),
+            access_token_expires_at=doc.get("access_token_expires_at"),
+            refresh_token_expires_at=doc.get("refresh_token_expires_at"),
+            last_used_at=doc.get("last_used_at"),
+            revoked_at=doc.get("revoked_at"),
             metadata=doc.get("metadata") or {},
             created_at=doc.get("created_at") or datetime.now(UTC),
             updated_at=doc.get("updated_at") or datetime.now(UTC),
@@ -298,9 +305,24 @@ class MongoAuthStore:
         user_id: str,
         provider: str,
         external_subject: str,
+        scopes: list[str] | None = None,
+        access_token_encrypted: str | None = None,
+        refresh_token_encrypted: str | None = None,
+        access_token_expires_at: datetime | None = None,
+        refresh_token_expires_at: datetime | None = None,
         metadata: dict | None = None,
     ) -> ExternalAccountLinkageRecord:
         normalized_provider = provider.strip().lower()
+        conflicting = self._external_account_linkages.find_one(
+            {
+                "provider": normalized_provider,
+                "external_subject": external_subject,
+                "user_id": {"$ne": user_id},
+            }
+        )
+        if conflicting is not None:
+            raise ValueError("EXTERNAL_ACCOUNT_ALREADY_LINKED")
+
         now = datetime.now(UTC)
         linkage_id = str(uuid4())
         self._external_account_linkages.update_one(
@@ -310,6 +332,12 @@ class MongoAuthStore:
                     "user_id": user_id,
                     "provider": normalized_provider,
                     "external_subject": external_subject,
+                    "scopes": sorted(set(scopes or [])),
+                    "access_token_encrypted": access_token_encrypted,
+                    "refresh_token_encrypted": refresh_token_encrypted,
+                    "access_token_expires_at": self._to_utc_naive(access_token_expires_at) if access_token_expires_at else None,
+                    "refresh_token_expires_at": self._to_utc_naive(refresh_token_expires_at) if refresh_token_expires_at else None,
+                    "revoked_at": None,
                     "metadata": dict(metadata or {}),
                     "updated_at": now,
                 },
@@ -327,9 +355,36 @@ class MongoAuthStore:
         cursor = self._external_account_linkages.find({"user_id": user_id}).sort("provider", 1)
         return [self._doc_to_external_account_linkage(doc) for doc in cursor]
 
+    def get_external_account_linkage(self, user_id: str, provider: str) -> ExternalAccountLinkageRecord | None:
+        doc = self._external_account_linkages.find_one({"user_id": user_id, "provider": provider.strip().lower()})
+        return self._doc_to_external_account_linkage(doc) if doc else None
+
+    def get_external_account_linkage_by_subject(self, provider: str, external_subject: str) -> ExternalAccountLinkageRecord | None:
+        doc = self._external_account_linkages.find_one({"provider": provider.strip().lower(), "external_subject": external_subject})
+        return self._doc_to_external_account_linkage(doc) if doc else None
+
+    def get_active_external_account_linkage(self, user_id: str, provider: str) -> ExternalAccountLinkageRecord | None:
+        doc = self._external_account_linkages.find_one(
+            {"user_id": user_id, "provider": provider.strip().lower(), "revoked_at": None}
+        )
+        return self._doc_to_external_account_linkage(doc) if doc else None
+
     def remove_external_account_linkage(self, user_id: str, provider: str) -> bool:
         result = self._external_account_linkages.delete_one({"user_id": user_id, "provider": provider.strip().lower()})
         return result.deleted_count > 0
+
+    def revoke_external_account_linkage(self, user_id: str, provider: str) -> bool:
+        result = self._external_account_linkages.update_one(
+            {"user_id": user_id, "provider": provider.strip().lower(), "revoked_at": None},
+            {"$set": {"revoked_at": datetime.now(UTC), "updated_at": datetime.now(UTC)}},
+        )
+        return result.matched_count > 0
+
+    def touch_external_account_linkage_last_used(self, user_id: str, provider: str) -> None:
+        self._external_account_linkages.update_one(
+            {"user_id": user_id, "provider": provider.strip().lower()},
+            {"$set": {"last_used_at": datetime.now(UTC), "updated_at": datetime.now(UTC)}},
+        )
 
     def authenticate_local_user(self, username_or_email: str, password: str) -> UserRecord | None:
         lookup = username_or_email.strip().lower()

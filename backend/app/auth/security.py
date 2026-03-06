@@ -104,3 +104,24 @@ def encrypt_personal_access_token(token: str, settings: Settings) -> str:
 def decrypt_personal_access_token(token_encrypted: str, settings: Settings) -> str:
     fernet = _resolve_pat_fernet(settings)
     return fernet.decrypt(token_encrypted.encode("utf-8")).decode("utf-8")
+
+
+def _resolve_external_account_fernet(settings: Settings) -> Fernet:
+    key_source = (
+        settings.external_account_token_encryption_key
+        or settings.personal_access_token_encryption_key
+        or settings.jwt_access_token_secret
+        or DEV_ACCESS_SECRET
+    )
+    key = urlsafe_b64encode(sha256(key_source.encode("utf-8")).digest())
+    return Fernet(key)
+
+
+def encrypt_external_account_token(token: str, settings: Settings) -> str:
+    fernet = _resolve_external_account_fernet(settings)
+    return fernet.encrypt(token.encode("utf-8")).decode("utf-8")
+
+
+def decrypt_external_account_token(token_encrypted: str, settings: Settings) -> str:
+    fernet = _resolve_external_account_fernet(settings)
+    return fernet.decrypt(token_encrypted.encode("utf-8")).decode("utf-8")

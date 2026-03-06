@@ -82,9 +82,20 @@ class ExternalAccountLinkageRecord:
     user_id: str
     provider: str
     external_subject: str
+    scopes: list[str] = field(default_factory=list)
+    access_token_encrypted: str | None = None
+    refresh_token_encrypted: str | None = None
+    access_token_expires_at: datetime | None = None
+    refresh_token_expires_at: datetime | None = None
+    last_used_at: datetime | None = None
+    revoked_at: datetime | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
     created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+
+    @property
+    def is_revoked(self) -> bool:
+        return self.revoked_at is not None
 
 
 @dataclass
@@ -293,11 +304,24 @@ class AuthStore:
         user_id: str,
         provider: str,
         external_subject: str,
+        scopes: list[str] | None = None,
+        access_token_encrypted: str | None = None,
+        refresh_token_encrypted: str | None = None,
+        access_token_expires_at: datetime | None = None,
+        refresh_token_expires_at: datetime | None = None,
         metadata: dict[str, Any] | None = None,
     ) -> ExternalAccountLinkageRecord:
         normalized_provider = provider.strip().lower()
         key = (user_id, normalized_provider)
         now = datetime.now(UTC)
+        for (linked_user_id, linked_provider), linked_record in self._external_account_linkages.items():
+            if linked_provider != normalized_provider:
+                continue
+            if linked_record.external_subject != external_subject:
+                continue
+            if linked_user_id != user_id:
+                raise ValueError("EXTERNAL_ACCOUNT_ALREADY_LINKED")
+
         existing = self._external_account_linkages.get(key)
         if existing is None:
             record = ExternalAccountLinkageRecord(
@@ -305,6 +329,13 @@ class AuthStore:
                 user_id=user_id,
                 provider=normalized_provider,
                 external_subject=external_subject,
+                scopes=sorted(set(scopes or [])),
+                access_token_encrypted=access_token_encrypted,
+                refresh_token_encrypted=refresh_token_encrypted,
+                access_token_expires_at=access_token_expires_at,
+                refresh_token_expires_at=refresh_token_expires_at,
+                last_used_at=None,
+                revoked_at=None,
                 metadata=dict(metadata or {}),
                 created_at=now,
                 updated_at=now,
@@ -313,9 +344,31 @@ class AuthStore:
             return record
 
         existing.external_subject = external_subject
+        existing.scopes = sorted(set(scopes or []))
+        existing.access_token_encrypted = access_token_encrypted
+        existing.refresh_token_encrypted = refresh_token_encrypted
+        existing.access_token_expires_at = access_token_expires_at
+        existing.refresh_token_expires_at = refresh_token_expires_at
+        existing.revoked_at = None
         existing.metadata = dict(metadata or {})
         existing.updated_at = now
         return existing
+
+    def get_external_account_linkage(self, user_id: str, provider: str) -> ExternalAccountLinkageRecord | None:
+        return self._external_account_linkages.get((user_id, provider.strip().lower()))
+
+    def get_external_account_linkage_by_subject(self, provider: str, external_subject: str) -> ExternalAccountLinkageRecord | None:
+        normalized_provider = provider.strip().lower()
+        for (_, linked_provider), record in self._external_account_linkages.items():
+            if linked_provider == normalized_provider and record.external_subject == external_subject:
+                return record
+        return None
+
+    def get_active_external_account_linkage(self, user_id: str, provider: str) -> ExternalAccountLinkageRecord | None:
+        record = self.get_external_account_linkage(user_id=user_id, provider=provider)
+        if record is None or record.is_revoked:
+            return None
+        return record
 
     def list_external_account_linkages(self, user_id: str) -> list[ExternalAccountLinkageRecord]:
         return sorted(
@@ -325,7 +378,24 @@ class AuthStore:
 
     def remove_external_account_linkage(self, user_id: str, provider: str) -> bool:
         key = (user_id, provider.strip().lower())
-        return self._external_account_linkages.pop(key, None) is not None
+        removed = self._external_account_linkages.pop(key, None)
+        return removed is not None
+
+    def revoke_external_account_linkage(self, user_id: str, provider: str) -> bool:
+        record = self.get_external_account_linkage(user_id=user_id, provider=provider)
+        if record is None:
+            return False
+        if record.revoked_at is None:
+            record.revoked_at = datetime.now(UTC)
+            record.updated_at = datetime.now(UTC)
+        return True
+
+    def touch_external_account_linkage_last_used(self, user_id: str, provider: str) -> None:
+        record = self.get_external_account_linkage(user_id=user_id, provider=provider)
+        if record is None:
+            return
+        record.last_used_at = datetime.now(UTC)
+        record.updated_at = datetime.now(UTC)
 
     def authenticate_local_user(self, username_or_email: str, password: str) -> UserRecord | None:
         lookup = username_or_email.strip().lower()

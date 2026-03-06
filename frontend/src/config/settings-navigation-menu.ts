@@ -61,6 +61,13 @@ export function createSettingsNavigationMenuConfig(
             requiresAuth: true,
           },
           {
+            id: "settings-linked-accounts",
+            label: "Linked Accounts",
+            icon: Link2,
+            path: "/settings/linked-accounts",
+            requiresAuth: true,
+          },
+          {
             id: "settings-groups",
             label: "Groups",
             icon: Users,

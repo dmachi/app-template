@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from fastapi import APIRouter, Depends, Request
@@ -6,7 +6,18 @@ from pydantic import BaseModel, EmailStr, Field
 
 from app.auth.dependencies import get_current_user, require_auth_scopes
 from app.auth.auth_scopes import get_auth_scope_registry, validate_auth_scopes
-from app.auth.security import encrypt_personal_access_token, generate_personal_access_token
+from app.auth.external_oauth import (
+    build_external_oauth_authorize_url,
+    create_external_oauth_link_state,
+    decode_external_oauth_link_state,
+    exchange_external_oauth_code,
+    fetch_external_oauth_subject_and_metadata,
+    get_enabled_external_oauth_provider_configs,
+    get_external_oauth_provider_registry,
+    resolve_external_oauth_provider_config,
+    resolve_requested_external_scopes,
+)
+from app.auth.security import encrypt_external_account_token, encrypt_personal_access_token, generate_personal_access_token
 from app.auth.store import UserRecord
 from app.core.config import Settings, get_settings
 from app.core.errors import ApiError
@@ -67,6 +78,56 @@ class AccessTokenCreateResponse(BaseModel):
     createdAt: datetime
     expiresAt: datetime | None
     token: str
+
+
+class ExternalOAuthProviderItemResponse(BaseModel):
+    provider: str
+    displayName: str
+    requiredScopes: list[str]
+    optionalScopes: list[str]
+
+
+class ExternalOAuthProviderListResponse(BaseModel):
+    items: list[ExternalOAuthProviderItemResponse]
+
+
+class LinkedExternalAccountItemResponse(BaseModel):
+    provider: str
+    externalSubject: str
+    scopes: list[str]
+    metadata: dict[str, Any]
+    createdAt: datetime
+    updatedAt: datetime
+    lastUsedAt: datetime | None
+
+
+class LinkedExternalAccountListResponse(BaseModel):
+    items: list[LinkedExternalAccountItemResponse]
+
+
+class LinkedExternalAccountStartRequest(BaseModel):
+    scopes: list[str] = Field(default_factory=list)
+    redirectUri: str | None = None
+
+
+class LinkedExternalAccountStartResponse(BaseModel):
+    provider: str
+    authorizationUrl: str
+    state: str
+    scopes: list[str]
+    redirectUri: str
+
+
+class LinkedExternalAccountCompleteRequest(BaseModel):
+    code: str = Field(min_length=1)
+    state: str = Field(min_length=1)
+
+
+class LinkedExternalAccountCompleteResponse(BaseModel):
+    provider: str
+    externalSubject: str
+    scopes: list[str]
+    linked: bool
 
 
 def _profile_properties_from_preferences(preferences: Any) -> dict[str, Any]:
@@ -328,6 +389,188 @@ def list_my_connected_apps(
             for consent, client in connected
         ]
     )
+
+
+@router.get("/me/external-account-providers")
+def list_external_account_providers(
+    _: UserRecord = Depends(require_auth_scopes({"profile"})),
+) -> ExternalOAuthProviderListResponse:
+    provider_registry = get_external_oauth_provider_registry()
+    enabled_configs = get_enabled_external_oauth_provider_configs()
+    items: list[ExternalOAuthProviderItemResponse] = []
+    for provider_id, config in sorted(enabled_configs.items(), key=lambda item: item[0]):
+        definition = provider_registry.get(provider_id)
+        if definition is None:
+            continue
+        items.append(
+            ExternalOAuthProviderItemResponse(
+                provider=provider_id,
+                displayName=definition.display_name,
+                requiredScopes=list(config.required_scopes),
+                optionalScopes=list(config.optional_scopes),
+            )
+        )
+    return ExternalOAuthProviderListResponse(items=items)
+
+
+@router.get("/me/linked-accounts")
+def list_my_linked_external_accounts(
+    request: Request,
+    current_user: UserRecord = Depends(require_auth_scopes({"profile"})),
+) -> LinkedExternalAccountListResponse:
+    auth_store = request.app.state.auth_store
+    linkages = auth_store.list_external_account_linkages(current_user.id)
+    active_items = [item for item in linkages if item.revoked_at is None]
+    return LinkedExternalAccountListResponse(
+        items=[
+            LinkedExternalAccountItemResponse(
+                provider=item.provider,
+                externalSubject=item.external_subject,
+                scopes=item.scopes,
+                metadata=item.metadata,
+                createdAt=item.created_at,
+                updatedAt=item.updated_at,
+                lastUsedAt=item.last_used_at,
+            )
+            for item in active_items
+        ]
+    )
+
+
+@router.post("/me/linked-accounts/{provider}/start")
+def start_link_my_external_account(
+    provider: str,
+    payload: LinkedExternalAccountStartRequest,
+    current_user: UserRecord = Depends(require_auth_scopes({"profile"})),
+    settings: Settings = Depends(get_settings),
+) -> LinkedExternalAccountStartResponse:
+    provider_definition, provider_config = resolve_external_oauth_provider_config(provider)
+    requested_scopes = resolve_requested_external_scopes(
+        provider_config=provider_config,
+        user_requested_scopes=payload.scopes,
+    )
+
+    redirect_uri = payload.redirectUri or provider_config.redirect_uri
+    if not redirect_uri:
+        raise ApiError(status_code=400, code="EXTERNAL_REDIRECT_URI_REQUIRED", message="redirectUri is required for external account linking")
+
+    state = create_external_oauth_link_state(
+        settings=settings,
+        user_id=current_user.id,
+        provider=provider_definition.name,
+        scopes=requested_scopes,
+        redirect_uri=redirect_uri,
+    )
+    authorization_url = build_external_oauth_authorize_url(
+        provider_definition=provider_definition,
+        provider_config=provider_config,
+        redirect_uri=redirect_uri,
+        scopes=requested_scopes,
+        state_token=state,
+    )
+    return LinkedExternalAccountStartResponse(
+        provider=provider_definition.name,
+        authorizationUrl=authorization_url,
+        state=state,
+        scopes=requested_scopes,
+        redirectUri=redirect_uri,
+    )
+
+
+@router.post("/me/linked-accounts/{provider}/complete")
+def complete_link_my_external_account(
+    provider: str,
+    payload: LinkedExternalAccountCompleteRequest,
+    request: Request,
+    current_user: UserRecord = Depends(require_auth_scopes({"profile"})),
+    settings: Settings = Depends(get_settings),
+) -> LinkedExternalAccountCompleteResponse:
+    provider_definition, provider_config = resolve_external_oauth_provider_config(provider)
+    state_payload = decode_external_oauth_link_state(payload.state, settings)
+
+    state_user_id = str(state_payload.get("sub") or "").strip()
+    state_provider = str(state_payload.get("provider") or "").strip().lower()
+    state_scopes_raw = state_payload.get("scopes")
+    state_redirect_uri = str(state_payload.get("redirect_uri") or "").strip()
+
+    if state_user_id != current_user.id or state_provider != provider_definition.name:
+        raise ApiError(status_code=400, code="EXTERNAL_OAUTH_STATE_INVALID", message="External OAuth state does not match current user/provider")
+    if not state_redirect_uri:
+        raise ApiError(status_code=400, code="EXTERNAL_OAUTH_STATE_INVALID", message="External OAuth state is missing redirect_uri")
+    if not isinstance(state_scopes_raw, list):
+        raise ApiError(status_code=400, code="EXTERNAL_OAUTH_STATE_INVALID", message="External OAuth state is missing scopes")
+
+    requested_scopes = [str(item).strip() for item in state_scopes_raw if str(item).strip()]
+    requested_scopes = resolve_requested_external_scopes(
+        provider_config=provider_config,
+        user_requested_scopes=requested_scopes,
+    )
+
+    token_result = exchange_external_oauth_code(
+        provider_definition=provider_definition,
+        provider_config=provider_config,
+        code=payload.code,
+        redirect_uri=state_redirect_uri,
+        requested_scopes=requested_scopes,
+    )
+
+    external_subject, metadata = fetch_external_oauth_subject_and_metadata(
+        provider_definition=provider_definition,
+        access_token=token_result.access_token,
+    )
+
+    auth_store = request.app.state.auth_store
+    access_token_expires_at = None
+    if token_result.expires_in_seconds is not None and token_result.expires_in_seconds > 0:
+        access_token_expires_at = datetime.now(UTC) + timedelta(seconds=token_result.expires_in_seconds)
+
+    encrypted_access_token = encrypt_external_account_token(token_result.access_token, settings)
+    encrypted_refresh_token = (
+        encrypt_external_account_token(token_result.refresh_token, settings)
+        if token_result.refresh_token
+        else None
+    )
+
+    merged_metadata = {
+        "provider": provider_definition.name,
+        "profile": metadata,
+    }
+    try:
+        auth_store.upsert_external_account_linkage(
+            user_id=current_user.id,
+            provider=provider_definition.name,
+            external_subject=external_subject,
+            scopes=list(token_result.scopes),
+            access_token_encrypted=encrypted_access_token,
+            refresh_token_encrypted=encrypted_refresh_token,
+            access_token_expires_at=access_token_expires_at,
+            metadata=merged_metadata,
+        )
+    except ValueError as exc:
+        if str(exc) == "EXTERNAL_ACCOUNT_ALREADY_LINKED":
+            raise ApiError(status_code=409, code="EXTERNAL_ACCOUNT_ALREADY_LINKED", message="External account is already linked to another user") from exc
+        raise ApiError(status_code=400, code="EXTERNAL_ACCOUNT_LINK_FAILED", message="Unable to link external account") from exc
+
+    return LinkedExternalAccountCompleteResponse(
+        provider=provider_definition.name,
+        externalSubject=external_subject,
+        scopes=list(token_result.scopes),
+        linked=True,
+    )
+
+
+@router.delete("/me/linked-accounts/{provider}")
+def unlink_my_external_account(
+    provider: str,
+    request: Request,
+    current_user: UserRecord = Depends(require_auth_scopes({"profile"})),
+) -> dict[str, bool]:
+    auth_store = request.app.state.auth_store
+    removed = auth_store.remove_external_account_linkage(current_user.id, provider)
+    return {
+        "success": True,
+        "unlinked": removed,
+    }
 
 
 @router.get("/me/access-token-scopes")

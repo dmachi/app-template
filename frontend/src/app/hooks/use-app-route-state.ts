@@ -26,6 +26,7 @@ const BUILT_IN_SETTINGS_SEGMENTS = new Set([
   "profile",
   "notifications",
   "connected-apps",
+  "linked-accounts",
   "access-tokens",
   "security",
   "groups",

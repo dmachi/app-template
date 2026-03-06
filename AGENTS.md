@@ -105,6 +105,39 @@ Implementation notes:
 - Scoped tokens (OAuth access tokens / personal access tokens) must satisfy declared scope checks.
 - Add tests for both success and insufficient-scope denial on any new protected endpoint.
 
+### 5) Extend external linked-account OAuth providers via extension config
+When downstream apps need external integrations (for example GitHub/ORCID tokens for API calls), configure them through the linked-account provider extension point.
+
+Where to define/enable providers:
+- `backend/app/extensions/auth/external_oauth_providers.py`
+- `EXTERNAL_OAUTH_PROVIDER_DEFINITIONS`: optional additive provider library entries.
+- `ENABLED_EXTERNAL_OAUTH_PROVIDER_CONFIGS`: app-level enabled providers and credentials.
+
+Provider enablement shape (`ENABLED_EXTERNAL_OAUTH_PROVIDER_CONFIGS[provider]`):
+- `client_id`: OAuth client ID for that provider.
+- `client_secret`: OAuth client secret for that provider.
+- `required_scopes`: minimum scopes the app always requests (must be explicit).
+- `optional_scopes` (optional): additional allowed scopes users may opt into.
+- `redirect_uri` (optional but recommended): callback URI for link completion.
+- `extra` (optional): provider-specific config values.
+
+Behavior and policies:
+- Keep provider registration additive; do not override built-in provider names.
+- Keep providers disabled by default in template baseline unless app-specific testing/usage requires enabling.
+- Linked external accounts are for downstream integration credentials, not primary app authentication.
+- Enforce conflict policy: one external subject should not be linked to multiple local users.
+
+Downstream helper methods (service-side use):
+- `has_linked_external_account(auth_store, user_id, provider)`
+- `get_linked_external_account_scopes(auth_store, user_id, provider)`
+- `get_linked_external_access_token(auth_store=..., settings=..., user_id=..., provider=..., required_scopes=...)`
+
+Security expectations:
+- Never return decrypted external provider tokens to frontend clients.
+- Store provider tokens encrypted at rest (see external-account encryption settings/helpers).
+- Require server-side scope checks before using provider tokens for downstream API calls.
+- Add tests for provider-enabled metadata exposure, link conflict handling, and insufficient external scope denial.
+
 ---
 
 ## Files that are commonly modified for a new app

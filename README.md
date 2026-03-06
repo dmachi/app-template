@@ -100,6 +100,7 @@ Configuration is primarily loaded from `backend/.env` via `backend/app/core/conf
 | `OAUTH_DEFAULT_SCOPES` | `openid,profile,email` | Comma-separated default scopes when OAuth `scope` is omitted. |
 | `PERSONAL_ACCESS_TOKENS_ENABLED` | `true` | Enables/disables user personal access token creation/list/revocation and PAT bearer authentication. |
 | `PERSONAL_ACCESS_TOKEN_ENCRYPTION_KEY` | _(unset)_ | Optional key source for PAT ciphertext encryption at rest. If unset, runtime derives from JWT access-token secret (or development fallback secret). |
+| `EXTERNAL_ACCOUNT_TOKEN_ENCRYPTION_KEY` | _(unset)_ | Optional key source for encrypted external-account OAuth tokens at rest. If unset, runtime derives from PAT/JWT encryption key fallback chain. |
 
 ### Database configuration
 
@@ -135,6 +136,25 @@ Configuration is primarily loaded from `backend/.env` via `backend/app/core/conf
 | `AUTH_PROVIDERS_ENABLED` | `local,uva-netbadge` | Comma-separated enabled providers. Unknown providers fail validation. |
 | `LOCAL_REGISTRATION_ENABLED` | `true` | Enables/disables local signup flow. |
 | `EMAIL_VERIFICATION_REQUIRED_FOR_LOGIN` | `false` | If true, login requires verified email. |
+
+### External integration OAuth providers (linked accounts)
+
+External account linking is configured through extension hooks in:
+
+- `backend/app/extensions/auth/external_oauth_providers.py`
+
+Built-in provider library entries currently include `github` and `orcid`, but none are enabled by default. To enable a provider for an app, define it in `ENABLED_EXTERNAL_OAUTH_PROVIDER_CONFIGS` with:
+
+- `client_id`
+- `client_secret`
+- `required_scopes` (must be explicitly enumerated)
+- optional `optional_scopes`, `redirect_uri`, and `extra`
+
+The backend exposes shared helper methods in `backend/app/auth/external_accounts.py` for downstream integrations to:
+
+- check whether a user has a linked account,
+- retrieve granted scopes,
+- retrieve decrypted access tokens for required scope sets.
 
 ### Testing-only helpers
 

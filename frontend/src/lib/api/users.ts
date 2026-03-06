@@ -1,5 +1,14 @@
 import { API_BASE, parseJson } from "./core";
-import type { AccessTokenCreateResponse, AccessTokenItem, AuthScopeItem, MyProfileResponse } from "./core";
+import type {
+  AccessTokenCreateResponse,
+  AccessTokenItem,
+  AuthScopeItem,
+  ExternalOAuthProviderItem,
+  LinkedExternalAccountCompleteResponse,
+  LinkedExternalAccountItem,
+  LinkedExternalAccountStartResponse,
+  MyProfileResponse,
+} from "./core";
 
 export {
   type MyProfileResponse,
@@ -8,6 +17,8 @@ export {
 export type {
   AccessTokenItem,
   AuthScopeItem,
+  ExternalOAuthProviderItem,
+  LinkedExternalAccountItem,
 } from "./core";
 
 export type ConnectedAppItem = {
@@ -22,6 +33,11 @@ export type CreateAccessTokenRequest = {
   name: string;
   scopes: string[];
   expiresAt?: string;
+};
+
+export type StartLinkedExternalAccountRequest = {
+  scopes?: string[];
+  redirectUri?: string;
 };
 
 export async function getMyProfile(accessToken: string): Promise<MyProfileResponse> {
@@ -117,6 +133,59 @@ export async function createMyAccessToken(accessToken: string, body: CreateAcces
 export async function revokeMyAccessToken(accessToken: string, tokenId: string): Promise<{ success: boolean; revoked: boolean }> {
   return parseJson(
     await fetch(`${API_BASE}/users/me/access-tokens/${encodeURIComponent(tokenId)}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${accessToken}` },
+    }),
+  );
+}
+
+export async function listExternalAccountProviders(accessToken: string): Promise<{ items: ExternalOAuthProviderItem[] }> {
+  return parseJson(
+    await fetch(`${API_BASE}/users/me/external-account-providers`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    }),
+  );
+}
+
+export async function listMyLinkedExternalAccounts(accessToken: string): Promise<{ items: LinkedExternalAccountItem[] }> {
+  return parseJson(
+    await fetch(`${API_BASE}/users/me/linked-accounts`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    }),
+  );
+}
+
+export async function startMyLinkedExternalAccount(
+  accessToken: string,
+  provider: string,
+  body: StartLinkedExternalAccountRequest,
+): Promise<LinkedExternalAccountStartResponse> {
+  return parseJson(
+    await fetch(`${API_BASE}/users/me/linked-accounts/${encodeURIComponent(provider)}/start`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify(body),
+    }),
+  );
+}
+
+export async function completeMyLinkedExternalAccount(
+  accessToken: string,
+  provider: string,
+  body: { code: string; state: string },
+): Promise<LinkedExternalAccountCompleteResponse> {
+  return parseJson(
+    await fetch(`${API_BASE}/users/me/linked-accounts/${encodeURIComponent(provider)}/complete`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify(body),
+    }),
+  );
+}
+
+export async function unlinkMyLinkedExternalAccount(accessToken: string, provider: string): Promise<{ success: boolean; unlinked: boolean }> {
+  return parseJson(
+    await fetch(`${API_BASE}/users/me/linked-accounts/${encodeURIComponent(provider)}`, {
       method: "DELETE",
       headers: { Authorization: `Bearer ${accessToken}` },
     }),

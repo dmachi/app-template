@@ -56,3 +56,21 @@ def test_smtp_ssl_and_starttls_are_mutually_exclusive():
 
     with pytest.raises(ValidationError):
         Settings(external_smtp_use_ssl=True, external_smtp_use_starttls=True)
+
+
+def test_invalid_enabled_external_oauth_provider_config_fails_validation():
+    from app.extensions.auth import external_oauth_providers as extension_module
+
+    previous = dict(extension_module.ENABLED_EXTERNAL_OAUTH_PROVIDER_CONFIGS)
+    extension_module.ENABLED_EXTERNAL_OAUTH_PROVIDER_CONFIGS = {
+        "github": {
+            "client_id": "",
+            "client_secret": "",
+            "required_scopes": [],
+        }
+    }
+    try:
+        with pytest.raises(ValidationError):
+            Settings()
+    finally:
+        extension_module.ENABLED_EXTERNAL_OAUTH_PROVIDER_CONFIGS = previous

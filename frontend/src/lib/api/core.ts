@@ -75,6 +75,38 @@ export type AccessTokenCreateResponse = {
   token: string;
 };
 
+export type ExternalOAuthProviderItem = {
+  provider: string;
+  displayName: string;
+  requiredScopes: string[];
+  optionalScopes: string[];
+};
+
+export type LinkedExternalAccountItem = {
+  provider: string;
+  externalSubject: string;
+  scopes: string[];
+  metadata: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+  lastUsedAt: string | null;
+};
+
+export type LinkedExternalAccountStartResponse = {
+  provider: string;
+  authorizationUrl: string;
+  state: string;
+  scopes: string[];
+  redirectUri: string;
+};
+
+export type LinkedExternalAccountCompleteResponse = {
+  provider: string;
+  externalSubject: string;
+  scopes: string[];
+  linked: boolean;
+};
+
 export const API_BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8000/api/v1";
 
 export async function parseJson(response: Response): Promise<any> {
