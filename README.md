@@ -46,6 +46,7 @@ Out of the box, this template includes:
    - `docker compose -f docker-compose.backend.yml up -d`
 4. Run backend API:
    - `cd backend`
+   - `./db_migrate.sh`
    - `uvicorn app.main:app --reload --host 0.0.0.0 --port 8000`
 5. Run frontend:
    - `cd frontend && npm install && npm run dev`
@@ -113,6 +114,31 @@ Configuration is primarily loaded from `backend/.env` via `backend/app/core/conf
 | `DATABASE_LOG_LEVEL` | _(unset)_ | Optional DB log verbosity override. |
 | `MONGODB_URI` | `mongodb://localhost:27017` | MongoDB connection URL (used when provider is mongodb). |
 | `MONGODB_DB_NAME` | `basic_system_template` | MongoDB database name (used when provider is mongodb). |
+
+### Migration framework configuration
+
+This template uses a custom migration runner (not Alembic) to support MongoDB and additive downstream migrations.
+
+| Parameter | Default | Description |
+|---|---|---|
+| `MIGRATIONS_LOCK_STALE_AFTER_SECONDS` | `900` | Lock staleness window for migration runner concurrency protection. |
+
+Migration definitions are loaded from:
+
+- template migrations: `backend/app/migrations/versions/template/`
+- downstream extensions: `backend/app/extensions/migrations/definitions.py`
+
+Run migrations before backend startup:
+
+- `cd backend && ./db_migrate.sh`
+
+CLI commands:
+
+- `cd backend && bst-migrate list`
+- `cd backend && bst-migrate status`
+- `cd backend && bst-migrate check`
+- `cd backend && bst-migrate apply`
+- `cd backend && bst-migrate apply --dry-run`
 
 ### Redis and notification retention
 

@@ -31,6 +31,7 @@ dev = [
 [project.scripts]
 seed-superuser = "app.cli.seed_superuser:main"
 send-test-email = "app.cli.send_test_email:main"
+bst-migrate = "app.cli.migrations:main"
 
 [tool.setuptools.packages.find]
 where = ["."]

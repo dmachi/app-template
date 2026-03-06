@@ -36,6 +36,9 @@ class Settings(BaseSettings):
     database_name: str | None = None
     database_auto_create_indexes: bool = True
     database_log_level: str | None = None
+    migrations_mode: Literal["off", "check", "apply"] = "off"
+    migrations_fail_on_error: bool = True
+    migrations_lock_stale_after_seconds: int = 900
 
     mongodb_uri: str | None = "mongodb://localhost:27017"
     mongodb_db_name: str | None = "basic_system_template"
@@ -118,6 +121,7 @@ class Settings(BaseSettings):
         "oauth_id_token_ttl_seconds",
         "oauth_refresh_token_ttl_seconds",
         "oauth_session_cookie_ttl_seconds",
+        "migrations_lock_stale_after_seconds",
     )
     @classmethod
     def validate_positive_ttl(cls, value: int) -> int:
