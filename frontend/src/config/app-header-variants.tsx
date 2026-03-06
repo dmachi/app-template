@@ -5,26 +5,32 @@ import type { AppHeaderVariant } from "../components/app-header";
 export type AppHeaderPathVariantMap = Record<string, AppHeaderVariant>;
 
 export const APP_HEADER_PATH_VARIANTS: AppHeaderPathVariantMap = {
-  "/": {
-    classNames: [
-      "min-h-content",
-      "bg-gradient-to-br",
-      "from-slate-300",
-      "via-slate-100",
-      "to-white",
-      "dark:from-slate-700",
-      "dark:via-slate-900",
-      "dark:to-slate-950",
-      "shadow-inner",
-    ],
-    bottomContent: (
-      <div className="w-full mx-auto">
-        <div className="text-4xl text-center uppercase m-14 text-slate-600 dark:text-slate-300">
-          Lorem ipsum dolor sit amet consectetur adipisicing elit.
-        </div>
-      </div>
-    ),
-  },
+  // "re:^/settings(?:/.*)?$": {
+  //   display: {
+  //     fixed: true,
+  //     mode: "standard",
+  //   },
+  // },
+  // "/": {
+  //   classNames: [
+  //     "min-h-content",
+  //     "bg-gradient-to-br",
+  //     "from-slate-300",
+  //     "via-slate-100",
+  //     "to-white",
+  //     "dark:from-slate-700",
+  //     "dark:via-slate-900",
+  //     "dark:to-slate-950",
+  //     "shadow-inner",
+  //   ],
+  //   bottomContent: (
+  //     <div className="w-full mx-auto">
+  //       <div className="text-4xl text-center uppercase m-14 text-slate-600 dark:text-slate-300">
+  //         Lorem ipsum dolor sit amet consectetur adipisicing elit.
+  //       </div>
+  //     </div>
+  //   ),
+  // },
 };
 
 function getRegexForVariantKey(key: string): RegExp | null {

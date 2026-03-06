@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { useMemo, type ComponentType, type ReactNode } from "react";
 
 import { AuthMenu, type AuthMenuProps } from "./auth-menu";
+import { JobsBadge, type JobsStatusCounts } from "./jobs-badge";
 import {
   NavigationMenuContent,
   NavigationMenu,
@@ -45,6 +46,9 @@ type AppHeaderProps = {
   branding: LayoutBranding;
   authMenu?: AuthMenuProps;
   menu?: AppHeaderMenu;
+  jobsStatusCounts?: JobsStatusCounts;
+  jobsBadgeShowOnlyActive?: boolean;
+  jobsBadgeShowOnlyNonZeroSegments?: boolean;
   display?: AppHeaderDisplayConfig;
   variant?: AppHeaderVariant;
 };
@@ -60,12 +64,12 @@ export function getAppHeaderOffsetClassName(display?: AppHeaderDisplayConfig): s
 
   const mode = resolveHeaderMode(display);
   if (mode === "compact") {
-    return "pt-14";
+    return "pt-app-header-compact";
   }
   if (mode === "large") {
-    return "pt-28 md:pt-32";
+    return "pt-app-header-large md:pt-app-header-large-md";
   }
-  return "pt-16";
+  return "pt-app-header";
 }
 
 export function AppHeader(props: AppHeaderProps) {
@@ -178,7 +182,7 @@ export function AppHeader(props: AppHeaderProps) {
         mode === "large"
           ? "bg-gradient-to-r from-slate-100 via-white to-slate-100 dark:from-slate-900 dark:via-slate-950 dark:to-slate-900"
           : "bg-white dark:bg-slate-950",
-        isFixed ? "fixed inset-x-0 top-0 z-40" : "",
+        isFixed ? "fixed inset-x-0 top-0 z-header" : "",
         props.variant?.classNames,
       )}
     >
@@ -217,7 +221,16 @@ export function AppHeader(props: AppHeaderProps) {
           ) : null}
         </div>
 
-        {props.authMenu ? <AuthMenu {...props.authMenu} /> : null}
+        <div className="flex items-center gap-3">
+          <JobsBadge
+            counts={props.jobsStatusCounts}
+            showOnlyActive={props.jobsBadgeShowOnlyActive}
+            showOnlyNonZeroSegments={props.jobsBadgeShowOnlyNonZeroSegments}
+            isAuthenticated={props.authMenu?.isAuthenticated}
+            onClick={() => menu?.onNavigate("/jobs")}
+          />
+          {props.authMenu ? <AuthMenu {...props.authMenu} /> : null}
+        </div>
       </div>
 
       {props.variant?.bottomContent ? (
