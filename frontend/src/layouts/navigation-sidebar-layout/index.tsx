@@ -1,9 +1,10 @@
-import type { ComponentType, ReactNode } from "react";
+import { useEffect, useState, type ComponentType, type ReactNode } from "react";
 
 import type { AppRouteRenderContextValue } from "../../app/app-route-render-context";
 import type { SidebarResizableLevel } from "../../components/sidebar";
 import { Sidebar } from "../../components/sidebar";
 import { resolveAdditionalCapabilityRoles } from "../../extensions/app-hooks/layout-roles";
+import { listExternalAccountProviders } from "../../lib/api";
 import {
   type NavigationMenuConfig,
 } from "../../components/navigation-menu";
@@ -81,7 +82,34 @@ export default function NavigationSidebarLayoutRoute(props: NavigationSidebarLay
     : routeConfig.navigationConfig;
 
   const settingsProps = props.routeContext.settingsProps;
+  const [hasLinkedAccountProviders, setHasLinkedAccountProviders] = useState(false);
   const roles: string[] = [];
+
+  useEffect(() => {
+    if (!settingsProps.accessToken) {
+      setHasLinkedAccountProviders(false);
+      return;
+    }
+
+    let cancelled = false;
+    listExternalAccountProviders(settingsProps.accessToken)
+      .then((payload) => {
+        if (cancelled) {
+          return;
+        }
+        setHasLinkedAccountProviders((payload.items || []).length > 0);
+      })
+      .catch(() => {
+        if (cancelled) {
+          return;
+        }
+        setHasLinkedAccountProviders(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [settingsProps.accessToken]);
 
   if (settingsProps.adminCapabilities.users) {
     roles.push("AdminUsers");
@@ -116,6 +144,7 @@ export default function NavigationSidebarLayoutRoute(props: NavigationSidebarLay
         canAccessAdmin: settingsProps.canAccessAdmin,
         adminCapabilities: settingsProps.adminCapabilities,
         selectedExtensionId: settingsProps.selectedExtensionId,
+        hasLinkedAccountProviders,
       }}
       onNavigate={(path) => settingsProps.navigateTo(path)}
       sidebarType={routeConfig.sidebarType}

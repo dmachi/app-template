@@ -15,6 +15,7 @@ export type NavigationItemConfig = {
   pathPatterns?: string[];
   requiresAuth?: boolean;
   roles?: string[];
+  visibleWhen?: (context: NavigationVisibilityContext) => boolean;
   children?: NavigationItemConfig[];
 };
 
@@ -23,6 +24,7 @@ export type NavigationSectionConfig = {
   title: string;
   requiresAuth?: boolean;
   roles?: string[];
+  visibleWhen?: (context: NavigationVisibilityContext) => boolean;
   items: NavigationItemConfig[];
 };
 
@@ -77,13 +79,24 @@ function canViewByRoles(roles: string[] | undefined, contextRoles: string[]): bo
   return roles.some((role) => contextRoles.includes(role));
 }
 
-function isVisibleByContext(itemOrSection: Pick<NavigationItemConfig, "requiresAuth" | "roles">, context: NavigationVisibilityContext): boolean {
+function isVisibleByContext(
+  itemOrSection: Pick<NavigationItemConfig, "requiresAuth" | "roles" | "visibleWhen">,
+  context: NavigationVisibilityContext,
+): boolean {
   if (itemOrSection.requiresAuth && !context.isAuthenticated) {
     return false;
   }
 
   const contextRoles = context.roles || [];
-  return canViewByRoles(itemOrSection.roles, contextRoles);
+  if (!canViewByRoles(itemOrSection.roles, contextRoles)) {
+    return false;
+  }
+
+  if (itemOrSection.visibleWhen && !itemOrSection.visibleWhen(context)) {
+    return false;
+  }
+
+  return true;
 }
 
 function buildRenderableItem(item: NavigationItemConfig, context: NavigationVisibilityContext): RenderableNavigationItem | null {

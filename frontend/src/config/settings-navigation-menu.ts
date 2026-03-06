@@ -66,6 +66,7 @@ export function createSettingsNavigationMenuConfig(
             icon: Link2,
             path: "/settings/linked-accounts",
             requiresAuth: true,
+            visibleWhen: (context) => Boolean(context.hasLinkedAccountProviders),
           },
           {
             id: "settings-groups",
