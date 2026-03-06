@@ -14,7 +14,7 @@ import { buildAppRouteRenderSnapshot } from "./app/hooks/use-app-route-render-sn
 import { useAppRouteTokens } from "./app/hooks/use-app-route-tokens";
 import { useAppSessionState } from "./app/hooks/use-app-session-state";
 import { isActionRequiredToast, useAppToastActions } from "./app/hooks/use-app-toast-actions";
-import { useProfileAndAdminBootstrap, useSessionRestore } from "./app/hooks/use-app-bootstrap";
+import { useProfileAndAdminBootstrap, useSessionAutoRefresh, useSessionRestore } from "./app/hooks/use-app-bootstrap";
 import { useRouteGuards } from "./app/hooks/use-auth-route-guards";
 import { useRealtimeNotifications } from "./app/hooks/use-realtime-notifications-feed";
 import { useAppRouteState } from "./app/hooks/use-app-route-state";
@@ -87,6 +87,14 @@ export function App() {
     setAccessToken,
     setRefreshToken,
     setRestoringSession,
+  });
+
+  useSessionAutoRefresh({
+    accessToken,
+    refreshToken,
+    refreshTokenStorageKey: REFRESH_TOKEN_STORAGE_KEY,
+    setAccessToken,
+    setRefreshToken,
   });
 
   const { selectedGroupId, selectedAdminUserId, selectedExtensionId } = useAppRouteState();

@@ -1,4 +1,4 @@
-import { Dispatch, SetStateAction, useEffect } from "react";
+import { Dispatch, SetStateAction, useCallback, useEffect, useRef } from "react";
 
 import { resolveProfileThemePreferenceOverride } from "../../extensions/app-hooks/bootstrap";
 import { CLIENT_TOAST_EVENT, type ClientToastEventDetail } from "../../lib/client-toast";
@@ -30,6 +30,14 @@ type UseSessionRestoreParams = {
   setRestoringSession: Dispatch<SetStateAction<boolean>>;
 };
 
+type UseSessionAutoRefreshParams = {
+  accessToken: string | null;
+  refreshToken: string | null;
+  refreshTokenStorageKey: string;
+  setAccessToken: Dispatch<SetStateAction<string | null>>;
+  setRefreshToken: Dispatch<SetStateAction<string | null>>;
+};
+
 type UseAuthMetaParams = {
   setAppName: Dispatch<SetStateAction<string>>;
   setAppIcon: Dispatch<SetStateAction<string>>;
@@ -56,6 +64,161 @@ function resolveThemePreference(preference: unknown): ThemeOption {
     return preference;
   }
   return "system";
+}
+
+function decodeJwtExpiryEpochMs(token: string): number | null {
+  try {
+    const parts = token.split(".");
+    if (parts.length < 2) {
+      return null;
+    }
+
+    const payloadPart = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const paddedPayload = payloadPart.padEnd(Math.ceil(payloadPart.length / 4) * 4, "=");
+    const payloadText = atob(paddedPayload);
+    const payload = JSON.parse(payloadText) as { exp?: unknown };
+
+    if (typeof payload.exp !== "number" || !Number.isFinite(payload.exp)) {
+      return null;
+    }
+
+    return payload.exp * 1000;
+  } catch {
+    return null;
+  }
+}
+
+export function useSessionAutoRefresh(params: UseSessionAutoRefreshParams) {
+  const {
+    accessToken,
+    refreshToken,
+    refreshTokenStorageKey,
+    setAccessToken,
+    setRefreshToken,
+  } = params;
+
+  const accessTokenRef = useRef<string | null>(accessToken);
+  const refreshTokenRef = useRef<string | null>(refreshToken);
+  const refreshInFlightRef = useRef<Promise<void> | null>(null);
+
+  useEffect(() => {
+    accessTokenRef.current = accessToken;
+  }, [accessToken]);
+
+  useEffect(() => {
+    refreshTokenRef.current = refreshToken;
+  }, [refreshToken]);
+
+  const clearSession = useCallback(() => {
+    window.localStorage.removeItem(refreshTokenStorageKey);
+    setAccessToken(null);
+    setRefreshToken(null);
+  }, [refreshTokenStorageKey, setAccessToken, setRefreshToken]);
+
+  const refreshNow = useCallback(async () => {
+    const currentRefreshToken = refreshTokenRef.current;
+    if (!currentRefreshToken) {
+      return;
+    }
+
+    if (refreshInFlightRef.current) {
+      return refreshInFlightRef.current;
+    }
+
+    const refreshPromise = refreshSession(currentRefreshToken)
+      .then((tokens) => {
+        setAccessToken(tokens.accessToken);
+        setRefreshToken(tokens.refreshToken);
+        window.localStorage.setItem(refreshTokenStorageKey, tokens.refreshToken);
+      })
+      .catch(() => {
+        clearSession();
+      })
+      .finally(() => {
+        refreshInFlightRef.current = null;
+      });
+
+    refreshInFlightRef.current = refreshPromise;
+    return refreshPromise;
+  }, [clearSession, refreshTokenStorageKey, setAccessToken, setRefreshToken]);
+
+  useEffect(() => {
+    if (!accessToken || !refreshToken) {
+      return;
+    }
+
+    let timeoutHandle: number | null = null;
+    const refreshLeadMs = 60_000;
+    const fallbackRefreshMs = 5 * 60_000;
+    const minDelayMs = 5_000;
+
+    const clearTimer = () => {
+      if (timeoutHandle !== null) {
+        window.clearTimeout(timeoutHandle);
+        timeoutHandle = null;
+      }
+    };
+
+    const scheduleNextRefresh = () => {
+      clearTimer();
+
+      const currentAccessToken = accessTokenRef.current;
+      if (!currentAccessToken) {
+        return;
+      }
+
+      const expiryMs = decodeJwtExpiryEpochMs(currentAccessToken);
+      const nowMs = Date.now();
+      const delayMs = expiryMs === null
+        ? fallbackRefreshMs
+        : Math.max(minDelayMs, expiryMs - nowMs - refreshLeadMs);
+
+      timeoutHandle = window.setTimeout(() => {
+        void refreshNow();
+      }, delayMs);
+    };
+
+    const refreshIfStaleOrSoonExpiring = () => {
+      const currentAccessToken = accessTokenRef.current;
+      if (!currentAccessToken) {
+        return;
+      }
+
+      const expiryMs = decodeJwtExpiryEpochMs(currentAccessToken);
+      if (expiryMs === null || (expiryMs - Date.now()) <= refreshLeadMs) {
+        void refreshNow();
+        return;
+      }
+
+      scheduleNextRefresh();
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        refreshIfStaleOrSoonExpiring();
+      }
+    };
+
+    const handleWindowFocus = () => {
+      refreshIfStaleOrSoonExpiring();
+    };
+
+    const handlePageShow = () => {
+      refreshIfStaleOrSoonExpiring();
+    };
+
+    scheduleNextRefresh();
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("focus", handleWindowFocus);
+    window.addEventListener("pageshow", handlePageShow);
+
+    return () => {
+      clearTimer();
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("focus", handleWindowFocus);
+      window.removeEventListener("pageshow", handlePageShow);
+    };
+  }, [accessToken, refreshNow, refreshToken]);
 }
 
 export function useClientToastListener(setClientPopups: Dispatch<SetStateAction<ClientPopupToast[]>>) {
