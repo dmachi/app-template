@@ -14,6 +14,7 @@ const SettingsIndexPage = lazy(() => import("./pages/profile-page"));
 const SettingsProfilePage = lazy(() => import("./pages/profile-page"));
 const SettingsNotificationsPage = lazy(() => import("./pages/notifications-page"));
 const SettingsConnectedAppsPage = lazy(() => import("./pages/connected-apps-page"));
+const SettingsAccessTokensPage = lazy(() => import("./pages/access-tokens-page"));
 const SettingsSecurityPage = lazy(() => import("./pages/security-page"));
 const SettingsGroupsPage = lazy(() => import("./pages/groups-page"));
 const SettingsGroupDetailPage = lazy(() => import("./pages/group-detail-page"));
@@ -95,6 +96,13 @@ export function createSettingsRoutes(rootRoute: any) {
     component: SettingsSecurityPage,
   });
 
+  const settingsAccessTokensRoute = createLayoutRoute({
+    getParentRoute: () => settingsRoute,
+    path: "/access-tokens",
+    layout: settingsLayoutOption,
+    component: SettingsAccessTokensPage,
+  });
+
   const settingsGroupsRoute = createLayoutRoute({
     getParentRoute: () => settingsRoute,
     path: "/groups",
@@ -137,6 +145,7 @@ export function createSettingsRoutes(rootRoute: any) {
     settingsProfileRoute,
     settingsNotificationsRoute,
     settingsConnectedAppsRoute,
+    settingsAccessTokensRoute,
     settingsSecurityRoute,
     settingsGroupsRoute,
     settingsGroupDetailRoute,

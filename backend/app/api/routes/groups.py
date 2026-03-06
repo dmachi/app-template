@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, Field
 
-from app.auth.dependencies import get_current_user, require_group_manager_role
+from app.auth.dependencies import require_auth_scopes, get_current_user, require_group_manager_role
 from app.auth.roles import ROLE_ADMIN_GROUPS, ROLE_GROUP_MANAGER, ROLE_SUPERUSER, has_any_role
 from app.auth.store import GroupRecord, UserRecord
 from app.core.errors import ApiError
@@ -73,14 +73,14 @@ def _can_view_group(current_user: UserRecord, group: GroupRecord, request: Reque
 
 
 @router.get("")
-def list_groups(request: Request, current_user: UserRecord = Depends(get_current_user)) -> dict:
+def list_groups(request: Request, current_user: UserRecord = Depends(require_auth_scopes({"profile"}))) -> dict:
     auth_store = request.app.state.auth_store
     groups = auth_store.list_groups_owned_by_user(current_user.id)
     return {"items": [_serialize_group_summary(group, request) for group in groups]}
 
 
 @router.get("/mine")
-def list_my_group_collections(request: Request, current_user: UserRecord = Depends(get_current_user)) -> dict:
+def list_my_group_collections(request: Request, current_user: UserRecord = Depends(require_auth_scopes({"profile"}))) -> dict:
     auth_store = request.app.state.auth_store
     owned_groups = auth_store.list_groups_owned_by_user(current_user.id)
     member_groups = auth_store.list_groups_member_of_user(current_user.id)
@@ -98,7 +98,7 @@ def create_group(payload: GroupCreateRequest, request: Request, current_user: Us
 
 
 @router.get("/{group_id}")
-def get_group(group_id: str, request: Request, current_user: UserRecord = Depends(get_current_user)) -> dict:
+def get_group(group_id: str, request: Request, current_user: UserRecord = Depends(require_auth_scopes({"profile"}))) -> dict:
     auth_store = request.app.state.auth_store
     group = auth_store.get_group(group_id)
     if group is None:
@@ -113,7 +113,7 @@ def patch_group(
     group_id: str,
     payload: GroupPatchRequest,
     request: Request,
-    current_user: UserRecord = Depends(get_current_user),
+    current_user: UserRecord = Depends(require_auth_scopes({"profile"})),
 ) -> dict:
     auth_store = request.app.state.auth_store
     group = auth_store.get_group(group_id)
@@ -129,7 +129,7 @@ def patch_group(
 
 
 @router.delete("/{group_id}")
-def delete_group(group_id: str, request: Request, current_user: UserRecord = Depends(get_current_user)) -> dict:
+def delete_group(group_id: str, request: Request, current_user: UserRecord = Depends(require_auth_scopes({"profile"}))) -> dict:
     auth_store = request.app.state.auth_store
     group = auth_store.get_group(group_id)
     if group is None:
@@ -142,7 +142,7 @@ def delete_group(group_id: str, request: Request, current_user: UserRecord = Dep
 
 
 @router.get("/{group_id}/members")
-def list_group_members(group_id: str, request: Request, current_user: UserRecord = Depends(get_current_user)) -> dict:
+def list_group_members(group_id: str, request: Request, current_user: UserRecord = Depends(require_auth_scopes({"profile"}))) -> dict:
     auth_store = request.app.state.auth_store
     group = auth_store.get_group(group_id)
     if group is None:
@@ -170,7 +170,7 @@ def add_group_member(
     group_id: str,
     payload: GroupMemberAddRequest,
     request: Request,
-    current_user: UserRecord = Depends(get_current_user),
+    current_user: UserRecord = Depends(require_auth_scopes({"profile"})),
 ) -> dict:
     auth_store = request.app.state.auth_store
     group = auth_store.get_group(group_id)
@@ -192,7 +192,7 @@ def remove_group_member(
     group_id: str,
     user_id: str,
     request: Request,
-    current_user: UserRecord = Depends(get_current_user),
+    current_user: UserRecord = Depends(require_auth_scopes({"profile"})),
 ) -> dict:
     auth_store = request.app.state.auth_store
     group = auth_store.get_group(group_id)

@@ -52,6 +52,29 @@ export type MyProfileResponse = {
   profilePropertyCatalog: ProfilePropertyCatalogItem[];
 };
 
+export type AuthScopeItem = {
+  name: string;
+  description: string;
+};
+
+export type AccessTokenItem = {
+  id: string;
+  name: string;
+  scopes: string[];
+  createdAt: string;
+  expiresAt: string | null;
+  lastUsedAt: string | null;
+};
+
+export type AccessTokenCreateResponse = {
+  id: string;
+  name: string;
+  scopes: string[];
+  createdAt: string;
+  expiresAt: string | null;
+  token: string;
+};
+
 export const API_BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8000/api/v1";
 
 export async function parseJson(response: Response): Promise<any> {

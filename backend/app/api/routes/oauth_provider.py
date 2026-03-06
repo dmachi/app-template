@@ -22,12 +22,12 @@ from app.auth.oauth_security import (
     normalize_scope,
     verify_pkce_s256,
 )
-from app.auth.oauth_scopes import (
-    get_oauth_token_scopes,
-    get_supported_oauth_scopes,
+from app.auth.auth_scopes import (
+    get_supported_auth_scopes,
+    get_token_scopes,
     get_userinfo_claims_for_scopes,
-    resolve_default_oauth_scopes,
-    validate_oauth_scopes,
+    resolve_default_auth_scopes,
+    validate_auth_scopes,
 )
 from app.auth.security import generate_access_token, generate_refresh_token
 from app.auth.store import OAuthClientRecord, UserRecord
@@ -110,13 +110,13 @@ def _consent_return_to_hash(return_to: str) -> str:
 def _resolve_requested_scopes(scope: str | None, settings: Settings) -> list[str]:
     if not scope or not scope.strip():
         try:
-            return resolve_default_oauth_scopes(settings.oauth_scope_list)
+            return resolve_default_auth_scopes(settings.oauth_scope_list)
         except ValueError as exc:
             raise ApiError(status_code=500, code="OAUTH_SCOPE_CONFIG_INVALID", message=str(exc)) from exc
 
     requested = normalize_scope(scope)
     try:
-        return validate_oauth_scopes(requested)
+        return validate_auth_scopes(requested)
     except ValueError as exc:
         raise ApiError(status_code=400, code="INVALID_SCOPE", message=str(exc)) from exc
 
@@ -421,7 +421,7 @@ def oauth_authorization_server_metadata(settings: Settings = Depends(get_setting
         "grant_types_supported": ["authorization_code", "refresh_token"],
         "token_endpoint_auth_methods_supported": ["none", "client_secret_post"],
         "introspection_endpoint_auth_methods_supported": ["none", "client_secret_post"],
-        "scopes_supported": get_supported_oauth_scopes(),
+        "scopes_supported": get_supported_auth_scopes(),
         "code_challenge_methods_supported": ["S256"],
     }
 
@@ -444,7 +444,7 @@ def openid_configuration(settings: Settings = Depends(get_settings)) -> dict[str
         "id_token_signing_alg_values_supported": ["RS256"],
         "token_endpoint_auth_methods_supported": ["none", "client_secret_post"],
         "introspection_endpoint_auth_methods_supported": ["none", "client_secret_post"],
-        "scopes_supported": get_supported_oauth_scopes(),
+        "scopes_supported": get_supported_auth_scopes(),
         "claims_supported": ["sub", "name", "preferred_username", "email", "email_verified"],
         "code_challenge_methods_supported": ["S256"],
     }
@@ -744,7 +744,7 @@ def oauth_userinfo(
     if payload.get("token_use") != "access":
         raise ApiError(status_code=401, code="TOKEN_INVALID", message="Access token is invalid")
 
-    token_scopes = get_oauth_token_scopes(payload)
+    token_scopes = get_token_scopes(payload)
 
     auth_store = request.app.state.auth_store
     if not auth_store.is_oauth_access_token_active(token):
@@ -923,7 +923,7 @@ def admin_create_oauth_client(
 
     scopes = payload.allowedScopes or request.app.state.settings.oauth_scope_list
     try:
-        scopes = validate_oauth_scopes(scopes)
+        scopes = validate_auth_scopes(scopes)
     except ValueError as exc:
         raise ApiError(status_code=400, code="INVALID_SCOPE", message=str(exc)) from exc
     client = auth_store.create_oauth_client(
@@ -956,7 +956,7 @@ def admin_patch_oauth_client(
             raise ApiError(status_code=400, code="INVALID_GRANT_TYPE", message="Invalid grantTypes configuration")
     if payload.allowedScopes is not None:
         try:
-            payload.allowedScopes = validate_oauth_scopes(payload.allowedScopes)
+            payload.allowedScopes = validate_auth_scopes(payload.allowedScopes)
         except ValueError as exc:
             raise ApiError(status_code=400, code="INVALID_SCOPE", message=str(exc)) from exc
 

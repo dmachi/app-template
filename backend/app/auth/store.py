@@ -5,7 +5,7 @@ from uuid import uuid4
 
 from app.auth.oauth_security import hash_oauth_secret
 from app.auth.roles import CORE_ROLE_DESCRIPTIONS, NON_DELETABLE_CORE_ROLES
-from app.auth.security import generate_refresh_token, hash_password, hash_refresh_token, verify_password
+from app.auth.security import generate_refresh_token, hash_password, hash_personal_access_token, hash_refresh_token, verify_password
 from app.core.config import Settings
 
 
@@ -174,6 +174,21 @@ class OAuthRefreshTokenRecord:
     revoked_at: datetime | None = None
 
 
+@dataclass
+class PersonalAccessTokenRecord:
+    id: str
+    user_id: str
+    name: str
+    token_hash: str
+    token_encrypted: str
+    scopes: list[str]
+    expires_at: datetime | None = None
+    last_used_at: datetime | None = None
+    revoked_at: datetime | None = None
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+
+
 class AuthStore:
     def __init__(self) -> None:
         self._users_by_id: dict[str, UserRecord] = {}
@@ -191,6 +206,7 @@ class AuthStore:
         self._oauth_consent_grants: dict[tuple[str, str], OAuthConsentGrantRecord] = {}
         self._oauth_access_tokens: dict[str, OAuthAccessTokenRecord] = {}
         self._oauth_refresh_tokens: dict[str, OAuthRefreshTokenRecord] = {}
+        self._personal_access_tokens: dict[str, PersonalAccessTokenRecord] = {}
 
     @staticmethod
     def normalize_email(email: str) -> str:
@@ -1158,4 +1174,72 @@ class AuthStore:
             return False
         if record.revoked_at is None:
             record.revoked_at = datetime.now(UTC)
+        return True
+
+    def create_personal_access_token(
+        self,
+        *,
+        user_id: str,
+        name: str,
+        token: str,
+        token_encrypted: str,
+        scopes: list[str],
+        expires_at: datetime | None,
+    ) -> PersonalAccessTokenRecord:
+        now = datetime.now(UTC)
+        token_hash = hash_personal_access_token(token)
+        record = PersonalAccessTokenRecord(
+            id=str(uuid4()),
+            user_id=user_id,
+            name=name.strip(),
+            token_hash=token_hash,
+            token_encrypted=token_encrypted,
+            scopes=list(dict.fromkeys(scopes)),
+            expires_at=expires_at,
+            created_at=now,
+            updated_at=now,
+        )
+        self._personal_access_tokens[record.id] = record
+        return record
+
+    def list_active_personal_access_tokens_for_user(self, user_id: str) -> list[PersonalAccessTokenRecord]:
+        now = datetime.now(UTC)
+        records = [
+            token
+            for token in self._personal_access_tokens.values()
+            if token.user_id == user_id
+            and token.revoked_at is None
+            and (token.expires_at is None or token.expires_at > now)
+        ]
+        return sorted(records, key=lambda item: item.created_at, reverse=True)
+
+    def resolve_active_personal_access_token(self, token: str) -> PersonalAccessTokenRecord | None:
+        now = datetime.now(UTC)
+        token_hash = hash_personal_access_token(token)
+        for record in self._personal_access_tokens.values():
+            if record.token_hash != token_hash:
+                continue
+            if record.revoked_at is not None:
+                return None
+            if record.expires_at is not None and record.expires_at <= now:
+                return None
+            return record
+        return None
+
+    def touch_personal_access_token_last_used(self, token_id: str) -> bool:
+        record = self._personal_access_tokens.get(token_id)
+        if record is None:
+            return False
+        record.last_used_at = datetime.now(UTC)
+        record.updated_at = record.last_used_at
+        return True
+
+    def revoke_personal_access_token(self, *, user_id: str, token_id: str) -> bool:
+        record = self._personal_access_tokens.get(token_id)
+        if record is None or record.user_id != user_id:
+            return False
+        if record.revoked_at is None:
+            now = datetime.now(UTC)
+            record.revoked_at = now
+            record.updated_at = now
         return True

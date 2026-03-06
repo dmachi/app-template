@@ -15,6 +15,53 @@ def get_auth_store(request: Request):
     return request.app.state.auth_store
 
 
+def get_authenticated_token_scopes(request: Request) -> set[str]:
+    auth_context: AuthContext | None = getattr(request.state, "auth_context", None)
+    if auth_context is None or not auth_context.is_authenticated:
+        return set()
+    return {scope.strip() for scope in (auth_context.scopes or []) if scope and scope.strip()}
+
+
+def get_scoped_auth_context(request: Request) -> AuthContext | None:
+    auth_context: AuthContext | None = getattr(request.state, "auth_context", None)
+    if auth_context is None or not auth_context.is_authenticated:
+        return None
+    token_scopes = get_authenticated_token_scopes(request)
+    if not token_scopes:
+        return None
+    return auth_context
+
+
+def require_auth_scopes(required_scopes: set[str]):
+    normalized_required = {scope.strip() for scope in required_scopes if scope and scope.strip()}
+
+    def _dependency(
+        request: Request,
+        current_user: UserRecord = Depends(get_current_user),
+    ) -> UserRecord:
+        token_scopes = get_authenticated_token_scopes(request)
+        if token_scopes and not normalized_required.issubset(token_scopes):
+            raise ApiError(status_code=403, code="INSUFFICIENT_SCOPE", message="Insufficient scope")
+        return current_user
+
+    return _dependency
+
+
+def require_any_auth_scope(allowed_scopes: set[str]):
+    normalized_allowed = {scope.strip() for scope in allowed_scopes if scope and scope.strip()}
+
+    def _dependency(
+        request: Request,
+        current_user: UserRecord = Depends(get_current_user),
+    ) -> UserRecord:
+        token_scopes = get_authenticated_token_scopes(request)
+        if token_scopes and normalized_allowed.isdisjoint(token_scopes):
+            raise ApiError(status_code=403, code="INSUFFICIENT_SCOPE", message="Insufficient scope")
+        return current_user
+
+    return _dependency
+
+
 def get_current_user(
     request: Request,
     authorization: Annotated[str | None, Header(alias="Authorization")] = None,
@@ -77,7 +124,7 @@ def get_current_user(
 
 
 def require_user_management_role(
-    current_user: UserRecord = Depends(get_current_user),
+    current_user: UserRecord = Depends(require_auth_scopes({"profile"})),
     request: Request = None,
 ) -> UserRecord:
     auth_store = request.app.state.auth_store
@@ -87,7 +134,7 @@ def require_user_management_role(
 
 
 def require_admin_users_role(
-    current_user: UserRecord = Depends(get_current_user),
+    current_user: UserRecord = Depends(require_auth_scopes({"profile"})),
     request: Request = None,
 ) -> UserRecord:
     auth_store = request.app.state.auth_store
@@ -97,7 +144,7 @@ def require_admin_users_role(
 
 
 def require_admin_groups_role(
-    current_user: UserRecord = Depends(get_current_user),
+    current_user: UserRecord = Depends(require_auth_scopes({"profile"})),
     request: Request = None,
 ) -> UserRecord:
     auth_store = request.app.state.auth_store
@@ -107,7 +154,7 @@ def require_admin_groups_role(
 
 
 def require_group_manager_role(
-    current_user: UserRecord = Depends(get_current_user),
+    current_user: UserRecord = Depends(require_auth_scopes({"profile"})),
     request: Request = None,
 ) -> UserRecord:
     auth_store = request.app.state.auth_store
@@ -117,7 +164,7 @@ def require_group_manager_role(
 
 
 def require_invite_users_role(
-    current_user: UserRecord = Depends(get_current_user),
+    current_user: UserRecord = Depends(require_auth_scopes({"profile"})),
     request: Request = None,
 ) -> UserRecord:
     auth_store = request.app.state.auth_store
@@ -127,7 +174,7 @@ def require_invite_users_role(
 
 
 def require_superuser(
-    current_user: UserRecord = Depends(get_current_user),
+    current_user: UserRecord = Depends(require_auth_scopes({"profile"})),
     request: Request = None,
 ) -> UserRecord:
     auth_store = request.app.state.auth_store

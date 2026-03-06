@@ -1,10 +1,12 @@
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, EmailStr, Field
 
-from app.auth.dependencies import get_current_user
+from app.auth.dependencies import get_current_user, require_auth_scopes
+from app.auth.auth_scopes import get_auth_scope_registry, validate_auth_scopes
+from app.auth.security import encrypt_personal_access_token, generate_personal_access_token
 from app.auth.store import UserRecord
 from app.core.config import Settings, get_settings
 from app.core.errors import ApiError
@@ -32,6 +34,39 @@ class ConnectedAppItemResponse(BaseModel):
 
 class ConnectedAppsListResponse(BaseModel):
     items: list[ConnectedAppItemResponse]
+
+
+class AuthScopeItemResponse(BaseModel):
+    name: str
+    description: str
+
+
+class AccessTokenItemResponse(BaseModel):
+    id: str
+    name: str
+    scopes: list[str]
+    createdAt: datetime
+    expiresAt: datetime | None
+    lastUsedAt: datetime | None
+
+
+class AccessTokensListResponse(BaseModel):
+    items: list[AccessTokenItemResponse]
+
+
+class AccessTokenCreateRequest(BaseModel):
+    name: str = Field(min_length=1)
+    scopes: list[str] = Field(default_factory=list)
+    expiresAt: datetime | None = None
+
+
+class AccessTokenCreateResponse(BaseModel):
+    id: str
+    name: str
+    scopes: list[str]
+    createdAt: datetime
+    expiresAt: datetime | None
+    token: str
 
 
 def _profile_properties_from_preferences(preferences: Any) -> dict[str, Any]:
@@ -110,7 +145,7 @@ def search_users(
     query: str,
     request: Request,
     limit: int = 10,
-    _: UserRecord = Depends(get_current_user),
+    _: UserRecord = Depends(require_auth_scopes({"profile"})),
 ) -> dict:
     auth_store = request.app.state.auth_store
     users = auth_store.search_users(query=query, limit=max(1, min(limit, 25)))
@@ -130,7 +165,7 @@ def search_users(
 @router.get("/me")
 def get_me(
     request: Request,
-    current_user: UserRecord = Depends(get_current_user),
+    current_user: UserRecord = Depends(require_auth_scopes({"profile"})),
     settings: Settings = Depends(get_settings),
 ) -> dict:
     auth_store = request.app.state.auth_store
@@ -164,7 +199,7 @@ def get_me(
 def patch_me(
     payload: UserProfilePatchRequest,
     request: Request,
-    current_user: UserRecord = Depends(get_current_user),
+    current_user: UserRecord = Depends(require_auth_scopes({"profile"})),
     settings: Settings = Depends(get_settings),
 ) -> dict:
     auth_store = request.app.state.auth_store
@@ -246,7 +281,7 @@ def patch_me(
 @router.post("/me/resend-verification")
 def resend_my_email_verification(
     request: Request,
-    current_user: UserRecord = Depends(get_current_user),
+    current_user: UserRecord = Depends(require_auth_scopes({"profile"})),
     settings: Settings = Depends(get_settings),
 ) -> dict:
     if current_user.email_verified:
@@ -277,7 +312,7 @@ def resend_my_email_verification(
 @router.get("/me/connected-apps")
 def list_my_connected_apps(
     request: Request,
-    current_user: UserRecord = Depends(get_current_user),
+    current_user: UserRecord = Depends(require_auth_scopes({"profile"})),
 ) -> ConnectedAppsListResponse:
     auth_store = request.app.state.auth_store
     connected = auth_store.list_oauth_connected_apps_for_user(current_user.id)
@@ -295,11 +330,110 @@ def list_my_connected_apps(
     )
 
 
+@router.get("/me/access-token-scopes")
+def list_access_token_scopes(
+    settings: Settings = Depends(get_settings),
+    _: UserRecord = Depends(require_auth_scopes({"profile"})),
+) -> dict[str, list[AuthScopeItemResponse]]:
+    if not settings.personal_access_tokens_enabled:
+        raise ApiError(status_code=404, code="ACCESS_TOKENS_DISABLED", message="Access tokens are disabled")
+
+    registry = get_auth_scope_registry()
+    items = [AuthScopeItemResponse(name=scope.name, description=scope.description) for scope in sorted(registry.values(), key=lambda item: item.name)]
+    return {"items": items}
+
+
+@router.get("/me/access-tokens")
+def list_my_access_tokens(
+    request: Request,
+    current_user: UserRecord = Depends(require_auth_scopes({"profile"})),
+    settings: Settings = Depends(get_settings),
+) -> AccessTokensListResponse:
+    if not settings.personal_access_tokens_enabled:
+        raise ApiError(status_code=404, code="ACCESS_TOKENS_DISABLED", message="Access tokens are disabled")
+
+    auth_store = request.app.state.auth_store
+    records = auth_store.list_active_personal_access_tokens_for_user(current_user.id)
+    return AccessTokensListResponse(
+        items=[
+            AccessTokenItemResponse(
+                id=record.id,
+                name=record.name,
+                scopes=record.scopes,
+                createdAt=record.created_at,
+                expiresAt=record.expires_at,
+                lastUsedAt=record.last_used_at,
+            )
+            for record in records
+        ]
+    )
+
+
+@router.post("/me/access-tokens")
+def create_my_access_token(
+    payload: AccessTokenCreateRequest,
+    request: Request,
+    current_user: UserRecord = Depends(require_auth_scopes({"profile"})),
+    settings: Settings = Depends(get_settings),
+) -> AccessTokenCreateResponse:
+    if not settings.personal_access_tokens_enabled:
+        raise ApiError(status_code=404, code="ACCESS_TOKENS_DISABLED", message="Access tokens are disabled")
+
+    now = datetime.now(UTC)
+    if payload.expiresAt is not None and payload.expiresAt <= now:
+        raise ApiError(status_code=400, code="INVALID_EXPIRATION", message="expiresAt must be in the future")
+
+    scopes_input = payload.scopes or settings.oauth_scope_list
+    try:
+        scopes = validate_auth_scopes(scopes_input)
+    except ValueError as exc:
+        raise ApiError(status_code=400, code="INVALID_SCOPE", message=str(exc)) from exc
+
+    token = generate_personal_access_token()
+    token_encrypted = encrypt_personal_access_token(token, settings)
+
+    auth_store = request.app.state.auth_store
+    record = auth_store.create_personal_access_token(
+        user_id=current_user.id,
+        name=payload.name,
+        token=token,
+        token_encrypted=token_encrypted,
+        scopes=scopes,
+        expires_at=payload.expiresAt,
+    )
+    return AccessTokenCreateResponse(
+        id=record.id,
+        name=record.name,
+        scopes=record.scopes,
+        createdAt=record.created_at,
+        expiresAt=record.expires_at,
+        token=token,
+    )
+
+
+@router.delete("/me/access-tokens/{token_id}")
+def revoke_my_access_token(
+    token_id: str,
+    request: Request,
+    current_user: UserRecord = Depends(require_auth_scopes({"profile"})),
+    settings: Settings = Depends(get_settings),
+) -> dict[str, bool]:
+    if not settings.personal_access_tokens_enabled:
+        raise ApiError(status_code=404, code="ACCESS_TOKENS_DISABLED", message="Access tokens are disabled")
+
+    auth_store = request.app.state.auth_store
+    revoked = auth_store.revoke_personal_access_token(user_id=current_user.id, token_id=token_id)
+    return {
+        "success": True,
+        "revoked": revoked,
+    }
+
+
 @router.delete("/me/connected-apps/{client_id}")
 def revoke_my_connected_app(
     client_id: str,
     request: Request,
-    current_user: UserRecord = Depends(get_current_user),
+    current_user: UserRecord = Depends(require_auth_scopes({"profile"})),
 ) -> dict:
     auth_store = request.app.state.auth_store
     revoked = auth_store.revoke_oauth_connected_app_for_user(user_id=current_user.id, client_id=client_id)
@@ -310,7 +444,7 @@ def revoke_my_connected_app(
 
 
 @router.get("/{user_id}")
-def get_user_basic(user_id: str, request: Request, _: UserRecord = Depends(get_current_user)) -> dict:
+def get_user_basic(user_id: str, request: Request, _: UserRecord = Depends(require_auth_scopes({"profile"}))) -> dict:
     auth_store = request.app.state.auth_store
     user = auth_store.get_user(user_id)
     if user is None:

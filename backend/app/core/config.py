@@ -72,6 +72,9 @@ class Settings(BaseSettings):
     oauth_session_cookie_same_site: Literal["lax", "strict", "none"] = "lax"
     oauth_login_ui_url: str = "http://localhost:5173/login"
 
+    personal_access_tokens_enabled: bool = True
+    personal_access_token_encryption_key: str | None = None
+
     email_delivery_mode: Literal["local", "external"] = "local"
     email_local_sendmail: bool = False
     email_debug: bool = False

@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, EmailStr, Field
 import jwt
 
-from app.auth.dependencies import get_current_user, require_user_management_role
+from app.auth.dependencies import get_current_user, require_auth_scopes, require_user_management_role
 from app.auth.roles import (
     ADMIN_GROUP_ROLES,
     ADMIN_USER_ROLES,
@@ -194,7 +194,7 @@ def get_invitation(token: str, request: Request) -> dict:
 
 
 @router.post("/invitations/accept")
-def accept_invitation(payload: InvitationAcceptRequest, request: Request, current_user=Depends(get_current_user)) -> dict:
+def accept_invitation(payload: InvitationAcceptRequest, request: Request, current_user=Depends(require_auth_scopes({"profile"}))) -> dict:
     auth_store = request.app.state.auth_store
     accepted = auth_store.accept_invitation(payload.token, current_user.id)
     if accepted is None:
@@ -264,7 +264,7 @@ def auth_provider_callback(provider: str, request: Request, settings: Settings =
 
 
 @router.get("/me")
-def me(current_user=Depends(get_current_user)) -> dict:
+def me(current_user=Depends(require_auth_scopes({"profile"}))) -> dict:
     return {
         "id": current_user.id,
         "email": current_user.email,
@@ -281,7 +281,7 @@ def user_management_check(_: object = Depends(require_user_management_role)) -> 
 
 
 @router.get("/admin-capabilities")
-def admin_capabilities(request: Request, current_user=Depends(get_current_user)) -> dict:
+def admin_capabilities(request: Request, current_user=Depends(require_auth_scopes({"profile"}))) -> dict:
     auth_store = request.app.state.auth_store
     user_id = current_user.id
     direct_roles = current_user.roles

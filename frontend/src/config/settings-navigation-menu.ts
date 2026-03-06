@@ -47,6 +47,13 @@ export function createSettingsNavigationMenuConfig(
             requiresAuth: true,
           },
           {
+            id: "settings-access-tokens",
+            label: "Access Tokens",
+            icon: KeyRound,
+            path: "/settings/access-tokens",
+            requiresAuth: true,
+          },
+          {
             id: "settings-connected-apps",
             label: "Connected Apps",
             icon: Link2,

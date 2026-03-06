@@ -3,7 +3,7 @@ from uuid import uuid4
 
 from app.auth.oauth_security import hash_oauth_secret
 from app.auth.roles import CORE_ROLE_DESCRIPTIONS, NON_DELETABLE_CORE_ROLES
-from app.auth.security import generate_refresh_token, hash_password, hash_refresh_token, verify_password
+from app.auth.security import generate_refresh_token, hash_password, hash_personal_access_token, hash_refresh_token, verify_password
 from app.auth.store import (
     ExternalAccountLinkageRecord,
     GroupRecord,
@@ -14,6 +14,7 @@ from app.auth.store import (
     OAuthClientRecord,
     OAuthConsentGrantRecord,
     OAuthRefreshTokenRecord,
+    PersonalAccessTokenRecord,
     UserRecord,
 )
 from app.core.config import Settings
@@ -34,6 +35,7 @@ class MongoAuthStore:
         self._oauth_consents = database_adapter.get_collection("oauth_consents")
         self._oauth_access_tokens = database_adapter.get_collection("oauth_access_tokens")
         self._oauth_refresh_tokens = database_adapter.get_collection("oauth_refresh_tokens")
+        self._personal_access_tokens = database_adapter.get_collection("personal_access_tokens")
 
         now = datetime.now(UTC)
         for role_name, description in CORE_ROLE_DESCRIPTIONS.items():
@@ -183,6 +185,21 @@ class MongoAuthStore:
             expires_at=doc.get("expires_at") or datetime.now(UTC),
             created_at=doc.get("created_at") or datetime.now(UTC),
             revoked_at=doc.get("revoked_at"),
+        )
+
+    def _doc_to_personal_access_token(self, doc) -> PersonalAccessTokenRecord:
+        return PersonalAccessTokenRecord(
+            id=doc["id"],
+            user_id=doc["user_id"],
+            name=doc.get("name") or "",
+            token_hash=doc["token_hash"],
+            token_encrypted=doc.get("token_encrypted") or "",
+            scopes=doc.get("scopes") or [],
+            expires_at=doc.get("expires_at"),
+            last_used_at=doc.get("last_used_at"),
+            revoked_at=doc.get("revoked_at"),
+            created_at=doc.get("created_at") or datetime.now(UTC),
+            updated_at=doc.get("updated_at") or datetime.now(UTC),
         )
 
     @staticmethod
@@ -1202,6 +1219,79 @@ class MongoAuthStore:
             {"$set": {"revoked_at": datetime.now(UTC)}},
         )
         return result.matched_count > 0
+
+    def create_personal_access_token(
+        self,
+        *,
+        user_id: str,
+        name: str,
+        token: str,
+        token_encrypted: str,
+        scopes: list[str],
+        expires_at: datetime | None,
+    ) -> PersonalAccessTokenRecord:
+        now = datetime.now(UTC)
+        doc = {
+            "id": str(uuid4()),
+            "user_id": user_id,
+            "name": name.strip(),
+            "token_hash": hash_personal_access_token(token),
+            "token_encrypted": token_encrypted,
+            "scopes": list(dict.fromkeys(scopes)),
+            "expires_at": expires_at,
+            "last_used_at": None,
+            "revoked_at": None,
+            "created_at": now,
+            "updated_at": now,
+        }
+        self._personal_access_tokens.insert_one(doc)
+        return self._doc_to_personal_access_token(doc)
+
+    def list_active_personal_access_tokens_for_user(self, user_id: str) -> list[PersonalAccessTokenRecord]:
+        now = datetime.now(UTC)
+        docs = self._personal_access_tokens.find(
+            {
+                "user_id": user_id,
+                "revoked_at": None,
+                "$or": [{"expires_at": None}, {"expires_at": {"$gt": now}}],
+            },
+            sort=[("created_at", -1)],
+        )
+        return [self._doc_to_personal_access_token(doc) for doc in docs]
+
+    def resolve_active_personal_access_token(self, token: str) -> PersonalAccessTokenRecord | None:
+        now = datetime.now(UTC)
+        token_hash = hash_personal_access_token(token)
+        doc = self._personal_access_tokens.find_one(
+            {
+                "token_hash": token_hash,
+                "revoked_at": None,
+                "$or": [{"expires_at": None}, {"expires_at": {"$gt": now}}],
+            }
+        )
+        if doc is None:
+            return None
+        return self._doc_to_personal_access_token(doc)
+
+    def touch_personal_access_token_last_used(self, token_id: str) -> bool:
+        now = datetime.now(UTC)
+        result = self._personal_access_tokens.update_one(
+            {"id": token_id},
+            {"$set": {"last_used_at": now, "updated_at": now}},
+        )
+        return result.matched_count > 0
+
+    def revoke_personal_access_token(self, *, user_id: str, token_id: str) -> bool:
+        now = datetime.now(UTC)
+        result = self._personal_access_tokens.update_one(
+            {"id": token_id, "user_id": user_id, "revoked_at": None},
+            {"$set": {"revoked_at": now, "updated_at": now}},
+        )
+        if result.matched_count > 0:
+            return True
+
+        existing = self._personal_access_tokens.find_one({"id": token_id, "user_id": user_id})
+        return existing is not None
 
     def create_invitation(
         self,

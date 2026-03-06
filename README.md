@@ -91,6 +91,16 @@ Configuration is primarily loaded from `backend/.env` via `backend/app/core/conf
 | `COOKIE_SECURE` | _(unset)_ | Required if `TOKEN_TRANSPORT_MODE=cookie`. |
 | `COOKIE_SAME_SITE` | _(unset)_ | Required if `TOKEN_TRANSPORT_MODE=cookie`; one of `lax`, `strict`, `none`. |
 
+### OAuth and personal access token configuration
+
+| Parameter | Default | Description |
+|---|---|---|
+| `OAUTH_ENABLED` | `true` | Enables/disables OAuth provider endpoints. |
+| `OAUTH_ISSUER` | `http://localhost:8000` | OAuth/OIDC issuer base URL used in metadata and token claims. |
+| `OAUTH_DEFAULT_SCOPES` | `openid,profile,email` | Comma-separated default scopes when OAuth `scope` is omitted. |
+| `PERSONAL_ACCESS_TOKENS_ENABLED` | `true` | Enables/disables user personal access token creation/list/revocation and PAT bearer authentication. |
+| `PERSONAL_ACCESS_TOKEN_ENCRYPTION_KEY` | _(unset)_ | Optional key source for PAT ciphertext encryption at rest. If unset, runtime derives from JWT access-token secret (or development fallback secret). |
+
 ### Database configuration
 
 | Parameter | Default | Description |

@@ -1,8 +1,10 @@
+from base64 import urlsafe_b64encode
 from datetime import UTC, datetime, timedelta
 from hashlib import sha256
 from secrets import token_urlsafe
 
 import jwt
+from cryptography.fernet import Fernet
 from passlib.hash import argon2
 
 from app.core.config import Settings
@@ -78,3 +80,27 @@ def generate_refresh_token() -> str:
 
 def hash_refresh_token(refresh_token: str) -> str:
     return sha256(refresh_token.encode("utf-8")).hexdigest()
+
+
+def generate_personal_access_token() -> str:
+    return f"pat_{token_urlsafe(40)}"
+
+
+def hash_personal_access_token(token: str) -> str:
+    return sha256(token.encode("utf-8")).hexdigest()
+
+
+def _resolve_pat_fernet(settings: Settings) -> Fernet:
+    key_source = settings.personal_access_token_encryption_key or settings.jwt_access_token_secret or DEV_ACCESS_SECRET
+    key = urlsafe_b64encode(sha256(key_source.encode("utf-8")).digest())
+    return Fernet(key)
+
+
+def encrypt_personal_access_token(token: str, settings: Settings) -> str:
+    fernet = _resolve_pat_fernet(settings)
+    return fernet.encrypt(token.encode("utf-8")).decode("utf-8")
+
+
+def decrypt_personal_access_token(token_encrypted: str, settings: Settings) -> str:
+    fernet = _resolve_pat_fernet(settings)
+    return fernet.decrypt(token_encrypted.encode("utf-8")).decode("utf-8")

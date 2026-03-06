@@ -72,11 +72,6 @@ export function SecurityPage(props: SecurityPageProps) {
           <Button type="submit">Reset Password</Button>
         </form>
       </div>
-
-      <div className="grid gap-2 rounded-md border border-slate-200 p-4 dark:border-slate-800">
-        <h3 className="text-base font-medium">API Credentials</h3>
-        <p className="text-sm text-slate-600 dark:text-slate-300">API credential management will be added in a future milestone.</p>
-      </div>
     </section>
   );
 }

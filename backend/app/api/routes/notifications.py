@@ -7,7 +7,7 @@ from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, Field
 from starlette.websockets import WebSocketState
 
-from app.auth.dependencies import get_current_user, require_superuser
+from app.auth.dependencies import require_auth_scopes, get_current_user, require_superuser
 from app.auth.roles import ROLE_SUPERUSER
 from app.auth.security import decode_access_token
 from app.auth.store import NotificationRecord, UserRecord
@@ -198,7 +198,7 @@ def list_my_notifications(
     status: str | None = Query(default=None),
     type: str | None = Query(default=None),
     unreadOnly: bool | None = Query(default=None),
-    current_user: UserRecord = Depends(get_current_user),
+    current_user: UserRecord = Depends(require_auth_scopes({"profile"})),
 ) -> dict[str, Any]:
     auth_store = request.app.state.auth_store
     _purge_expired_notifications(request)
@@ -210,7 +210,7 @@ def list_my_notifications(
 
 
 @router.get("/{notification_id}")
-def get_my_notification(notification_id: str, request: Request, current_user: UserRecord = Depends(get_current_user)) -> dict[str, Any]:
+def get_my_notification(notification_id: str, request: Request, current_user: UserRecord = Depends(require_auth_scopes({"profile"}))) -> dict[str, Any]:
     auth_store = request.app.state.auth_store
     _purge_expired_notifications(request)
     item = auth_store.get_notification(notification_id)
@@ -220,7 +220,7 @@ def get_my_notification(notification_id: str, request: Request, current_user: Us
 
 
 @router.post("/{notification_id}/read")
-async def read_my_notification(notification_id: str, request: Request, current_user: UserRecord = Depends(get_current_user)) -> dict[str, Any]:
+async def read_my_notification(notification_id: str, request: Request, current_user: UserRecord = Depends(require_auth_scopes({"profile"}))) -> dict[str, Any]:
     auth_store = request.app.state.auth_store
     _purge_expired_notifications(request)
     item = auth_store.mark_notification_read(notification_id, user_id=current_user.id)
@@ -231,7 +231,7 @@ async def read_my_notification(notification_id: str, request: Request, current_u
 
 
 @router.post("/{notification_id}/acknowledge")
-async def acknowledge_my_notification(notification_id: str, request: Request, current_user: UserRecord = Depends(get_current_user)) -> dict[str, Any]:
+async def acknowledge_my_notification(notification_id: str, request: Request, current_user: UserRecord = Depends(require_auth_scopes({"profile"}))) -> dict[str, Any]:
     auth_store = request.app.state.auth_store
     _purge_expired_notifications(request)
     item = auth_store.acknowledge_notification(notification_id, user_id=current_user.id)
@@ -242,7 +242,7 @@ async def acknowledge_my_notification(notification_id: str, request: Request, cu
 
 
 @router.post("/{notification_id}/check-completion")
-async def check_my_notification_completion(notification_id: str, request: Request, current_user: UserRecord = Depends(get_current_user)) -> dict[str, Any]:
+async def check_my_notification_completion(notification_id: str, request: Request, current_user: UserRecord = Depends(require_auth_scopes({"profile"}))) -> dict[str, Any]:
     auth_store = request.app.state.auth_store
     _purge_expired_notifications(request)
     item, completed = auth_store.evaluate_notification_completion(notification_id, user_id=current_user.id)
@@ -253,7 +253,7 @@ async def check_my_notification_completion(notification_id: str, request: Reques
 
 
 @router.post("/{notification_id}/clear")
-async def clear_my_notification(notification_id: str, request: Request, current_user: UserRecord = Depends(get_current_user)) -> dict[str, Any]:
+async def clear_my_notification(notification_id: str, request: Request, current_user: UserRecord = Depends(require_auth_scopes({"profile"}))) -> dict[str, Any]:
     auth_store = request.app.state.auth_store
     _purge_expired_notifications(request)
     try:
@@ -272,7 +272,7 @@ async def clear_my_notification(notification_id: str, request: Request, current_
 
 
 @router.get("/{notification_id}/open")
-async def open_my_notification(notification_id: str, request: Request, current_user: UserRecord = Depends(get_current_user)):
+async def open_my_notification(notification_id: str, request: Request, current_user: UserRecord = Depends(require_auth_scopes({"profile"}))):
     auth_store = request.app.state.auth_store
     _purge_expired_notifications(request)
     item = auth_store.mark_notification_read(notification_id, user_id=current_user.id)

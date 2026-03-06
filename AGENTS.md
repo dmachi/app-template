@@ -77,6 +77,34 @@ Backend common touchpoints:
 - Prefer adding new route handlers over altering shared auth semantics.
 - Prefer opt-in feature flags/config for divergent behavior.
 
+### 4) Extend auth scopes through extension hooks (not core rewrites)
+When downstream apps need additional OAuth/PAT scopes, add them through the auth scope extension point.
+
+Where to define new scopes:
+- `backend/app/extensions/auth/auth_scopes.py`
+- Export `AUTH_SCOPE_DEFINITIONS` (mapping) and/or `extend_auth_scopes(existing_scopes)`.
+- Scope registration is additive-only; do not override built-in scope names.
+
+Expected scope definition shape:
+- `name`: scope string (mapping key)
+- `description`: human-readable meaning (used in token creation/consent UX)
+- `userinfo_claims` (optional): tuple/list of claims this scope unlocks in userinfo responses
+
+Route-level enforcement (preferred / automated guard path):
+- Use `require_auth_scopes({...})` from `backend/app/auth/dependencies.py` in route dependencies.
+- Use `require_any_auth_scope({...})` when any one of several scopes is acceptable.
+- Keep role checks (`require_*_role`) separate; role requirements and scope requirements are complementary.
+
+Manual checks outside route guards (service/helper code):
+- Use `get_authenticated_token_scopes(request)` to read scopes associated with the active scoped token.
+- Use `get_scoped_auth_context(request)` when you need token metadata and only want context for scoped auth tokens.
+- For ad-hoc checks, explicitly test set inclusion/intersection and raise `ApiError(status_code=403, code="INSUFFICIENT_SCOPE", ...)` when required scopes are missing.
+
+Implementation notes:
+- Unscoped internal JWT sessions are treated as trusted internal auth and should not be broken by scope-only checks.
+- Scoped tokens (OAuth access tokens / personal access tokens) must satisfy declared scope checks.
+- Add tests for both success and insufficient-scope denial on any new protected endpoint.
+
 ---
 
 ## Files that are commonly modified for a new app

@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, File, Request, UploadFile
 from pydantic import BaseModel, Field
 from starlette.responses import Response
 
-from app.auth.dependencies import get_current_user, require_superuser
+from app.auth.dependencies import require_auth_scopes, get_current_user, require_superuser
 from app.auth.roles import ROLE_CONTENT_ADMIN, ROLE_CONTENT_EDITOR_LEGACY, ROLE_SUPERUSER, has_any_role
 from app.auth.store import UserRecord
 from app.cms.store import CONTENT_STATUS_PUBLISHED, CONTENT_VISIBILITY_AUTHENTICATED, CONTENT_VISIBILITY_PUBLIC, CONTENT_VISIBILITY_ROLES
@@ -218,7 +218,7 @@ def patch_content_type(
 
 
 @router.get("/content")
-def list_content(request: Request, current_user: UserRecord = Depends(get_current_user)) -> dict[str, Any]:
+def list_content(request: Request, current_user: UserRecord = Depends(require_auth_scopes({"profile"}))) -> dict[str, Any]:
     cms_store = request.app.state.cms_store
     is_editor = _is_editor_or_superuser(request, current_user)
     items = cms_store.list_content_items()
@@ -234,7 +234,7 @@ def list_content(request: Request, current_user: UserRecord = Depends(get_curren
 
 
 @router.post("/content")
-def create_content(payload: ContentCreateRequest, request: Request, current_user: UserRecord = Depends(get_current_user)) -> dict[str, Any]:
+def create_content(payload: ContentCreateRequest, request: Request, current_user: UserRecord = Depends(require_auth_scopes({"profile"}))) -> dict[str, Any]:
     _ensure_editor_or_superuser(request, current_user)
     _validate_visibility(payload.visibility, payload.allowedRoles)
 
@@ -261,7 +261,7 @@ def create_content(payload: ContentCreateRequest, request: Request, current_user
 
 
 @router.get("/content/{content_id}")
-def get_content(content_id: str, request: Request, current_user: UserRecord = Depends(get_current_user)) -> dict[str, Any]:
+def get_content(content_id: str, request: Request, current_user: UserRecord = Depends(require_auth_scopes({"profile"}))) -> dict[str, Any]:
     cms_store = request.app.state.cms_store
     content = cms_store.get_content_item(content_id)
     if content is None:
@@ -276,7 +276,7 @@ def patch_content(
     content_id: str,
     payload: ContentPatchRequest,
     request: Request,
-    current_user: UserRecord = Depends(get_current_user),
+    current_user: UserRecord = Depends(require_auth_scopes({"profile"})),
 ) -> dict[str, Any]:
     _ensure_editor_or_superuser(request, current_user)
     if payload.visibility is not None:
@@ -303,7 +303,7 @@ def patch_content(
 
 
 @router.post("/content/{content_id}/publish")
-def publish_content(content_id: str, request: Request, current_user: UserRecord = Depends(get_current_user)) -> dict[str, Any]:
+def publish_content(content_id: str, request: Request, current_user: UserRecord = Depends(require_auth_scopes({"profile"}))) -> dict[str, Any]:
     _ensure_editor_or_superuser(request, current_user)
     cms_store = request.app.state.cms_store
     published = cms_store.publish_content_item(content_id=content_id, user_id=current_user.id)
@@ -313,7 +313,7 @@ def publish_content(content_id: str, request: Request, current_user: UserRecord 
 
 
 @router.post("/content/{content_id}/unpublish")
-def unpublish_content(content_id: str, request: Request, current_user: UserRecord = Depends(get_current_user)) -> dict[str, Any]:
+def unpublish_content(content_id: str, request: Request, current_user: UserRecord = Depends(require_auth_scopes({"profile"}))) -> dict[str, Any]:
     _ensure_editor_or_superuser(request, current_user)
     cms_store = request.app.state.cms_store
     unpublished = cms_store.unpublish_content_item(content_id=content_id, user_id=current_user.id)
@@ -323,7 +323,7 @@ def unpublish_content(content_id: str, request: Request, current_user: UserRecor
 
 
 @router.delete("/content/{content_id}")
-def delete_content(content_id: str, request: Request, current_user: UserRecord = Depends(get_current_user)) -> dict[str, Any]:
+def delete_content(content_id: str, request: Request, current_user: UserRecord = Depends(require_auth_scopes({"profile"}))) -> dict[str, Any]:
     _ensure_editor_or_superuser(request, current_user)
     cms_store = request.app.state.cms_store
     deleted = cms_store.delete_content_item(content_id=content_id)
@@ -358,7 +358,7 @@ def get_public_content(content_type_key: str, content_id: str, request: Request)
 async def upload_media_image(
     request: Request,
     file: UploadFile = File(...),
-    current_user: UserRecord = Depends(get_current_user),
+    current_user: UserRecord = Depends(require_auth_scopes({"profile"})),
 ) -> dict[str, Any]:
     _ensure_editor_or_superuser(request, current_user)
     if not file.content_type or not file.content_type.startswith("image/"):
@@ -378,7 +378,7 @@ async def upload_media_image(
 
 
 @router.get("/media/images")
-def list_media_images(request: Request, current_user: UserRecord = Depends(get_current_user)) -> dict[str, Any]:
+def list_media_images(request: Request, current_user: UserRecord = Depends(require_auth_scopes({"profile"}))) -> dict[str, Any]:
     _ensure_editor_or_superuser(request, current_user)
     media_store = request.app.state.media_store
     return {"items": [_serialize_media_item(item) for item in media_store.list_media()]}
@@ -407,7 +407,7 @@ def patch_media_image(
     media_id: str,
     payload: MediaPatchRequest,
     request: Request,
-    current_user: UserRecord = Depends(get_current_user),
+    current_user: UserRecord = Depends(require_auth_scopes({"profile"})),
 ) -> dict[str, Any]:
     _ensure_editor_or_superuser(request, current_user)
     media_store = request.app.state.media_store
@@ -426,7 +426,7 @@ def patch_media_image(
 def delete_media_image(
     media_id: str,
     request: Request,
-    current_user: UserRecord = Depends(get_current_user),
+    current_user: UserRecord = Depends(require_auth_scopes({"profile"})),
 ) -> dict[str, Any]:
     _ensure_editor_or_superuser(request, current_user)
     media_store = request.app.state.media_store

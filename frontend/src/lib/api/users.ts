@@ -1,8 +1,13 @@
 import { API_BASE, parseJson } from "./core";
-import type { MyProfileResponse } from "./core";
+import type { AccessTokenCreateResponse, AccessTokenItem, AuthScopeItem, MyProfileResponse } from "./core";
 
 export {
   type MyProfileResponse,
+} from "./core";
+
+export type {
+  AccessTokenItem,
+  AuthScopeItem,
 } from "./core";
 
 export type ConnectedAppItem = {
@@ -11,6 +16,12 @@ export type ConnectedAppItem = {
   scopes: string[];
   connectedAt: string;
   updatedAt: string;
+};
+
+export type CreateAccessTokenRequest = {
+  name: string;
+  scopes: string[];
+  expiresAt?: string;
 };
 
 export async function getMyProfile(accessToken: string): Promise<MyProfileResponse> {
@@ -71,6 +82,41 @@ export async function listMyConnectedApps(accessToken: string): Promise<{ items:
 export async function revokeMyConnectedApp(accessToken: string, clientId: string): Promise<{ success: boolean; revoked: boolean }> {
   return parseJson(
     await fetch(`${API_BASE}/users/me/connected-apps/${encodeURIComponent(clientId)}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${accessToken}` },
+    }),
+  );
+}
+
+export async function listMyAccessTokenScopes(accessToken: string): Promise<{ items: AuthScopeItem[] }> {
+  return parseJson(
+    await fetch(`${API_BASE}/users/me/access-token-scopes`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    }),
+  );
+}
+
+export async function listMyAccessTokens(accessToken: string): Promise<{ items: AccessTokenItem[] }> {
+  return parseJson(
+    await fetch(`${API_BASE}/users/me/access-tokens`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    }),
+  );
+}
+
+export async function createMyAccessToken(accessToken: string, body: CreateAccessTokenRequest): Promise<AccessTokenCreateResponse> {
+  return parseJson(
+    await fetch(`${API_BASE}/users/me/access-tokens`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify(body),
+    }),
+  );
+}
+
+export async function revokeMyAccessToken(accessToken: string, tokenId: string): Promise<{ success: boolean; revoked: boolean }> {
+  return parseJson(
+    await fetch(`${API_BASE}/users/me/access-tokens/${encodeURIComponent(tokenId)}`, {
       method: "DELETE",
       headers: { Authorization: `Bearer ${accessToken}` },
     }),
